@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, 
@@ -14,12 +14,25 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function HostLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      toast({
+        variant: "destructive",
+        title: "Sign in required",
+        description: "Please sign in to access host features.",
+      });
+      navigate("/");
+    }
+  }, [loading, user]);
 
   const sidebarItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/host" },

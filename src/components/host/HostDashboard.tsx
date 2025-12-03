@@ -1,6 +1,8 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { DollarSign, Users, Star, TrendingUp, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,6 +11,8 @@ export default function HostDashboard() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [properties, setProperties] = useState<any[]>([]);
+  const [hostReferralCode, setHostReferralCode] = useState<string | null>(null);
+  const [hostRefs, setHostRefs] = useState<any[]>([]);
   const [stats, setStats] = useState({
     revenue: 0,
     bookings: 0,
@@ -61,6 +65,21 @@ export default function HostDashboard() {
           rating: Number(avgRating),
           views: 124 // Mock data for views as we don't track them yet
         });
+
+        // Host referral code and invited hosts
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('host_referral_code')
+          .eq('id', user.id)
+          .single();
+        setHostReferralCode(profile?.host_referral_code || null);
+
+        const { data: refs } = await supabase
+          .from('host_referrals')
+          .select('referee_id, status, created_at, rewarded_at')
+          .eq('referrer_id', user.id)
+          .order('created_at', { ascending: false });
+        setHostRefs(refs || []);
 
       } catch (error) {
         console.error("Error fetching host data:", error);
@@ -204,6 +223,32 @@ export default function HostDashboard() {
                 </div>
               </div>
             ))}
+          </div>
+
+          <h2 className="text-xl font-bold">Host Referrals</h2>
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            {hostReferralCode ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <Input readOnly value={`${window.location.origin}?host_ref=${hostReferralCode}`} />
+                  <Button onClick={() => navigator.clipboard.writeText(`${window.location.origin}?host_ref=${hostReferralCode}`)}>Copy</Button>
+                </div>
+                {hostRefs.length === 0 ? (
+                  <p className="text-sm text-gray-500">No host referrals yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {hostRefs.map((r) => (
+                      <div key={r.referee_id} className="flex justify-between text-sm border rounded-md px-3 py-2">
+                        <span>{r.referee_id.slice(0,8)}…</span>
+                        <span className="capitalize">{r.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-gray-500">Your host referral code will be generated on signup.</p>
+            )}
           </div>
         </div>
       </div>

@@ -1,7 +1,11 @@
 
+import { useEffect, useState } from "react";
 import { Property } from "@/data/mockData";
 import { Star, Heart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/components/ui/use-toast";
 
 interface PropertyCardProps {
   property: Property;
@@ -9,6 +13,53 @@ interface PropertyCardProps {
 }
 
 export default function PropertyCard({ property, onClick }: PropertyCardProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    const checkSaved = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from("wishlists")
+        .select("property_id")
+        .eq("user_id", user.id)
+        .eq("property_id", property.id)
+        .limit(1);
+      setSaved(!!data && data.length > 0);
+    };
+    checkSaved();
+  }, [user, property.id]);
+
+  const toggleWishlist = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) {
+      toast({ variant: "destructive", title: "Sign in required", description: "Log in to save wishlists." });
+      return;
+    }
+    if (saved) {
+      const { error } = await supabase
+        .from("wishlists")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("property_id", property.id);
+      if (error) {
+        toast({ variant: "destructive", title: "Error", description: "Failed to remove from wishlist." });
+      } else {
+        setSaved(false);
+      }
+    } else {
+      const { error } = await supabase
+        .from("wishlists")
+        .insert({ user_id: user.id, property_id: property.id });
+      if (error) {
+        toast({ variant: "destructive", title: "Error", description: "Failed to add to wishlist." });
+      } else {
+        setSaved(true);
+      }
+    }
+  };
+
   return (
     <div 
       className="group cursor-pointer flex flex-col gap-2"
@@ -20,8 +71,8 @@ export default function PropertyCard({ property, onClick }: PropertyCardProps) {
           alt={property.title}
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
-        <button className="absolute top-3 right-3 p-2 rounded-full hover:bg-white/10 transition-colors">
-          <Heart className="w-6 h-6 text-white fill-black/50 hover:fill-red-500 hover:text-red-500 transition-colors" />
+        <button className="absolute top-3 right-3 p-2 rounded-full hover:bg-white/10 transition-colors" onClick={toggleWishlist}>
+          <Heart className={`w-6 h-6 ${saved ? "text-red-500 fill-red-500" : "text-white fill-black/50"}`} />
         </button>
         <div className="absolute top-3 left-3">
           <Badge variant="secondary" className="bg-white/90 text-black font-medium hover:bg-white">

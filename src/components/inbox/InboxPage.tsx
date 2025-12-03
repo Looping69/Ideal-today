@@ -47,7 +47,7 @@ export default function InboxPage() {
             property:properties(
               title,
               image,
-              host:profiles(
+              host:profiles!properties_host_id_fkey(
                 full_name,
                 avatar_url
               )

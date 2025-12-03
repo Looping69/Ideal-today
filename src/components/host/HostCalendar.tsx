@@ -34,6 +34,7 @@ interface Booking {
   };
   property_id: string;
   property?: Property;
+  created_at?: string;
 }
 
 export default function HostCalendar() {

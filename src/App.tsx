@@ -1,23 +1,33 @@
-import { Suspense } from "react";
+import { Suspense, lazy } from "react";
 import { Routes, Route } from "react-router-dom";
-import Home from "./components/home";
-import RewardsDashboard from "./components/rewards/RewardsDashboard";
-import TripsPage from "./components/trips/TripsPage";
-import WishlistsPage from "./components/wishlists/WishlistsPage";
-import HostLayout from "./components/host/HostLayout";
-import HostDashboard from "./components/host/HostDashboard";
-import CreateListing from "./components/host/CreateListing";
+const Home = lazy(() => import("./components/home"));
+const RewardsDashboard = lazy(() => import("./components/rewards/RewardsDashboard"));
+const TripsPage = lazy(() => import("./components/trips/TripsPage"));
+const WishlistsPage = lazy(() => import("./components/wishlists/WishlistsPage"));
+const HostLayout = lazy(() => import("./components/host/HostLayout"));
+const HostDashboard = lazy(() => import("./components/host/HostDashboard"));
+const CreateListing = lazy(() => import("./components/host/CreateListing"));
 import { AuthProvider } from "./contexts/AuthContext";
 import { Toaster } from "./components/ui/toaster";
 import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
 
-import HostListings from "./components/host/HostListings";
-import HostSettings from "./components/host/HostSettings";
+const HostListings = lazy(() => import("./components/host/HostListings"));
+const HostSettings = lazy(() => import("./components/host/HostSettings"));
 
-import HostCalendar from "./components/host/HostCalendar";
-import InboxPage from "./components/inbox/InboxPage";
-import HostInbox from "./components/host/HostInbox";
+const HostCalendar = lazy(() => import("./components/host/HostCalendar"));
+const InboxPage = lazy(() => import("./components/inbox/InboxPage"));
+const HostInbox = lazy(() => import("./components/host/HostInbox"));
+const AccountPage = lazy(() => import("./components/account/AccountPage"));
+const AdminLayout = lazy(() => import("./components/admin/AdminLayout"));
+const AdminOverview = lazy(() => import("./components/admin/AdminOverview"));
+const AdminUsers = lazy(() => import("./components/admin/AdminUsers"));
+const AdminListings = lazy(() => import("./components/admin/AdminListings"));
+const AdminReviews = lazy(() => import("./components/admin/AdminReviews"));
+const AdminBookings = lazy(() => import("./components/admin/AdminBookings"));
+const AdminReferrals = lazy(() => import("./components/admin/AdminReferrals"));
+const AdminRewards = lazy(() => import("./components/admin/AdminRewards"));
+const AdminSettings = lazy(() => import("./components/admin/AdminSettings"));
 
 function App() {
   return (
@@ -61,7 +71,32 @@ function App() {
                 <Footer />
               </div>
             } />
-            
+
+            <Route path="/account" element={
+              <div className="min-h-screen bg-white flex flex-col">
+                <Header />
+                <AccountPage />
+                <Footer />
+              </div>
+            } />
+
+            <Route path="/admin" element={
+              <div className="min-h-screen bg-white flex flex-col">
+                <Header />
+                <AdminLayout />
+                <Footer />
+              </div>
+            }>
+              <Route index element={<AdminOverview />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="listings" element={<AdminListings />} />
+              <Route path="reviews" element={<AdminReviews />} />
+              <Route path="bookings" element={<AdminBookings />} />
+              <Route path="referrals" element={<AdminReferrals />} />
+              <Route path="rewards" element={<AdminRewards />} />
+              <Route path="settings" element={<AdminSettings />} />
+            </Route>
+
             {/* Host Routes */}
             <Route path="/host" element={<HostLayout />}>
               <Route index element={<HostDashboard />} />

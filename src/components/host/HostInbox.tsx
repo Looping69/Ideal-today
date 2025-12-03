@@ -61,7 +61,7 @@ export default function HostInbox() {
               title,
               image
             ),
-            user:profiles(
+            user:profiles!bookings_user_id_fkey(
               full_name,
               avatar_url
             )

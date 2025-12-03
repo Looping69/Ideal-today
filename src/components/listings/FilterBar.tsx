@@ -15,6 +15,16 @@ const categories = [
   { id: "city", label: "City", icon: "🏙️" },
   { id: "mountain", label: "Mountain", icon: "⛰️" },
   { id: "pool", label: "Amazing Pools", icon: "🏊" },
+  // Provinces
+  { id: "western-cape", label: "Western Cape", icon: "⛵" },
+  { id: "eastern-cape", label: "Eastern Cape", icon: "🦅" },
+  { id: "northern-cape", label: "Northern Cape", icon: "🏜️" },
+  { id: "gauteng", label: "Gauteng", icon: "🏙️" },
+  { id: "kwazulu-natal", label: "KwaZulu-Natal", icon: "🌊" },
+  { id: "free-state", label: "Free State", icon: "🌾" },
+  { id: "north-west", label: "North West", icon: "🌻" },
+  { id: "mpumalanga", label: "Mpumalanga", icon: "🌿" },
+  { id: "limpopo", label: "Limpopo", icon: "🦓" },
 ];
 
 interface FilterBarProps {
@@ -30,7 +40,7 @@ export default function FilterBar({ onFilterChange }: FilterBarProps) {
   };
 
   return (
-    <div className="sticky top-20 z-40 bg-white pt-4 pb-2 shadow-sm">
+    <div className="sticky top-20 z-20 bg-white pt-4 pb-2 shadow-sm">
       <div className="container mx-auto px-4 flex items-center gap-4">
         <div className="flex-1 overflow-x-auto no-scrollbar flex items-center gap-8 pb-2">
           {categories.map((category) => (

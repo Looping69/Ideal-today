@@ -10,7 +10,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import AuthModal from "@/components/auth/AuthModal";
 import { useNavigate } from "react-router-dom";
 
@@ -18,7 +19,21 @@ export default function Header() {
   const { user, signOut } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authView, setAuthView] = useState<"login" | "signup">("login");
+  const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const load = async () => {
+      if (!user) { setIsAdmin(false); return; }
+      const { data } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', user.id)
+        .single();
+      setIsAdmin(!!data?.is_admin);
+    };
+    load();
+  }, [user]);
 
   const handleAuthClick = (view: "login" | "signup") => {
     setAuthView(view);
@@ -26,7 +41,7 @@ export default function Header() {
   };
 
   return (
-    <header className="fixed top-0 w-full z-50 bg-white border-b border-gray-100">
+    <header className="fixed top-0 w-full z-[12000] bg-white border-b border-gray-100">
       <div className="container mx-auto px-4 h-20 flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
@@ -50,21 +65,7 @@ export default function Header() {
           </span>
         </div>
 
-        {/* Search Bar (Simplified for Header) */}
-        <div className="hidden md:flex items-center border border-gray-200 rounded-full py-2.5 px-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-          <div className="text-sm font-medium px-4 border-r border-gray-200">
-            Anywhere
-          </div>
-          <div className="text-sm font-medium px-4 border-r border-gray-200">
-            Any week
-          </div>
-          <div className="text-sm text-gray-500 px-4 flex items-center gap-3">
-            Add guests
-            <div className="bg-gradient-to-r from-primary to-blue-400 p-2 rounded-full text-white">
-              <Search className="w-3 h-3" />
-            </div>
-          </div>
-        </div>
+        <div />
 
         {/* User Menu */}
         <div className="flex items-center gap-2">
@@ -105,7 +106,12 @@ export default function Header() {
                   <DropdownMenuItem onClick={() => navigate("/wishlists")}>Wishlists</DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate("/host")}>Manage listings</DropdownMenuItem>
-                  <DropdownMenuItem>Account</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/account")}>Account</DropdownMenuItem>
+                  {isAdmin && (
+                    <DropdownMenuItem onClick={() => navigate("/admin")} className="text-red-500 font-semibold">
+                      Admin Dashboard
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => signOut()}>
                     <LogOut className="w-4 h-4 mr-2" />

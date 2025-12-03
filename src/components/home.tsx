@@ -5,6 +5,7 @@ import FilterBar from "./listings/FilterBar";
 import PropertyGrid from "./listings/PropertyGrid";
 import PropertyDetails from "./listings/PropertyDetails";
 import SearchFilterBar from "./search/SearchFilterBar";
+import AIChatPanel from "./ai/AIChatPanel";
 import PropertyMap from "./listings/PropertyMap";
 import { Property } from "@/data/mockData";
 import { Map, List } from "lucide-react";
@@ -18,6 +19,9 @@ function Home() {
   const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
   const [showMap, setShowMap] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [searchState, setSearchState] = useState<{ query: string; guests: number; date?: any } | null>(null);
+  const [chatActive, setChatActive] = useState(false);
+  const [chatSeed, setChatSeed] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const fetchProperties = async () => {
@@ -26,7 +30,7 @@ function Home() {
           .from('properties')
           .select(`
             *,
-            host:profiles(full_name, avatar_url, created_at)
+            host:profiles!properties_host_id_fkey(full_name, avatar_url, created_at)
           `);
         
         if (error) {
@@ -39,6 +43,7 @@ function Home() {
             id: p.id,
             title: p.title,
             location: p.location,
+            province: p.province || undefined,
             price: p.price,
             rating: p.rating,
             reviews: p.reviews_count,
@@ -86,15 +91,60 @@ function Home() {
         const typeMatch = p.type.toLowerCase().includes(category.toLowerCase());
         const amenityMatch = p.amenities.some(a => a.toLowerCase().includes(category.toLowerCase()));
         const locationMatch = p.location.toLowerCase().includes(category.toLowerCase());
+        const provinceMatch = p.province ? p.province.toLowerCase().includes(category.replace('-', ' ').toLowerCase()) : false;
         
         if (category === "beach") return p.location.toLowerCase().includes("camps bay") || p.location.toLowerCase().includes("umhlanga");
         if (category === "safari") return p.location.toLowerCase().includes("kruger");
         if (category === "winelands") return p.location.toLowerCase().includes("franschhoek");
         if (category === "city") return p.location.toLowerCase().includes("johannesburg") || p.location.toLowerCase().includes("cape town");
+        if (["western-cape","eastern-cape","northern-cape","gauteng","kwazulu-natal","free-state","north-west","mpumalanga","limpopo"].includes(category)) return provinceMatch;
         
         return typeMatch || amenityMatch || locationMatch;
       });
       setFilteredProperties(filtered);
+    }
+  };
+
+  const handleSearchChange = async (state: { query: string; guests: number; date?: { from?: Date; to?: Date } }) => {
+    setSearchState(state);
+    let arr = properties;
+    if (state.query?.trim()) {
+      const q = state.query.toLowerCase();
+      arr = arr.filter(p => p.location.toLowerCase().includes(q) || p.title.toLowerCase().includes(q));
+    }
+    if (state.guests && state.guests > 0) {
+      arr = arr.filter(p => (p.guests || 0) >= state.guests);
+    }
+    if (state.date?.from && state.date?.to) {
+      const from = state.date.from;
+      const to = state.date.to;
+      try {
+        const { data } = await supabase
+          .from('bookings')
+          .select('property_id, check_in, check_out, status')
+          .neq('status', 'canceled');
+        const unavailable = new Set<string>();
+        (data || []).forEach((b: any) => {
+          const bi = new Date(b.check_in);
+          const bo = new Date(b.check_out);
+          if (bo > from && bi < to) {
+            unavailable.add(b.property_id);
+          }
+        });
+        arr = arr.filter(p => !unavailable.has(p.id));
+      } catch {}
+    }
+    setFilteredProperties(arr);
+  };
+
+  const handleModeChange = (mode: 'chat' | 'search') => {
+    setChatActive(mode === 'chat');
+  };
+
+  const handleSendMessage = (msg: string) => {
+    if (msg && msg.trim()) {
+      setChatSeed(msg.trim());
+      setChatActive(true);
     }
   };
 
@@ -105,8 +155,8 @@ function Home() {
       <main className="flex-1 pt-24 pb-12">
         <div className="container mx-auto px-4">
           {/* Hero Search - Only visible on larger screens or when needed */}
-          <div className="hidden md:block mt-4">
-            <SearchFilterBar />
+          <div className={`hidden md:block ${chatActive ? 'pb-[300px] transition-all duration-500' : 'mt-4 mb-4'}`}>
+            <SearchFilterBar onChange={handleSearchChange} onModeChange={handleModeChange} onSendMessage={handleSendMessage} />
           </div>
 
           <FilterBar onFilterChange={handleFilterChange} />

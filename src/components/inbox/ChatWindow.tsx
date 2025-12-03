@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Send, User, Loader2 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +30,7 @@ export default function ChatWindow({ bookingId, otherUserName, otherUserAvatar, 
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!bookingId) return;
@@ -91,7 +93,11 @@ export default function ChatWindow({ bookingId, otherUserName, otherUserAvatar, 
 
     if (error) {
       console.error("Error sending message:", error);
-      // Ideally show a toast here
+      toast({
+        variant: "destructive",
+        title: "Failed to send",
+        description: error.message || "Please try again.",
+      });
     }
   };
 

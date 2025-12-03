@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Trophy, Map, Star, Calendar, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Badge {
   id: string;
@@ -42,6 +43,9 @@ export default function RewardsDashboard() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [referrals, setReferrals] = useState<any[]>([]);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (user) {
@@ -69,6 +73,7 @@ export default function RewardsDashboard() {
         });
       } else {
         setProfile(data);
+        setReferralCode(data?.referral_code || null);
       }
     } catch (error) {
       // On network error, use mock data
@@ -84,6 +89,60 @@ export default function RewardsDashboard() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    const loadReferrals = async () => {
+      if (!user) return;
+      const { data: refs } = await supabase
+        .from('referrals')
+        .select('referee_id, status, created_at, rewarded_at')
+        .eq('referrer_id', user.id)
+        .order('created_at', { ascending: false });
+      setReferrals(refs || []);
+    };
+    loadReferrals();
+  }, [user]);
+
+  const refetchProfile = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user?.id)
+      .single();
+    if (data) setProfile(data);
+  };
+
+  const claimCoastalExplorer = async () => {
+    const { data, error } = await supabase.rpc('claim_coastal_explorer');
+    if (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+      return;
+    }
+    if (data === 'claimed') {
+      toast({ title: 'Challenge completed', description: '+500 points awarded' });
+      await refetchProfile();
+    } else if (data === 'already_claimed') {
+      toast({ title: 'Already claimed', description: 'Reward already granted for this challenge.' });
+    } else {
+      toast({ variant: 'destructive', title: 'Not eligible', description: 'Book a stay in Cape Town or Durban first.' });
+    }
+  };
+
+  const claimPhotoFinisher = async () => {
+    const { data, error } = await supabase.rpc('claim_photo_finisher');
+    if (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+      return;
+    }
+    if (data === 'claimed') {
+      toast({ title: 'Photo reward', description: '+200 points awarded' });
+      await refetchProfile();
+    } else if (data === 'already_claimed') {
+      toast({ title: 'Already claimed', description: 'Reward already granted for this challenge.' });
+    } else {
+      toast({ variant: 'destructive', title: 'Not eligible', description: 'Submit an approved review with a photo.' });
+    }
+  };
 
   if (!user) {
     return (
@@ -197,7 +256,10 @@ export default function RewardsDashboard() {
                   </div>
                   <div className="text-right">
                     <span className="block font-bold text-primary">+500 pts</span>
-                    <Button size="sm" variant="outline" className="mt-1 h-7 text-xs">View Properties</Button>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="mt-1 h-7 text-xs" onClick={() => navigate('/')}>View Properties</Button>
+                      <Button size="sm" className="mt-1 h-7 text-xs" onClick={claimCoastalExplorer}>Claim</Button>
+                    </div>
                   </div>
                 </div>
                 
@@ -211,11 +273,40 @@ export default function RewardsDashboard() {
                   </div>
                   <div className="text-right">
                     <span className="block font-bold text-primary">+200 pts</span>
-                    <Button size="sm" variant="outline" className="mt-1 h-7 text-xs">Go to Reviews</Button>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="mt-1 h-7 text-xs" onClick={() => navigate('/')}>Go to Reviews</Button>
+                      <Button size="sm" className="mt-1 h-7 text-xs" onClick={claimPhotoFinisher}>Claim</Button>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
+
+            {referralCode && (
+              <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+                <h2 className="text-xl font-bold mb-4">Referrals</h2>
+                <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
+                  <input
+                    readOnly
+                    value={`${window.location.origin}?ref=${referralCode}`}
+                    className="flex-1 border rounded-md px-3 py-2 text-sm"
+                  />
+                  <Button onClick={() => navigator.clipboard.writeText(`${window.location.origin}?ref=${referralCode}`)}>Copy link</Button>
+                </div>
+                {referrals.length === 0 ? (
+                  <p className="text-sm text-gray-500">No referrals yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {referrals.map((r) => (
+                      <div key={r.referee_id} className="flex justify-between text-sm border rounded-md px-3 py-2">
+                        <span>{r.referee_id.slice(0,8)}…</span>
+                        <span className="capitalize">{r.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Sidebar - Benefits */}

@@ -44,21 +44,44 @@ export default function AuthForm({ view, onSuccess, onViewChange }: AuthFormProp
     setIsLoading(true);
     try {
       if (view === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const ref = new URLSearchParams(window.location.search).get('ref') || undefined;
+        const hostRef = new URLSearchParams(window.location.search).get('host_ref') || undefined;
+        const siteUrl = (import.meta.env.VITE_SITE_URL as string | undefined) || undefined;
+        const computedRedirect = (siteUrl && siteUrl.length > 0 ? siteUrl : window.location.origin).replace('127.0.0.1', 'localhost');
+        const { data, error } = await supabase.auth.signUp({
           email: values.email,
           password: values.password,
+          options: {
+            emailRedirectTo: computedRedirect,
+            data: ref || hostRef ? { referral_code: ref, host_referral_code: hostRef } : undefined,
+          },
         });
         if (error) throw error;
-        toast({
-          title: "Account created",
-          description: "Please check your email to verify your account.",
-        });
+
+        if (data.session) {
+          toast({
+            title: "Welcome!",
+            description: "Account created successfully.",
+          });
+          onSuccess();
+        } else {
+          toast({
+            title: "Account created",
+            description: "Please verify your email. Then return here to log in.",
+          });
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email: values.email,
           password: values.password,
         });
-        if (error) throw error;
+        if (error) {
+          const msg =
+            /email/i.test(error.message) && /confirm/i.test(error.message)
+              ? "Please verify your email before logging in."
+              : error.message;
+          throw new Error(msg);
+        }
         toast({
           title: "Welcome back!",
           description: "You have successfully logged in.",

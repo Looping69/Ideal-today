@@ -11,6 +11,9 @@ import {
   Building2, 
   Warehouse, 
   Tent, 
+  Mountain, 
+  Waves, 
+  Trees,
   Check, 
   ChevronRight, 
   ChevronLeft, 
@@ -21,19 +24,30 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 
 const CATEGORIES = [
   { id: "apartment", label: "Apartment", icon: Building2 },
   { id: "house", label: "House", icon: Home },
   { id: "guesthouse", label: "Guesthouse", icon: Warehouse },
+  { id: "beach", label: "Beachfront", icon: Waves },
+  { id: "safari", label: "Safari", icon: Trees },
+  { id: "winelands", label: "Winelands", emoji: "🍇" },
+  { id: "city", label: "City", icon: Building2 },
+  { id: "mountain", label: "Mountain", icon: Mountain },
+  { id: "pool", label: "Amazing Pool", emoji: "🏊" },
   { id: "unique", label: "Unique", icon: Tent },
-];
+] as const;
 
 const AMENITIES = [
   "Wifi", "Kitchen", "Pool", "Hot tub", "Air conditioning", 
   "Heating", "Washer", "Dryer", "Parking", "Gym", 
   "Workspace", "TV", "Fireplace", "BBQ grill"
 ];
+
+const PROVINCES = [
+  'Western Cape','Eastern Cape','Northern Cape','Gauteng','KwaZulu-Natal','Free State','North West','Mpumalanga','Limpopo'
+] as const;
 
 export default function CreateListing() {
   const navigate = useNavigate();
@@ -44,6 +58,7 @@ export default function CreateListing() {
   const [formData, setFormData] = useState({
     category: "",
     location: "",
+    province: "",
     guests: 2,
     bedrooms: 1,
     bathrooms: 1,
@@ -87,6 +102,7 @@ export default function CreateListing() {
         title: formData.title,
         description: formData.description,
         location: formData.location,
+        province: formData.province || null,
         price: Number(formData.price),
         type: formData.category,
         amenities: formData.amenities,
@@ -159,7 +175,11 @@ export default function CreateListing() {
                         : "border-gray-200 text-gray-600"
                     )}
                   >
-                    <cat.icon className="w-8 h-8 mb-3" />
+                    {"icon" in cat && cat.icon ? (
+                      <cat.icon className="w-8 h-8 mb-3" />
+                    ) : (
+                      <span className="text-3xl mb-3">{(cat as any).emoji}</span>
+                    )}
                     <span className="font-semibold">{cat.label}</span>
                   </button>
                 ))}
@@ -176,13 +196,26 @@ export default function CreateListing() {
                 
                 <div className="relative">
                   <MapPin className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                  <Input 
-                    placeholder="Enter your address" 
-                    className="pl-10 h-12 text-lg"
-                    value={formData.location}
-                    onChange={(e) => updateData("location", e.target.value)}
-                  />
-                </div>
+          <Input 
+            placeholder="Enter your address" 
+            className="pl-10 h-12 text-lg"
+            value={formData.location}
+            onChange={(e) => updateData("location", e.target.value)}
+          />
+          <div className="mt-4">
+            <Label>Province</Label>
+            <Select onValueChange={(v) => updateData('province', v)} value={formData.province}>
+              <SelectTrigger className="h-12 mt-1">
+                <SelectValue placeholder="Select province" />
+              </SelectTrigger>
+              <SelectContent>
+                {PROVINCES.map(p => (
+                  <SelectItem key={p} value={p}>{p}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
               </div>
 
               <div className="space-y-6">

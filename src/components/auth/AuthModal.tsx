@@ -2,10 +2,10 @@
 import {
   Dialog,
   DialogContent,
-  DialogTrigger,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import AuthForm from "./AuthForm";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -16,13 +16,20 @@ interface AuthModalProps {
 export default function AuthModal({ isOpen, onClose, defaultView = "login" }: AuthModalProps) {
   const [view, setView] = useState<"login" | "signup">(defaultView);
 
+  useEffect(() => {
+    if (isOpen) {
+      setView(defaultView);
+    }
+  }, [isOpen, defaultView]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
-        <AuthForm 
-          view={view} 
-          onViewChange={setView} 
-          onSuccess={onClose} 
+        <DialogTitle className="sr-only">Authentication</DialogTitle>
+        <AuthForm
+          view={view}
+          onViewChange={setView}
+          onSuccess={onClose}
         />
       </DialogContent>
     </Dialog>

@@ -11,6 +11,8 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Star, MapPin, Wifi, Car, Utensils, Wind, Share, Heart, Calendar as CalendarIcon } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
+import ImageUpload from "@/components/ui/image-upload";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { addDays, format, differenceInDays, parseISO } from "date-fns";
@@ -33,6 +35,12 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
   const [guests, setGuests] = useState(1);
   const [isBooking, setIsBooking] = useState(false);
   const [bookedDates, setBookedDates] = useState<Date[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [canReview, setCanReview] = useState(false);
+  const [myRating, setMyRating] = useState<number>(5);
+  const [myText, setMyText] = useState("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [reviewPhotos, setReviewPhotos] = useState<string[]>([]);
 
   useEffect(() => {
     if (property) {
@@ -64,6 +72,74 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
         return range;
       });
       setBookedDates(dates);
+    }
+  };
+
+  useEffect(() => {
+    const loadReviews = async () => {
+      if (!property) return;
+      const { data } = await supabase
+        .from('reviews')
+        .select('rating, content, created_at, user:profiles!reviews_user_id_fkey(full_name, avatar_url)')
+        .eq('property_id', property.id)
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false });
+      setReviews(data || []);
+
+      if (user) {
+        const { data: bookingOk } = await supabase
+          .from('bookings')
+          .select('id')
+          .eq('property_id', property.id)
+          .eq('user_id', user.id)
+          .in('status', ['confirmed','completed'])
+          .limit(1);
+        const { data: existing } = await supabase
+          .from('reviews')
+          .select('id')
+          .eq('property_id', property.id)
+          .eq('user_id', user.id)
+          .limit(1);
+        setCanReview(!!bookingOk && bookingOk.length > 0 && !(existing && existing.length > 0));
+      } else {
+        setCanReview(false);
+      }
+    };
+    loadReviews();
+  }, [property, user]);
+
+  const submitReview = async () => {
+    if (!user) {
+      toast({ variant: 'destructive', title: 'Please login', description: 'Log in to write a review.' });
+      return;
+    }
+    if (!property) return;
+    if (!myRating || myRating < 1 || myRating > 5) {
+      toast({ variant: 'destructive', title: 'Invalid rating', description: 'Choose a rating between 1 and 5.' });
+      return;
+    }
+    setIsSubmittingReview(true);
+    try {
+      const { error } = await supabase
+        .from('reviews')
+        .insert({ property_id: property.id, user_id: user.id, rating: myRating, content: myText, photo_url: reviewPhotos[0] || null });
+      if (error) throw error;
+      toast({ title: 'Review submitted', description: 'Your review is pending approval.' });
+      setMyText("");
+      setReviewPhotos([]);
+      setMyRating(5);
+      const { data } = await supabase
+        .from('reviews')
+        .select('rating, content, created_at, user:profiles!reviews_user_id_fkey(full_name, avatar_url)')
+        .eq('property_id', property.id)
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false });
+      setReviews(data || []);
+      setCanReview(false);
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Error', description: e.message || 'Could not submit review.' });
+    } finally {
+      setIsSubmittingReview(false);
     }
   };
 
@@ -226,6 +302,66 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
                         <span>{amenity}</span>
                       </div>
                     ))}
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div>
+                  <h3 className="text-xl font-semibold mb-4">Reviews</h3>
+                  {reviews.length === 0 ? (
+                    <p className="text-gray-500">No reviews yet.</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {reviews.map((r, idx) => (
+                        <div key={idx} className="border rounded-lg p-4">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Avatar className="w-8 h-8">
+                              <AvatarImage src={r.user?.avatar_url} />
+                              <AvatarFallback>{(r.user?.full_name || 'U')[0]}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-medium text-sm">{r.user?.full_name || 'Guest'}</div>
+                              <div className="text-xs text-gray-500">{format(new Date(r.created_at), 'MMM d, yyyy')}</div>
+                            </div>
+                            <div className="ml-auto flex items-center gap-1">
+                              {[...Array(r.rating)].map((_, i) => <Star key={i} className="w-4 h-4 fill-black text-black" />)}
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-700">{r.content}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-6">
+                    <h4 className="font-semibold mb-2">Write a review</h4>
+                    {!canReview ? (
+                      <p className="text-sm text-gray-500">Reviews are available after a confirmed booking. You may have already reviewed this stay.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          {[1,2,3,4,5].map(n => (
+                            <button key={n} onClick={() => setMyRating(n)} className={cn("p-1", myRating >= n ? "text-black" : "text-gray-400")}>
+                              <Star className={cn("w-5 h-5", myRating >= n ? "fill-black" : "")} />
+                            </button>
+                          ))}
+                        </div>
+                        <Textarea value={myText} onChange={(e) => setMyText(e.target.value)} placeholder="Share details of your stay" />
+                        <div>
+                          <span className="text-xs text-gray-500">Optional: add a photo (earns extra points)</span>
+                          <ImageUpload
+                            value={reviewPhotos}
+                            onChange={setReviewPhotos}
+                            onRemove={(url) => setReviewPhotos(reviewPhotos.filter(u => u !== url))}
+                            bucket="review-photos"
+                            maxFiles={1}
+                            className="mt-2"
+                          />
+                        </div>
+                        <Button onClick={submitReview} disabled={isSubmittingReview}>{isSubmittingReview ? 'Submitting...' : 'Submit review'}</Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
