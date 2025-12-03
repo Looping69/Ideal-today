@@ -34,9 +34,25 @@ export default function AccountPage() {
   const saveProfile = async () => {
     if (!user || !profile) return;
     setLoading(true);
+    // Try update first to avoid RLS insert violations
     const { error } = await supabase
       .from('profiles')
-      .upsert({ id: user.id, full_name: profile.full_name, avatar_url: profile.avatar_url, phone: profile.phone, bio: profile.bio, preferences: profile.preferences, updated_at: new Date() });
+      .update({ full_name: profile.full_name, avatar_url: profile.avatar_url, phone: profile.phone, bio: profile.bio, preferences: profile.preferences, updated_at: new Date().toISOString() })
+      .eq('id', user.id);
+    // If no rows updated, try insert with RLS insert policy
+    if (!error) {
+      const { data } = await supabase.from('profiles').select('id').eq('id', user.id).limit(1);
+      if (!data || data.length === 0) {
+        const ins = await supabase
+          .from('profiles')
+          .insert({ id: user.id, email: user.email, full_name: profile.full_name, avatar_url: profile.avatar_url, phone: profile.phone, bio: profile.bio, preferences: profile.preferences, updated_at: new Date().toISOString() });
+        if (ins.error) {
+          setLoading(false);
+          toast({ variant: 'destructive', title: 'Error', description: ins.error.message });
+          return;
+        }
+      }
+    }
     setLoading(false);
     if (error) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
