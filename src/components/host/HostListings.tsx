@@ -1,26 +1,26 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from "@/components/ui/table";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { 
-  MoreHorizontal, 
-  Plus, 
-  Search, 
-  Pencil, 
-  Trash2, 
+import {
+  MoreHorizontal,
+  Plus,
+  Search,
+  Pencil,
+  Trash2,
   Eye,
   Loader2
 } from "lucide-react";
@@ -70,29 +70,34 @@ export default function HostListings() {
     if (!confirm("Are you sure you want to delete this listing?")) return;
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("properties")
         .delete()
-        .eq("id", id);
+        .eq("id", id)
+        .select();
 
       if (error) throw error;
+
+      if (!data || data.length === 0) {
+        throw new Error("Could not delete listing. It may have already been deleted or you do not have permission.");
+      }
 
       setListings(listings.filter(l => l.id !== id));
       toast({
         title: "Listing deleted",
         description: "Your listing has been removed.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting listing:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to delete listing.",
+        description: error.message || "Failed to delete listing.",
       });
     }
   }
 
-  const filteredListings = listings.filter(listing => 
+  const filteredListings = listings.filter(listing =>
     listing.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     listing.location.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -122,8 +127,8 @@ export default function HostListings() {
         <div className="p-4 border-b border-gray-200 flex gap-4">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input 
-              placeholder="Search listings..." 
+            <Input
+              placeholder="Search listings..."
               className="pl-10"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -155,9 +160,9 @@ export default function HostListings() {
                   <TableCell>
                     <div className="flex items-center gap-4">
                       <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                        <img 
-                          src={listing.image || "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&auto=format&fit=crop&q=60"} 
-                          alt={listing.title} 
+                        <img
+                          src={listing.image || "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&auto=format&fit=crop&q=60"}
+                          alt={listing.title}
                           className="w-full h-full object-cover"
                         />
                       </div>
@@ -196,7 +201,7 @@ export default function HostListings() {
                           <Pencil className="w-4 h-4 mr-2" />
                           Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           className="text-red-600 focus:text-red-600"
                           onClick={() => deleteListing(listing.id)}
                         >
