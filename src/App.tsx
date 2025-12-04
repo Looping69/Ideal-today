@@ -8,6 +8,7 @@ const HostLayout = lazy(() => import("./components/host/HostLayout"));
 const HostDashboard = lazy(() => import("./components/host/HostDashboard"));
 const CreateListing = lazy(() => import("./components/host/CreateListing"));
 import { AuthProvider } from "./contexts/AuthContext";
+import { NotificationProvider } from "./contexts/NotificationContext";
 import { Toaster } from "./components/ui/toaster";
 import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
@@ -18,6 +19,7 @@ const HostSettings = lazy(() => import("./components/host/HostSettings"));
 const HostGuests = lazy(() => import("./components/host/HostGuests"));
 const HostOperations = lazy(() => import("./components/host/HostOperations"));
 const HostReports = lazy(() => import("./components/host/HostReports"));
+const HostVerification = lazy(() => import("./components/host/HostVerification"));
 
 const HostCalendar = lazy(() => import("./components/host/HostCalendar"));
 const InboxPage = lazy(() => import("./components/inbox/InboxPage"));
@@ -32,87 +34,92 @@ const AdminBookings = lazy(() => import("./components/admin/AdminBookings"));
 const AdminReferrals = lazy(() => import("./components/admin/AdminReferrals"));
 const AdminRewards = lazy(() => import("./components/admin/AdminRewards"));
 const AdminSettings = lazy(() => import("./components/admin/AdminSettings"));
+const AdminNotifications = lazy(() => import("./components/admin/AdminNotifications"));
 
 function App() {
   return (
     <AuthProvider>
-      <Suspense fallback={<p>Loading...</p>}>
-        <>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/rewards" element={
-              <div className="min-h-screen bg-white flex flex-col">
-                <Header />
-                <RewardsDashboard />
-                <Footer />
-              </div>
-            } />
-            <Route path="/trips" element={
-              <div className="min-h-screen bg-white flex flex-col">
-                <Header />
-                <TripsPage />
-                <Footer />
-              </div>
-            } />
-            <Route path="/wishlists" element={
-              <div className="min-h-screen bg-white flex flex-col">
-                <Header />
-                <WishlistsPage />
-                <Footer />
-              </div>
-            } />
-            <Route path="/inbox" element={
-              <div className="min-h-screen bg-white flex flex-col">
-                <Header />
-                <InboxPage />
-                <Footer />
-              </div>
-            } />
-            <Route path="/inbox/:bookingId" element={
-              <div className="min-h-screen bg-white flex flex-col">
-                <Header />
-                <InboxPage />
-                <Footer />
-              </div>
-            } />
+      <NotificationProvider>
+        <Suspense fallback={<p>Loading...</p>}>
+          <>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/rewards" element={
+                <div className="min-h-screen bg-white flex flex-col">
+                  <Header />
+                  <RewardsDashboard />
+                  <Footer />
+                </div>
+              } />
+              <Route path="/trips" element={
+                <div className="min-h-screen bg-white flex flex-col">
+                  <Header />
+                  <TripsPage />
+                  <Footer />
+                </div>
+              } />
+              <Route path="/wishlists" element={
+                <div className="min-h-screen bg-white flex flex-col">
+                  <Header />
+                  <WishlistsPage />
+                  <Footer />
+                </div>
+              } />
+              <Route path="/inbox" element={
+                <div className="min-h-screen bg-white flex flex-col">
+                  <Header />
+                  <InboxPage />
+                  <Footer />
+                </div>
+              } />
+              <Route path="/inbox/:bookingId" element={
+                <div className="min-h-screen bg-white flex flex-col">
+                  <Header />
+                  <InboxPage />
+                  <Footer />
+                </div>
+              } />
 
-            <Route path="/account" element={
-              <div className="min-h-screen bg-white flex flex-col">
-                <Header />
-                <AccountPage />
-                <Footer />
-              </div>
-            } />
+              <Route path="/account" element={
+                <div className="min-h-screen bg-white flex flex-col">
+                  <Header />
+                  <AccountPage />
+                  <Footer />
+                </div>
+              } />
 
-            <Route path="/admin" element={<AdminLayout />}>
-              <Route index element={<AdminOverview />} />
-              <Route path="users" element={<AdminUsers />} />
-              <Route path="listings" element={<AdminListings />} />
-              <Route path="reviews" element={<AdminReviews />} />
-              <Route path="bookings" element={<AdminBookings />} />
-              <Route path="referrals" element={<AdminReferrals />} />
-              <Route path="rewards" element={<AdminRewards />} />
-              <Route path="settings" element={<AdminSettings />} />
-            </Route>
+              <Route path="/admin" element={<AdminLayout />}>
+                <Route index element={<AdminOverview />} />
+                <Route path="users" element={<AdminUsers />} />
+                <Route path="listings" element={<AdminListings />} />
+                <Route path="reviews" element={<AdminReviews />} />
+                <Route path="bookings" element={<AdminBookings />} />
+                <Route path="referrals" element={<AdminReferrals />} />
+                <Route path="rewards" element={<AdminRewards />} />
+                <Route path="notifications" element={<AdminNotifications />} />
+                <Route path="settings" element={<AdminSettings />} />
+              </Route>
 
-            {/* Host Routes */}
-            <Route path="/host" element={<HostLayout />}>
-              <Route index element={<HostDashboard />} />
-              <Route path="create" element={<CreateListing />} />
-              <Route path="listings" element={<HostListings />} />
-              <Route path="bookings" element={<HostBookings />} />
-              <Route path="calendar" element={<HostCalendar />} />
-              <Route path="guests" element={<HostGuests />} />
-              <Route path="operations" element={<HostOperations />} />
-              <Route path="reports" element={<HostReports />} />
-              <Route path="inbox" element={<HostInbox />} />
-              <Route path="inbox/:bookingId" element={<HostInbox />} />
-              <Route path="settings" element={<HostSettings />} />
-            </Route>
-          </Routes>
-        </>
-      </Suspense>
-      <Toaster />
+              {/* Host Routes */}
+              <Route path="/host" element={<HostLayout />}>
+                <Route index element={<HostDashboard />} />
+                <Route path="create" element={<CreateListing />} />
+                <Route path="listings" element={<HostListings />} />
+                <Route path="bookings" element={<HostBookings />} />
+                <Route path="calendar" element={<HostCalendar />} />
+                <Route path="guests" element={<HostGuests />} />
+                <Route path="operations" element={<HostOperations />} />
+                <Route path="reports" element={<HostReports />} />
+                <Route path="inbox" element={<HostInbox />} />
+                <Route path="inbox/:bookingId" element={<HostInbox />} />
+                <Route path="verification" element={<HostVerification />} />
+                <Route path="settings" element={<HostSettings />} />
+              </Route>
+            </Routes>
+          </>
+        </Suspense>
+        <Toaster />
+      </NotificationProvider>
     </AuthProvider>
   );
 }

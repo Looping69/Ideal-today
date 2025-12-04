@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
+import { NotificationBell } from "@/components/ui/notification-bell";
 
 export default function HostLayout() {
   const navigate = useNavigate();
@@ -171,6 +172,9 @@ export default function HostLayout() {
             >
               Switch to Traveling
             </Button>
+
+            <NotificationBell />
+
             <div className="flex items-center gap-3 pl-6 border-l border-gray-200">
               <div className="text-right hidden md:block">
                 <p className="text-sm font-semibold text-gray-900">{user?.user_metadata?.full_name || 'Host'}</p>
@@ -190,7 +194,7 @@ export default function HostLayout() {
         <div className="p-8 max-w-7xl mx-auto">
           <Outlet />
         </div>
-      </main>
-    </div>
+      </main >
+    </div >
   );
 }

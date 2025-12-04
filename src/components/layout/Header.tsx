@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import AuthModal from "@/components/auth/AuthModal";
 import { useNavigate } from "react-router-dom";
+import { NotificationBell } from "@/components/ui/notification-bell";
 
 export default function Header() {
   const { user, signOut } = useAuth();
@@ -78,6 +79,7 @@ export default function Header() {
             <Globe className="w-4 h-4 text-gray-600" />
           </Button>
 
+          {user && <NotificationBell />}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button

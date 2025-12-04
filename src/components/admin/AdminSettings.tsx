@@ -1,17 +1,90 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Bell, Shield, Mail, Globe, Database, Save } from 'lucide-react';
+import { Bell, Shield, Mail, Globe, Database, Save, DollarSign } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { useToast } from '@/components/ui/use-toast';
 
 export default function AdminSettings() {
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
+  const { toast } = useToast();
+  const [settings, setSettings] = useState({
+    site_name: '',
+    support_email: '',
+    meta_description: '',
+    require_email_verification: true,
+    enable_2fa: true,
+    maintenance_mode: false,
+    service_fee_percent: 10
+  });
 
-  const handleSave = () => {
-    setLoading(true);
-    setTimeout(() => setLoading(false), 1000);
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('admin_settings')
+        .select('*')
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        setSettings({
+          site_name: data.site_name || '',
+          support_email: data.support_email || '',
+          meta_description: data.meta_description || '',
+          require_email_verification: data.require_email_verification ?? true,
+          enable_2fa: data.enable_2fa ?? true,
+          maintenance_mode: data.maintenance_mode ?? false,
+          service_fee_percent: data.service_fee_percent ?? 10
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+      toast({
+        variant: "destructive",
+        title: "Error loading settings",
+        description: "Could not load platform settings.",
+      });
+    } finally {
+      setFetching(false);
+    }
   };
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('admin_settings')
+        .update(settings)
+        .eq('id', 1);
+
+      if (error) throw error;
+
+      toast({
+        title: "Settings saved",
+        description: "Platform settings have been updated successfully.",
+      });
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      toast({
+        variant: "destructive",
+        title: "Error saving settings",
+        description: "Could not save changes. Please try again.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (fetching) {
+    return <div className="p-8 text-center text-gray-500">Loading settings...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -42,16 +115,42 @@ export default function AdminSettings() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="site-name">Site Name</Label>
-                  <Input id="site-name" defaultValue="Ideal Stay" />
+                  <Input
+                    id="site-name"
+                    value={settings.site_name}
+                    onChange={(e) => setSettings({ ...settings, site_name: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="support-email">Support Email</Label>
-                  <Input id="support-email" defaultValue="support@idealstay.com" />
+                  <Input
+                    id="support-email"
+                    value={settings.support_email}
+                    onChange={(e) => setSettings({ ...settings, support_email: e.target.value })}
+                  />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="meta-desc">Default Meta Description</Label>
-                <Input id="meta-desc" defaultValue="Find your perfect holiday getaway with Ideal Stay." />
+                <Input
+                  id="meta-desc"
+                  value={settings.meta_description}
+                  onChange={(e) => setSettings({ ...settings, meta_description: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="service-fee">Service Fee (%)</Label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    id="service-fee"
+                    type="number"
+                    className="pl-9"
+                    value={settings.service_fee_percent}
+                    onChange={(e) => setSettings({ ...settings, service_fee_percent: parseFloat(e.target.value) })}
+                  />
+                </div>
+                <p className="text-xs text-gray-500">Percentage taken from each booking.</p>
               </div>
             </div>
           </div>
@@ -72,21 +171,30 @@ export default function AdminSettings() {
                   <Label className="text-base">Require Email Verification</Label>
                   <p className="text-sm text-gray-500">Users must verify email before booking.</p>
                 </div>
-                <Switch defaultChecked />
+                <Switch
+                  checked={settings.require_email_verification}
+                  onCheckedChange={(c) => setSettings({ ...settings, require_email_verification: c })}
+                />
               </div>
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label className="text-base">Two-Factor Authentication</Label>
                   <p className="text-sm text-gray-500">Enforce 2FA for admin accounts.</p>
                 </div>
-                <Switch defaultChecked />
+                <Switch
+                  checked={settings.enable_2fa}
+                  onCheckedChange={(c) => setSettings({ ...settings, enable_2fa: c })}
+                />
               </div>
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label className="text-base">Maintenance Mode</Label>
                   <p className="text-sm text-gray-500">Disable public access to the site.</p>
                 </div>
-                <Switch />
+                <Switch
+                  checked={settings.maintenance_mode}
+                  onCheckedChange={(c) => setSettings({ ...settings, maintenance_mode: c })}
+                />
               </div>
             </div>
           </div>

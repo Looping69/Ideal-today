@@ -10,7 +10,7 @@ interface ImageUploadProps {
   value: string[];
   onChange: (urls: string[]) => void;
   onRemove: (url: string) => void;
-  bucket: "property-images" | "avatars" | "review-photos";
+  bucket: "property-images" | "avatars" | "review-photos" | "verification";
   maxFiles?: number;
   className?: string;
 }

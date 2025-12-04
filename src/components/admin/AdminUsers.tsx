@@ -2,9 +2,30 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, ShieldCheck, User, Ban, MoreHorizontal } from 'lucide-react';
+import { Search, ShieldCheck, User, Ban, MoreHorizontal, CheckCircle2, XCircle, FileText, Bell } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { useNotifications } from '@/contexts/NotificationContext';
+import { useToast } from '@/components/ui/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
-type Row = { id: string; email: string; full_name: string; is_admin: boolean; deactivated?: boolean; points?: number };
+type Row = {
+  id: string;
+  email: string;
+  full_name: string;
+  is_admin: boolean;
+  deactivated?: boolean;
+  points?: number;
+  verification_status?: 'none' | 'pending' | 'verified' | 'rejected';
+  verification_docs?: any;
+};
 
 export default function AdminUsers() {
   const [rows, setRows] = useState<Row[]>([]);
@@ -12,6 +33,8 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
   const pageSize = 20;
+  const { sendNotification } = useNotifications();
+  const { toast } = useToast();
 
   const filtered = useMemo(() => {
     if (!search.trim()) return rows;
@@ -24,10 +47,20 @@ export default function AdminUsers() {
       setLoading(true);
       const { data } = await supabase
         .from('profiles')
-        .select('id,email,full_name,is_admin,deactivated,points')
+        .select('id,email,full_name,is_admin,deactivated,points,verification_status,verification_docs')
         .order('created_at', { ascending: false })
         .range(page * pageSize, page * pageSize + pageSize - 1);
-      setRows(((data as any[]) || []).map(r => ({ id: r.id, email: r.email, full_name: r.full_name, is_admin: !!r.is_admin, deactivated: !!r.deactivated, points: r.points })));
+
+      setRows(((data as any[]) || []).map(r => ({
+        id: r.id,
+        email: r.email,
+        full_name: r.full_name,
+        is_admin: !!r.is_admin,
+        deactivated: !!r.deactivated,
+        points: r.points,
+        verification_status: r.verification_status || 'none',
+        verification_docs: r.verification_docs
+      })));
       setLoading(false);
     };
     load();
@@ -43,12 +76,17 @@ export default function AdminUsers() {
     setRows(rs => rs.map(r => (r.id === id ? { ...r, deactivated: next } : r)));
   };
 
+  const updateVerification = async (id: string, status: 'verified' | 'rejected') => {
+    await supabase.from('profiles').update({ verification_status: status }).eq('id', id);
+    setRows(rs => rs.map(r => (r.id === id ? { ...r, verification_status: status } : r)));
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">User Management</h1>
-          <p className="text-gray-500 text-sm mt-1">Manage user access, roles, and status.</p>
+          <p className="text-gray-500 text-sm mt-1">Manage user access, roles, and verification.</p>
         </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -68,7 +106,7 @@ export default function AdminUsers() {
               <tr>
                 <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">User</th>
                 <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Role</th>
-                <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Points</th>
+                <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Verification</th>
                 <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Status</th>
                 <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs text-right">Actions</th>
               </tr>
@@ -98,8 +136,52 @@ export default function AdminUsers() {
                         {r.is_admin ? 'Admin' : 'User'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 font-medium text-gray-700">
-                      {r.points?.toLocaleString() ?? 0}
+                    <td className="px-6 py-4">
+                      {r.verification_status === 'verified' ? (
+                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">Verified</Badge>
+                      ) : r.verification_status === 'pending' ? (
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button size="sm" variant="outline" className="h-7 text-xs bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100">
+                              Review Docs
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-2xl">
+                            <DialogHeader>
+                              <DialogTitle>Verification Documents</DialogTitle>
+                              <DialogDescription>Review documents submitted by {r.full_name}</DialogDescription>
+                            </DialogHeader>
+                            <div className="grid grid-cols-2 gap-4 py-4">
+                              {r.verification_docs?.id_front && (
+                                <div>
+                                  <p className="text-sm font-medium mb-2">ID Front</p>
+                                  <img src={r.verification_docs.id_front} className="rounded-lg border w-full" />
+                                </div>
+                              )}
+                              {r.verification_docs?.id_back && (
+                                <div>
+                                  <p className="text-sm font-medium mb-2">ID Back</p>
+                                  <img src={r.verification_docs.id_back} className="rounded-lg border w-full" />
+                                </div>
+                              )}
+                              {r.verification_docs?.selfie && (
+                                <div>
+                                  <p className="text-sm font-medium mb-2">Selfie</p>
+                                  <img src={r.verification_docs.selfie} className="rounded-lg border w-full" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <Button variant="destructive" onClick={() => updateVerification(r.id, 'rejected')}>Reject</Button>
+                              <Button className="bg-green-600 hover:bg-green-700" onClick={() => updateVerification(r.id, 'verified')}>Approve</Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      ) : r.verification_status === 'rejected' ? (
+                        <Badge variant="destructive" className="bg-red-100 text-red-700 hover:bg-red-100 border-red-200">Rejected</Badge>
+                      ) : (
+                        <span className="text-gray-400 text-xs">Not submitted</span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${!r.deactivated ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
@@ -130,6 +212,41 @@ export default function AdminUsers() {
                         <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-gray-500 hover:text-gray-900">
                           <MoreHorizontal className="w-4 h-4" />
                         </Button>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-gray-500 hover:text-blue-600 hover:bg-blue-50"
+                              title="Send Notification"
+                            >
+                              <Bell className="w-4 h-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Send Notification to {r.full_name}</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">Title</label>
+                                <Input id={`title-${r.id}`} placeholder="Notification Title" />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">Message</label>
+                                <Textarea id={`message-${r.id}`} placeholder="Message content..." />
+                              </div>
+                              <Button onClick={() => {
+                                const title = (document.getElementById(`title-${r.id}`) as HTMLInputElement).value;
+                                const message = (document.getElementById(`message-${r.id}`) as HTMLTextAreaElement).value;
+                                if (title && message) {
+                                  sendNotification(r.id, { title, message, type: 'info' });
+                                  toast({ title: "Sent", description: "Notification sent successfully" });
+                                }
+                              }} className="w-full">Send</Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
                       </div>
                     </td>
                   </tr>

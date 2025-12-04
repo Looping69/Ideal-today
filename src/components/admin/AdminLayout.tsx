@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from "@/components/ui/use-toast";
+import { NotificationBell } from "@/components/ui/notification-bell";
 import { supabase } from '@/lib/supabase';
-import { Users, Home as HomeIcon, MessageSquare, Star, Settings, ClipboardList, Gift, Share2 } from 'lucide-react';
+import { Users, Home as HomeIcon, MessageSquare, Star, Settings, ClipboardList, Gift, Share2, Bell } from 'lucide-react';
 
 export default function AdminLayout() {
   const { user } = useAuth();
@@ -38,6 +40,7 @@ export default function AdminLayout() {
     { to: '/admin/bookings', label: 'Bookings', icon: MessageSquare },
     { to: '/admin/referrals', label: 'Referrals', icon: Share2 },
     { to: '/admin/rewards', label: 'Rewards', icon: Gift },
+    { to: '/admin/notifications', label: 'Notifications', icon: Bell },
     { to: '/admin/settings', label: 'Settings', icon: Settings },
   ];
 
@@ -64,7 +67,7 @@ export default function AdminLayout() {
                   key={to}
                   to={to}
                   end={to === '/admin'}
-                  className={({ isActive }) => `flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-200 group relative overflow-hidden ${isActive ? 'bg-gray-900 text-white shadow-md shadow-gray-900/20' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
+                  className={({ isActive }) => `flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-200 group relative overflow-hidden ${isActive ? 'bg-gray-900 text-white shadow-md shadow-gray-900/20' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'} `}
                 >
                   <Icon className="w-5 h-5 shrink-0" />
                   <span>{label}</span>
@@ -80,7 +83,7 @@ export default function AdminLayout() {
                 <NavLink
                   key={to}
                   to={to}
-                  className={({ isActive }) => `flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-200 group relative overflow-hidden ${isActive ? 'bg-gray-900 text-white shadow-md shadow-gray-900/20' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
+                  className={({ isActive }) => `flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-200 group relative overflow-hidden ${isActive ? 'bg-gray-900 text-white shadow-md shadow-gray-900/20' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'} `}
                 >
                   <Icon className="w-5 h-5 shrink-0" />
                   <span>{label}</span>
@@ -109,6 +112,7 @@ export default function AdminLayout() {
             {nav.find(n => n.to === location.pathname)?.label || 'Dashboard'}
           </h2>
           <div className="flex items-center gap-4">
+            <NotificationBell />
             <button
               onClick={() => {
                 navigator.clipboard.writeText(window.location.href);
