@@ -61,42 +61,64 @@ export default function PropertyCard({ property, onClick }: PropertyCardProps) {
   };
 
   return (
-    <div 
-      className="group cursor-pointer flex flex-col gap-2"
+    <div
+      className="group cursor-pointer flex flex-col gap-3"
       onClick={() => onClick(property)}
     >
-      <div className="relative aspect-square overflow-hidden rounded-xl bg-gray-200">
+      <div className="relative aspect-[20/19] overflow-hidden rounded-xl bg-gray-200 isolate">
         <img
           src={property.image}
           alt={property.title}
-          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
-        <button className="absolute top-3 right-3 p-2 rounded-full hover:bg-white/10 transition-colors" onClick={toggleWishlist}>
-          <Heart className={`w-6 h-6 ${saved ? "text-red-500 fill-red-500" : "text-white fill-black/50"}`} />
+
+        {/* Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+        <button
+          className="absolute top-3 right-3 p-2 rounded-full hover:bg-white/10 transition-all active:scale-90 z-10"
+          onClick={toggleWishlist}
+        >
+          <Heart
+            className={`w-6 h-6 transition-colors ${saved ? "text-red-500 fill-red-500" : "text-white fill-black/40"}`}
+            strokeWidth={2}
+          />
         </button>
-        <div className="absolute top-3 left-3">
-          <Badge variant="secondary" className="bg-white/90 text-black font-medium hover:bg-white">
-            Guest favorite
-          </Badge>
+
+        {property.rating >= 4.8 && (
+          <div className="absolute top-3 left-3 z-10">
+            <Badge variant="secondary" className="bg-white/95 text-black font-semibold shadow-sm hover:bg-white px-2.5 py-1 backdrop-blur-sm border-none">
+              Guest favorite
+            </Badge>
+          </div>
+        )}
+
+        {/* Carousel Dots (Mock) */}
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <div className="w-1.5 h-1.5 rounded-full bg-white shadow-sm" />
+          <div className="w-1.5 h-1.5 rounded-full bg-white/60 shadow-sm" />
+          <div className="w-1.5 h-1.5 rounded-full bg-white/60 shadow-sm" />
+          <div className="w-1.5 h-1.5 rounded-full bg-white/60 shadow-sm" />
+          <div className="w-1 h-1 rounded-full bg-white/60 shadow-sm" />
         </div>
       </div>
-      
-      <div className="flex justify-between items-start mt-1">
-        <h3 className="font-semibold text-base truncate pr-2">{property.location}</h3>
-        <div className="flex items-center gap-1">
-          <Star className="w-4 h-4 fill-black text-black" />
-          <span className="text-sm font-light">{property.rating}</span>
+
+      <div className="flex justify-between items-start">
+        <div>
+          <h3 className="font-semibold text-base text-gray-900 truncate leading-tight">{property.location}</h3>
+          <p className="text-gray-500 text-sm mt-0.5 truncate">Hosted by {property.host.name}</p>
+          <p className="text-gray-500 text-sm truncate">Oct 23 - 28</p>
+          <div className="flex items-baseline gap-1 mt-1.5">
+            <span className="font-semibold text-gray-900">R{property.price.toLocaleString()}</span>
+            <span className="text-gray-900">night</span>
+          </div>
         </div>
-      </div>
-      
-      <div className="flex flex-col gap-0.5 text-gray-500 text-sm">
-        <p className="truncate text-gray-500">Hosted by {property.host.name}</p>
-        <p className="truncate text-gray-500">Oct 23 - 28</p>
-        <div className="flex items-baseline gap-1 mt-1">
-          <span className="font-semibold text-black text-base">R{property.price}</span>
-          <span className="text-black">night</span>
+        <div className="flex items-center gap-1 mt-0.5">
+          <Star className="w-3.5 h-3.5 fill-black text-black" />
+          <span className="text-sm font-medium text-gray-900">{property.rating}</span>
         </div>
       </div>
     </div>
   );
 }
+

@@ -6,17 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import ImageUpload from "@/components/ui/image-upload";
-import { 
-  Home, 
-  Building2, 
-  Warehouse, 
-  Tent, 
-  Mountain, 
-  Waves, 
+import {
+  Home,
+  Building2,
+  Warehouse,
+  Tent,
+  Mountain,
+  Waves,
   Trees,
-  Check, 
-  ChevronRight, 
-  ChevronLeft, 
+  Check,
+  ChevronRight,
+  ChevronLeft,
   MapPin,
   Loader2
 } from "lucide-react";
@@ -25,6 +25,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { geocodeAddress } from "@/lib/geocoding";
 
 const CATEGORIES = [
   { id: "apartment", label: "Apartment", icon: Building2 },
@@ -40,13 +41,13 @@ const CATEGORIES = [
 ] as const;
 
 const AMENITIES = [
-  "Wifi", "Kitchen", "Pool", "Hot tub", "Air conditioning", 
-  "Heating", "Washer", "Dryer", "Parking", "Gym", 
+  "Wifi", "Kitchen", "Pool", "Hot tub", "Air conditioning",
+  "Heating", "Washer", "Dryer", "Parking", "Gym",
   "Workspace", "TV", "Fireplace", "BBQ grill"
 ];
 
 const PROVINCES = [
-  'Western Cape','Eastern Cape','Northern Cape','Gauteng','KwaZulu-Natal','Free State','North West','Mpumalanga','Limpopo'
+  'Western Cape', 'Eastern Cape', 'Northern Cape', 'Gauteng', 'KwaZulu-Natal', 'Free State', 'North West', 'Mpumalanga', 'Limpopo'
 ] as const;
 
 export default function CreateListing() {
@@ -98,6 +99,19 @@ export default function CreateListing() {
     setIsSubmitting(true);
 
     try {
+      // Geocode the address
+      let latitude = -33.9249; // Default fallback (Cape Town)
+      let longitude = 18.4241;
+
+      if (formData.location) {
+        const addressToGeocode = formData.location + (formData.province ? `, ${formData.province}` : "");
+        const coords = await geocodeAddress(addressToGeocode);
+        if (coords) {
+          latitude = coords.lat;
+          longitude = coords.lng;
+        }
+      }
+
       const { error } = await supabase.from("properties").insert({
         title: formData.title,
         description: formData.description,
@@ -112,9 +126,8 @@ export default function CreateListing() {
         image: formData.images[0] || null,
         images: formData.images,
         host_id: user.id,
-        // Default coordinates for now since we don't have geocoding
-        latitude: -33.9249,
-        longitude: 18.4241,
+        latitude,
+        longitude,
       });
 
       if (error) throw error;
@@ -123,7 +136,7 @@ export default function CreateListing() {
         title: "Success!",
         description: "Your listing has been published.",
       });
-      
+
       navigate("/host");
     } catch (error) {
       console.error("Error creating listing:", error);
@@ -146,7 +159,7 @@ export default function CreateListing() {
           <span>{Math.round((step / 5) * 100)}% Completed</span>
         </div>
         <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-          <div 
+          <div
             className="h-full bg-primary transition-all duration-500 ease-out"
             style={{ width: `${(step / 5) * 100}%` }}
           />
@@ -162,7 +175,7 @@ export default function CreateListing() {
                 <h2 className="text-2xl font-bold mb-2">Which of these best describes your place?</h2>
                 <p className="text-gray-500">Select a category that matches your property type.</p>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 {CATEGORIES.map((cat) => (
                   <button
@@ -193,45 +206,45 @@ export default function CreateListing() {
               <div>
                 <h2 className="text-2xl font-bold mb-2">Where is your place located?</h2>
                 <p className="text-gray-500 mb-6">Help guests find you.</p>
-                
+
                 <div className="relative">
                   <MapPin className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-          <Input 
-            placeholder="Enter your address" 
-            className="pl-10 h-12 text-lg"
-            value={formData.location}
-            onChange={(e) => updateData("location", e.target.value)}
-          />
-          <div className="mt-4">
-            <Label>Province</Label>
-            <Select onValueChange={(v) => updateData('province', v)} value={formData.province}>
-              <SelectTrigger className="h-12 mt-1">
-                <SelectValue placeholder="Select province" />
-              </SelectTrigger>
-              <SelectContent>
-                {PROVINCES.map(p => (
-                  <SelectItem key={p} value={p}>{p}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+                  <Input
+                    placeholder="Enter your address"
+                    className="pl-10 h-12 text-lg"
+                    value={formData.location}
+                    onChange={(e) => updateData("location", e.target.value)}
+                  />
+                  <div className="mt-4">
+                    <Label>Province</Label>
+                    <Select onValueChange={(v) => updateData('province', v)} value={formData.province}>
+                      <SelectTrigger className="h-12 mt-1">
+                        <SelectValue placeholder="Select province" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PROVINCES.map(p => (
+                          <SelectItem key={p} value={p}>{p}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-6">
                 <h3 className="font-semibold text-lg">Share some basics about your place</h3>
-                
+
                 <div className="flex items-center justify-between py-4 border-b border-gray-100">
                   <span className="text-gray-700">Guests</span>
                   <div className="flex items-center gap-4">
-                    <Button 
+                    <Button
                       variant="outline" size="icon" className="rounded-full w-8 h-8"
                       onClick={() => updateData("guests", Math.max(1, formData.guests - 1))}
                     >
                       -
                     </Button>
                     <span className="w-4 text-center font-medium">{formData.guests}</span>
-                    <Button 
+                    <Button
                       variant="outline" size="icon" className="rounded-full w-8 h-8"
                       onClick={() => updateData("guests", formData.guests + 1)}
                     >
@@ -243,14 +256,14 @@ export default function CreateListing() {
                 <div className="flex items-center justify-between py-4 border-b border-gray-100">
                   <span className="text-gray-700">Bedrooms</span>
                   <div className="flex items-center gap-4">
-                    <Button 
+                    <Button
                       variant="outline" size="icon" className="rounded-full w-8 h-8"
                       onClick={() => updateData("bedrooms", Math.max(0, formData.bedrooms - 1))}
                     >
                       -
                     </Button>
                     <span className="w-4 text-center font-medium">{formData.bedrooms}</span>
-                    <Button 
+                    <Button
                       variant="outline" size="icon" className="rounded-full w-8 h-8"
                       onClick={() => updateData("bedrooms", formData.bedrooms + 1)}
                     >
@@ -262,14 +275,14 @@ export default function CreateListing() {
                 <div className="flex items-center justify-between py-4 border-b border-gray-100">
                   <span className="text-gray-700">Bathrooms</span>
                   <div className="flex items-center gap-4">
-                    <Button 
+                    <Button
                       variant="outline" size="icon" className="rounded-full w-8 h-8"
                       onClick={() => updateData("bathrooms", Math.max(0, formData.bathrooms - 0.5))}
                     >
                       -
                     </Button>
                     <span className="w-4 text-center font-medium">{formData.bathrooms}</span>
-                    <Button 
+                    <Button
                       variant="outline" size="icon" className="rounded-full w-8 h-8"
                       onClick={() => updateData("bathrooms", formData.bathrooms + 0.5)}
                     >
@@ -322,12 +335,12 @@ export default function CreateListing() {
               <div>
                 <h2 className="text-2xl font-bold mb-2">Let's describe your place</h2>
                 <p className="text-gray-500 mb-6">Short titles work best. Have fun with it!</p>
-                
+
                 <div className="space-y-6">
                   <div className="space-y-2">
                     <Label>Title</Label>
-                    <Input 
-                      placeholder="e.g., Cozy Cottage in the Winelands" 
+                    <Input
+                      placeholder="e.g., Cozy Cottage in the Winelands"
                       value={formData.title}
                       onChange={(e) => updateData("title", e.target.value)}
                       className="text-lg"
@@ -336,8 +349,8 @@ export default function CreateListing() {
 
                   <div className="space-y-2">
                     <Label>Description</Label>
-                    <Textarea 
-                      placeholder="Describe the decor, light, what's nearby, etc..." 
+                    <Textarea
+                      placeholder="Describe the decor, light, what's nearby, etc..."
                       className="h-32 resize-none"
                       value={formData.description}
                       onChange={(e) => updateData("description", e.target.value)}
@@ -366,20 +379,20 @@ export default function CreateListing() {
               <div className="text-center max-w-lg mx-auto">
                 <h2 className="text-2xl font-bold mb-2">Now, set your price</h2>
                 <p className="text-gray-500 mb-8">You can change it anytime.</p>
-                
+
                 <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-lg inline-block w-full max-w-sm">
                   <div className="flex items-center justify-center gap-2 mb-4">
                     <span className="text-4xl font-bold text-gray-300">R</span>
-                    <Input 
-                      type="number" 
-                      placeholder="0" 
+                    <Input
+                      type="number"
+                      placeholder="0"
                       className="text-4xl font-bold border-none text-center w-40 h-16 p-0 focus-visible:ring-0 placeholder:text-gray-200"
                       value={formData.price}
                       onChange={(e) => updateData("price", e.target.value)}
                     />
                   </div>
                   <div className="text-center text-gray-500 font-medium">per night</div>
-                  
+
                   <div className="mt-8 pt-6 border-t border-gray-100 space-y-3">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">IdealStay service fee</span>
@@ -398,8 +411,8 @@ export default function CreateListing() {
 
         {/* Navigation Buttons */}
         <div className="pt-8 mt-8 border-t border-gray-100 flex justify-between items-center">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             onClick={handleBack}
             disabled={step === 1 || isSubmitting}
             className="text-gray-500 hover:text-gray-900"
@@ -407,8 +420,8 @@ export default function CreateListing() {
             <ChevronLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
-          
-          <Button 
+
+          <Button
             onClick={step === 5 ? handleSubmit : handleNext}
             className="bg-black hover:bg-gray-800 text-white px-8 rounded-xl h-12 text-base"
             disabled={(step === 1 && !formData.category) || isSubmitting}

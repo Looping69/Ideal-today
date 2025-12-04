@@ -41,17 +41,17 @@ export default function Header() {
   };
 
   return (
-    <header className="fixed top-0 w-full z-[12000] bg-white border-b border-gray-100">
-      <div className="container mx-auto px-4 h-20 flex items-center justify-between">
+    <header className="fixed top-0 w-full z-[100] bg-white/80 backdrop-blur-md border-b border-gray-100 transition-all duration-300">
+      <div className="container mx-auto px-6 h-20 flex items-center justify-between">
         {/* Logo */}
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
-          <div className="w-8 h-8 bg-gradient-to-br from-primary to-blue-400 rounded-lg flex items-center justify-center">
+        <div className="flex items-center gap-2 cursor-pointer group" onClick={() => navigate("/")}>
+          <div className="w-9 h-9 bg-gradient-to-br from-primary to-blue-500 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 transition-transform group-hover:scale-105">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2"
+              strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
               className="w-5 h-5 text-white"
@@ -60,75 +60,77 @@ export default function Header() {
               <polyline points="9 22 9 12 15 12 15 22" />
             </svg>
           </div>
-          <span className="text-xl font-bold bg-gradient-to-r from-primary to-blue-400 bg-clip-text text-transparent hidden md:block">
+          <span className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent hidden md:block tracking-tight">
             IdealStay
           </span>
         </div>
 
-        <div />
-
         {/* User Menu */}
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            className="text-sm font-medium rounded-full hidden md:block"
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            className="text-sm font-medium rounded-full hidden md:block hover:bg-gray-100/80 px-4"
             onClick={() => navigate("/host")}
           >
             List your property
           </Button>
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <Globe className="w-4 h-4" />
+          <Button variant="ghost" size="icon" className="rounded-full hover:bg-gray-100/80">
+            <Globe className="w-4 h-4 text-gray-600" />
           </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
-                className="rounded-full border-gray-200 flex items-center gap-2 px-2 py-1 h-auto hover:shadow-md transition-shadow ml-1"
+                className="rounded-full border-gray-200 flex items-center gap-3 pl-3 pr-2 py-1 h-11 hover:shadow-md transition-all ml-1 bg-white"
               >
-                <Menu className="w-4 h-4" />
-                <Avatar className="w-8 h-8">
+                <Menu className="w-4 h-4 text-gray-600" />
+                <Avatar className="w-8 h-8 border border-gray-100">
                   <AvatarImage src={user?.user_metadata?.avatar_url || "https://github.com/shadcn.png"} />
-                  <AvatarFallback>{user?.email?.[0].toUpperCase() || "G"}</AvatarFallback>
+                  <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                    {user?.email?.[0].toUpperCase() || "G"}
+                  </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-64 p-2 rounded-xl shadow-xl border-gray-100 mt-2">
               {user ? (
                 <>
-                  <DropdownMenuItem className="font-semibold">{user.email}</DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate("/rewards")} className="text-blue-400 font-medium">
+                  <div className="px-2 py-2 mb-2 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-gray-500 font-medium">Signed in as</p>
+                    <p className="text-sm font-semibold truncate">{user.email}</p>
+                  </div>
+                  <DropdownMenuItem onClick={() => navigate("/rewards")} className="text-blue-600 font-medium focus:bg-blue-50 focus:text-blue-700 rounded-lg cursor-pointer">
                     <Trophy className="w-4 h-4 mr-2" />
                     My Rewards
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/trips")}>Trips</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/wishlists")}>Wishlists</DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate("/host")}>Manage listings</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/account")}>Account</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/trips")} className="rounded-lg cursor-pointer">Trips</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/wishlists")} className="rounded-lg cursor-pointer">Wishlists</DropdownMenuItem>
+                  <DropdownMenuSeparator className="my-2" />
+                  <DropdownMenuItem onClick={() => navigate("/host")} className="rounded-lg cursor-pointer">Manage listings</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/account")} className="rounded-lg cursor-pointer">Account</DropdownMenuItem>
                   {isAdmin && (
-                    <DropdownMenuItem onClick={() => navigate("/admin")} className="text-red-500 font-semibold">
+                    <DropdownMenuItem onClick={() => navigate("/admin")} className="text-red-600 font-semibold focus:bg-red-50 focus:text-red-700 rounded-lg cursor-pointer mt-1">
                       Admin Dashboard
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => signOut()}>
+                  <DropdownMenuSeparator className="my-2" />
+                  <DropdownMenuItem onClick={() => signOut()} className="text-gray-500 focus:text-gray-900 rounded-lg cursor-pointer">
                     <LogOut className="w-4 h-4 mr-2" />
                     Log out
                   </DropdownMenuItem>
                 </>
               ) : (
                 <>
-                  <DropdownMenuItem className="font-semibold" onClick={() => handleAuthClick("signup")}>
+                  <DropdownMenuItem className="font-semibold text-base py-3 rounded-lg cursor-pointer" onClick={() => handleAuthClick("signup")}>
                     Sign up
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleAuthClick("login")}>
+                  <DropdownMenuItem className="py-3 rounded-lg cursor-pointer" onClick={() => handleAuthClick("login")}>
                     Log in
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate("/host")}>List your property</DropdownMenuItem>
-                  <DropdownMenuItem>Help Center</DropdownMenuItem>
+                  <DropdownMenuSeparator className="my-2" />
+                  <DropdownMenuItem onClick={() => navigate("/host")} className="rounded-lg cursor-pointer">List your property</DropdownMenuItem>
+                  <DropdownMenuItem className="rounded-lg cursor-pointer">Help Center</DropdownMenuItem>
                 </>
               )}
             </DropdownMenuContent>
@@ -136,9 +138,9 @@ export default function Header() {
         </div>
       </div>
 
-      <AuthModal 
-        isOpen={isAuthModalOpen} 
-        onClose={() => setIsAuthModalOpen(false)} 
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
         defaultView={authView}
       />
     </header>

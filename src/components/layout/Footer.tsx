@@ -3,74 +3,74 @@ import { Facebook, Instagram, Twitter } from "lucide-react";
 
 export default function Footer() {
   return (
-    <footer className="bg-gray-50 border-t border-gray-200 pt-12 pb-8">
-      <div className="container mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
+    <footer className="bg-gray-50 border-t border-gray-200 pt-16 pb-12">
+      <div className="container mx-auto px-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
           <div>
-            <h3 className="font-semibold mb-4">Support</h3>
-            <ul className="space-y-3 text-sm text-gray-600">
-              <li><a href="#" className="hover:underline">Help Center</a></li>
-              <li><a href="#" className="hover:underline">AirCover</a></li>
-              <li><a href="#" className="hover:underline">Anti-discrimination</a></li>
-              <li><a href="#" className="hover:underline">Disability support</a></li>
-              <li><a href="#" className="hover:underline">Cancellation options</a></li>
+            <h3 className="font-bold text-gray-900 mb-6">Support</h3>
+            <ul className="space-y-4 text-sm text-gray-600">
+              <li><a href="#" className="hover:text-gray-900 transition-colors">Help Center</a></li>
+              <li><a href="#" className="hover:text-gray-900 transition-colors">AirCover</a></li>
+              <li><a href="#" className="hover:text-gray-900 transition-colors">Anti-discrimination</a></li>
+              <li><a href="#" className="hover:text-gray-900 transition-colors">Disability support</a></li>
+              <li><a href="#" className="hover:text-gray-900 transition-colors">Cancellation options</a></li>
             </ul>
           </div>
           <div>
-            <h3 className="font-semibold mb-4">Hosting</h3>
-            <ul className="space-y-3 text-sm text-gray-600">
-              <li><a href="#" className="hover:underline">List your home</a></li>
-              <li><a href="#" className="hover:underline">AirCover for Hosts</a></li>
-              <li><a href="#" className="hover:underline">Hosting resources</a></li>
-              <li><a href="#" className="hover:underline">Community forum</a></li>
-              <li><a href="#" className="hover:underline">Hosting responsibly</a></li>
+            <h3 className="font-bold text-gray-900 mb-6">Hosting</h3>
+            <ul className="space-y-4 text-sm text-gray-600">
+              <li><a href="#" className="hover:text-gray-900 transition-colors">List your home</a></li>
+              <li><a href="#" className="hover:text-gray-900 transition-colors">AirCover for Hosts</a></li>
+              <li><a href="#" className="hover:text-gray-900 transition-colors">Hosting resources</a></li>
+              <li><a href="#" className="hover:text-gray-900 transition-colors">Community forum</a></li>
+              <li><a href="#" className="hover:text-gray-900 transition-colors">Hosting responsibly</a></li>
             </ul>
           </div>
           <div>
-            <h3 className="font-semibold mb-4">IdealStay</h3>
-            <ul className="space-y-3 text-sm text-gray-600">
-              <li><a href="#" className="hover:underline">Newsroom</a></li>
-              <li><a href="#" className="hover:underline">New features</a></li>
-              <li><a href="#" className="hover:underline">Careers</a></li>
-              <li><a href="#" className="hover:underline">Investors</a></li>
-              <li><a href="#" className="hover:underline">Gift cards</a></li>
+            <h3 className="font-bold text-gray-900 mb-6">IdealStay</h3>
+            <ul className="space-y-4 text-sm text-gray-600">
+              <li><a href="#" className="hover:text-gray-900 transition-colors">Newsroom</a></li>
+              <li><a href="#" className="hover:text-gray-900 transition-colors">New features</a></li>
+              <li><a href="#" className="hover:text-gray-900 transition-colors">Careers</a></li>
+              <li><a href="#" className="hover:text-gray-900 transition-colors">Investors</a></li>
+              <li><a href="#" className="hover:text-gray-900 transition-colors">Gift cards</a></li>
             </ul>
           </div>
           <div>
-            <h3 className="font-semibold mb-4">South Africa</h3>
-            <ul className="space-y-3 text-sm text-gray-600">
-              <li><a href="#" className="hover:underline">Cape Town</a></li>
-              <li><a href="#" className="hover:underline">Johannesburg</a></li>
-              <li><a href="#" className="hover:underline">Durban</a></li>
-              <li><a href="#" className="hover:underline">Garden Route</a></li>
-              <li><a href="#" className="hover:underline">Kruger Park</a></li>
+            <h3 className="font-bold text-gray-900 mb-6">South Africa</h3>
+            <ul className="space-y-4 text-sm text-gray-600">
+              <li><a href="#" className="hover:text-gray-900 transition-colors">Cape Town</a></li>
+              <li><a href="#" className="hover:text-gray-900 transition-colors">Johannesburg</a></li>
+              <li><a href="#" className="hover:text-gray-900 transition-colors">Durban</a></li>
+              <li><a href="#" className="hover:text-gray-900 transition-colors">Garden Route</a></li>
+              <li><a href="#" className="hover:text-gray-900 transition-colors">Kruger Park</a></li>
             </ul>
           </div>
         </div>
 
-        <div className="border-t border-gray-200 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+        <div className="border-t border-gray-200 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
             <span>© 2024 IdealStay, Inc.</span>
-            <span className="hidden md:inline">·</span>
-            <a href="#" className="hover:underline">Privacy</a>
-            <span className="hidden md:inline">·</span>
-            <a href="#" className="hover:underline">Terms</a>
-            <span className="hidden md:inline">·</span>
-            <a href="#" className="hover:underline">Sitemap</a>
+            <span className="hidden md:inline text-gray-300">·</span>
+            <a href="#" className="hover:text-gray-900 transition-colors">Privacy</a>
+            <span className="hidden md:inline text-gray-300">·</span>
+            <a href="#" className="hover:text-gray-900 transition-colors">Terms</a>
+            <span className="hidden md:inline text-gray-300">·</span>
+            <a href="#" className="hover:text-gray-900 transition-colors">Sitemap</a>
           </div>
 
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2 font-medium text-sm">
+          <div className="flex items-center gap-8">
+            <div className="flex items-center gap-2 font-semibold text-sm text-gray-700 hover:text-gray-900 cursor-pointer">
               <GlobeIcon className="w-4 h-4" />
               <span>English (ZA)</span>
             </div>
-            <div className="flex items-center gap-2 font-medium text-sm">
+            <div className="flex items-center gap-2 font-semibold text-sm text-gray-700 hover:text-gray-900 cursor-pointer">
               <span>ZAR</span>
             </div>
-            <div className="flex items-center gap-4">
-              <a href="#" className="text-gray-600 hover:text-gray-900"><Facebook className="w-5 h-5" /></a>
-              <a href="#" className="text-gray-600 hover:text-gray-900"><Twitter className="w-5 h-5" /></a>
-              <a href="#" className="text-gray-600 hover:text-gray-900"><Instagram className="w-5 h-5" /></a>
+            <div className="flex items-center gap-6">
+              <a href="#" className="text-gray-500 hover:text-gray-900 transition-colors"><Facebook className="w-5 h-5" /></a>
+              <a href="#" className="text-gray-500 hover:text-gray-900 transition-colors"><Twitter className="w-5 h-5" /></a>
+              <a href="#" className="text-gray-500 hover:text-gray-900 transition-colors"><Instagram className="w-5 h-5" /></a>
             </div>
           </div>
         </div>

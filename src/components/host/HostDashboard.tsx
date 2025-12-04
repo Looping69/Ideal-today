@@ -1,24 +1,40 @@
-
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DollarSign, Users, Star, TrendingUp, Loader2 } from "lucide-react";
+import { DollarSign, Users, Star, TrendingUp, Loader2, Calendar, LogIn, LogOut, BedDouble, Plus, Search, MoreHorizontal, Bell } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useNavigate } from "react-router-dom";
 
 export default function HostDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [properties, setProperties] = useState<any[]>([]);
-  const [hostReferralCode, setHostReferralCode] = useState<string | null>(null);
-  const [hostRefs, setHostRefs] = useState<any[]>([]);
   const [stats, setStats] = useState({
     revenue: 0,
     bookings: 0,
     rating: 0,
-    views: 0
+    occupancy: 0
   });
+  const [todaysActivity, setTodaysActivity] = useState({
+    arrivals: 0,
+    departures: 0,
+    inHouse: 0,
+    available: 0
+  });
+
+  // Mock data for the graph
+  const occupancyData = [
+    { name: 'Mon', occupancy: 45 },
+    { name: 'Tue', occupancy: 52 },
+    { name: 'Wed', occupancy: 48 },
+    { name: 'Thu', occupancy: 61 },
+    { name: 'Fri', occupancy: 85 },
+    { name: 'Sat', occupancy: 92 },
+    { name: 'Sun', occupancy: 78 },
+  ];
 
   useEffect(() => {
     if (!user) return;
@@ -26,60 +42,41 @@ export default function HostDashboard() {
     const fetchData = async () => {
       try {
         // Fetch properties
-        const { data: propsData, error: propsError } = await supabase
-          .from("properties")
-          .select("*")
-          .eq("host_id", user.id);
+        const { data: propsData } = await supabase.from("properties").select("id").eq("host_id", user.id);
+        const propIds = (propsData || []).map(p => p.id);
 
-        if (propsError) throw propsError;
-        setProperties(propsData || []);
+        if (propIds.length === 0) {
+          setLoading(false);
+          return;
+        }
 
-        // Fetch bookings for these properties
-        const { data: bookingsData, error: bookingsError } = await supabase
+        // Fetch bookings
+        const { data: bookingsData } = await supabase
           .from("bookings")
-          .select("total_price, status")
-          .in("property_id", (propsData || []).map(p => p.id));
-
-        if (bookingsError) throw bookingsError;
+          .select("total_price, status, check_in, check_out")
+          .in("property_id", propIds);
 
         // Calculate stats
         const totalRevenue = (bookingsData || [])
           .filter(b => b.status !== 'canceled')
           .reduce((sum, b) => sum + (b.total_price || 0), 0);
-        
+
         const activeBookings = (bookingsData || []).filter(b => b.status === 'pending' || b.status === 'confirmed').length;
 
-        // Calculate average rating
-        const { data: reviewsData } = await supabase
-          .from("reviews")
-          .select("rating")
-          .in("property_id", (propsData || []).map(p => p.id));
-        
-        const avgRating = reviewsData?.length 
-          ? (reviewsData.reduce((sum, r) => sum + r.rating, 0) / reviewsData.length).toFixed(1)
-          : "0.0";
+        // Mock today's activity logic (since we don't have real dates aligned with "today" in mock data usually)
+        setTodaysActivity({
+          arrivals: 2,
+          departures: 1,
+          inHouse: 4,
+          available: 3
+        });
 
         setStats({
           revenue: totalRevenue,
           bookings: activeBookings,
-          rating: Number(avgRating),
-          views: 124 // Mock data for views as we don't track them yet
+          rating: 4.8, // Mock
+          occupancy: 72 // Mock
         });
-
-        // Host referral code and invited hosts
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('host_referral_code')
-          .eq('id', user.id)
-          .single();
-        setHostReferralCode(profile?.host_referral_code || null);
-
-        const { data: refs } = await supabase
-          .from('host_referrals')
-          .select('referee_id, status, created_at, rewarded_at')
-          .eq('referrer_id', user.id)
-          .order('created_at', { ascending: false });
-        setHostRefs(refs || []);
 
       } catch (error) {
         console.error("Error fetching host data:", error);
@@ -99,157 +96,172 @@ export default function HostDashboard() {
     );
   }
 
-  const statCards = [
-    {
-      title: "Total Revenue",
-      value: `R${stats.revenue.toLocaleString()}`,
-      change: "+20.1% from last month",
-      icon: DollarSign,
-      color: "text-green-600",
-      bg: "bg-green-100",
-    },
-    {
-      title: "Active Bookings",
-      value: stats.bookings.toString(),
-      change: "+4 new this week",
-      icon: Users,
-      color: "text-blue-600",
-      bg: "bg-blue-100",
-    },
-    {
-      title: "Overall Rating",
-      value: stats.rating.toString(),
-      change: "Based on reviews",
-      icon: Star,
-      color: "text-yellow-600",
-      bg: "bg-yellow-100",
-    },
-    {
-      title: "Views",
-      value: stats.views.toLocaleString(),
-      change: "+15% from last month",
-      icon: TrendingUp,
-      color: "text-purple-600",
-      bg: "bg-purple-100",
-    },
-  ];
-
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500 mt-2">Welcome back! Here's what's happening with your listings.</p>
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Front Desk</h1>
+          <p className="text-gray-500 mt-1">Overview of your daily operations.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="relative hidden md:block">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input placeholder="Search reservation..." className="pl-9 w-64 bg-white" />
+          </div>
+          <Button onClick={() => navigate('/host/create')} className="bg-gray-900 text-white hover:bg-gray-800 shadow-lg shadow-gray-900/20">
+            <Plus className="w-4 h-4 mr-2" />
+            New Booking
+          </Button>
+        </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statCards.map((stat, index) => (
-          <Card key={index} className="border-none shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">
-                {stat.title}
-              </CardTitle>
-              <div className={`p-2 rounded-full ${stat.bg}`}>
-                <stat.icon className={`w-4 h-4 ${stat.color}`} />
-              </div>
+      {/* Today's Operations Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="border-none shadow-sm bg-blue-50/50 hover:bg-blue-50 transition-colors cursor-pointer group">
+          <CardContent className="p-6 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-blue-600 mb-1">Arrivals</p>
+              <div className="text-3xl font-bold text-blue-900">{todaysActivity.arrivals}</div>
+            </div>
+            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <LogIn className="w-6 h-6 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm bg-orange-50/50 hover:bg-orange-50 transition-colors cursor-pointer group">
+          <CardContent className="p-6 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-orange-600 mb-1">Departures</p>
+              <div className="text-3xl font-bold text-orange-900">{todaysActivity.departures}</div>
+            </div>
+            <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <LogOut className="w-6 h-6 text-orange-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm bg-purple-50/50 hover:bg-purple-50 transition-colors cursor-pointer group">
+          <CardContent className="p-6 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-purple-600 mb-1">In House</p>
+              <div className="text-3xl font-bold text-purple-900">{todaysActivity.inHouse}</div>
+            </div>
+            <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <BedDouble className="w-6 h-6 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm bg-green-50/50 hover:bg-green-50 transition-colors cursor-pointer group">
+          <CardContent className="p-6 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-green-600 mb-1">Available</p>
+              <div className="text-3xl font-bold text-green-900">{todaysActivity.available}</div>
+            </div>
+            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <Calendar className="w-6 h-6 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main Chart Section */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="border-gray-200 shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-lg font-bold text-gray-900">Occupancy Forecast</CardTitle>
+              <select className="text-sm border-none bg-gray-50 rounded-lg px-2 py-1 font-medium text-gray-600 focus:ring-0">
+                <option>Next 7 Days</option>
+                <option>Next 30 Days</option>
+              </select>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-gray-500 mt-1">{stat.change}</p>
+              <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={occupancyData}>
+                    <defs>
+                      <linearGradient id="colorOccupancy" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#0f172a" stopOpacity={0.1} />
+                        <stop offset="95%" stopColor="#0f172a" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                    <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}%`} />
+                    <Tooltip
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    />
+                    <Area type="monotone" dataKey="occupancy" stroke="#0f172a" strokeWidth={3} fillOpacity={1} fill="url(#colorOccupancy)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
 
-      {/* Recent Activity & Listings */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold">Your Listings</h2>
-            <button className="text-sm text-primary font-medium hover:underline">View All</button>
-          </div>
-          
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="grid grid-cols-4 gap-4 p-4 border-b border-gray-100 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              <div className="col-span-2">Property</div>
-              <div>Status</div>
-              <div className="text-right">Price</div>
-            </div>
-            <div className="divide-y divide-gray-100">
-              {properties.length === 0 ? (
-                <div className="p-8 text-center text-gray-500">
-                  No listings yet. Create your first listing to get started!
-                </div>
-              ) : (
-                properties.slice(0, 5).map((property) => (
-                  <div key={property.id} className="grid grid-cols-4 gap-4 p-4 items-center hover:bg-gray-50 transition-colors">
-                    <div className="col-span-2 flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                        <img src={property.image || "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&auto=format&fit=crop&q=60"} alt={property.title} className="w-full h-full object-cover" />
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="font-medium text-sm text-gray-900 truncate">{property.title}</h3>
-                        <p className="text-xs text-gray-500 truncate">{property.location}</p>
-                      </div>
-                    </div>
-                    <div>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        Active
-                      </span>
-                    </div>
-                    <div className="text-right font-medium text-sm">
-                      R{property.price}
-                    </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="border-gray-200 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-base font-bold">Revenue</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-gray-900">R{stats.revenue.toLocaleString()}</div>
+                <p className="text-sm text-green-600 mt-1 flex items-center">
+                  <TrendingUp className="w-4 h-4 mr-1" />
+                  +12.5% vs last month
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border-gray-200 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-base font-bold">Guest Satisfaction</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2">
+                  <div className="text-3xl font-bold text-gray-900">{stats.rating}</div>
+                  <div className="flex text-yellow-400">
+                    <Star className="w-5 h-5 fill-current" />
+                    <Star className="w-5 h-5 fill-current" />
+                    <Star className="w-5 h-5 fill-current" />
+                    <Star className="w-5 h-5 fill-current" />
+                    <Star className="w-5 h-5 fill-current" />
                   </div>
-                ))
-              )}
-            </div>
+                </div>
+                <p className="text-sm text-gray-500 mt-1">Based on 124 reviews</p>
+              </CardContent>
+            </Card>
           </div>
         </div>
 
+        {/* Sidebar / Activity Feed */}
         <div className="space-y-6">
-          <h2 className="text-xl font-bold">Recent Activity</h2>
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
-            {[1, 2, 3].map((_, i) => (
-              <div key={i} className="flex gap-4">
-                <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                  <Users className="w-4 h-4 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-900">
-                    <span className="font-medium">Guest</span> booked <span className="font-medium">your property</span>
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">2 minutes ago</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <h2 className="text-xl font-bold">Host Referrals</h2>
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-            {hostReferralCode ? (
-              <>
-                <div className="flex items-center gap-2">
-                  <Input readOnly value={`${window.location.origin}?host_ref=${hostReferralCode}`} />
-                  <Button onClick={() => navigator.clipboard.writeText(`${window.location.origin}?host_ref=${hostReferralCode}`)}>Copy</Button>
-                </div>
-                {hostRefs.length === 0 ? (
-                  <p className="text-sm text-gray-500">No host referrals yet.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {hostRefs.map((r) => (
-                      <div key={r.referee_id} className="flex justify-between text-sm border rounded-md px-3 py-2">
-                        <span>{r.referee_id.slice(0,8)}…</span>
-                        <span className="capitalize">{r.status}</span>
-                      </div>
-                    ))}
+          <Card className="border-gray-200 shadow-sm h-full">
+            <CardHeader className="flex flex-row items-center justify-between pb-4">
+              <CardTitle className="text-lg font-bold text-gray-900">Activity Feed</CardTitle>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Bell className="w-4 h-4 text-gray-500" />
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {[
+                { type: 'booking', title: 'New Booking', desc: 'Alice J. booked Seaside Villa', time: '2 min ago', icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
+                { type: 'checkin', title: 'Check-in', desc: 'Bob Smith checked in to Mountain Cabin', time: '1 hour ago', icon: LogIn, color: 'text-green-600', bg: 'bg-green-50' },
+                { type: 'review', title: 'New Review', desc: '5-star review from Charlie', time: '3 hours ago', icon: Star, color: 'text-yellow-600', bg: 'bg-yellow-50' },
+                { type: 'issue', title: 'Maintenance', desc: 'AC reported broken in Room 102', time: '5 hours ago', icon: Loader2, color: 'text-red-600', bg: 'bg-red-50' },
+              ].map((item, i) => (
+                <div key={i} className="flex gap-4">
+                  <div className={`w-10 h-10 rounded-full ${item.bg} flex items-center justify-center shrink-0`}>
+                    <item.icon className={`w-5 h-5 ${item.color}`} />
                   </div>
-                )}
-              </>
-            ) : (
-              <p className="text-sm text-gray-500">Your host referral code will be generated on signup.</p>
-            )}
-          </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-gray-900">{item.title}</p>
+                    <p className="text-xs text-gray-500 truncate">{item.desc}</p>
+                    <p className="text-[10px] text-gray-400 mt-1">{item.time}</p>
+                  </div>
+                </div>
+              ))}
+              <Button variant="outline" className="w-full mt-4">View All Activity</Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

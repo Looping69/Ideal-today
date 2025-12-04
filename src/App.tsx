@@ -13,7 +13,11 @@ import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
 
 const HostListings = lazy(() => import("./components/host/HostListings"));
+const HostBookings = lazy(() => import("./components/host/HostBookings"));
 const HostSettings = lazy(() => import("./components/host/HostSettings"));
+const HostGuests = lazy(() => import("./components/host/HostGuests"));
+const HostOperations = lazy(() => import("./components/host/HostOperations"));
+const HostReports = lazy(() => import("./components/host/HostReports"));
 
 const HostCalendar = lazy(() => import("./components/host/HostCalendar"));
 const InboxPage = lazy(() => import("./components/inbox/InboxPage"));
@@ -80,13 +84,7 @@ function App() {
               </div>
             } />
 
-            <Route path="/admin" element={
-              <div className="min-h-screen bg-white flex flex-col">
-                <Header />
-                <AdminLayout />
-                <Footer />
-              </div>
-            }>
+            <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminOverview />} />
               <Route path="users" element={<AdminUsers />} />
               <Route path="listings" element={<AdminListings />} />
@@ -102,7 +100,11 @@ function App() {
               <Route index element={<HostDashboard />} />
               <Route path="create" element={<CreateListing />} />
               <Route path="listings" element={<HostListings />} />
+              <Route path="bookings" element={<HostBookings />} />
               <Route path="calendar" element={<HostCalendar />} />
+              <Route path="guests" element={<HostGuests />} />
+              <Route path="operations" element={<HostOperations />} />
+              <Route path="reports" element={<HostReports />} />
               <Route path="inbox" element={<HostInbox />} />
               <Route path="inbox/:bookingId" element={<HostInbox />} />
               <Route path="settings" element={<HostSettings />} />

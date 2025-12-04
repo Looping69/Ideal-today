@@ -23,60 +23,85 @@ function Home() {
   const [chatActive, setChatActive] = useState(false);
   const [chatSeed, setChatSeed] = useState<string | undefined>(undefined);
 
-  useEffect(() => {
-    const fetchProperties = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('properties')
-          .select(`
-            *,
-            host:profiles!properties_host_id_fkey(full_name, avatar_url, created_at)
-          `);
-        
-        if (error) {
-          console.error('Error fetching properties:', error);
-          return;
-        }
+  // Pagination state
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const PAGE_SIZE = 12;
 
-        if (data) {
-          const mappedProperties: Property[] = data.map((p: any) => ({
-            id: p.id,
-            title: p.title,
-            location: p.location,
-            province: p.province || undefined,
-            price: p.price,
-            rating: p.rating,
-            reviews: p.reviews_count,
-            image: p.image,
-            images: p.images || [],
-            type: p.type,
-            amenities: p.amenities || [],
-            guests: p.guests,
-            bedrooms: p.bedrooms,
-            bathrooms: p.bathrooms,
-            description: p.description,
-            host: {
-              name: p.host?.full_name || 'Unknown Host',
-              image: p.host?.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Unknown',
-              joined: p.host?.created_at ? new Date(p.host.created_at).getFullYear().toString() : '2024'
-            },
-            coordinates: {
-              lat: p.latitude || 0,
-              lng: p.longitude || 0
-            }
-          }));
+  const fetchProperties = async (pageNumber: number) => {
+    try {
+      const from = pageNumber * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      const { data, error } = await supabase
+        .from('properties')
+        .select(`
+          *,
+          host:profiles!properties_host_id_fkey(full_name, avatar_url, created_at)
+        `)
+        .range(from, to);
+
+      if (error) {
+        console.error('Error fetching properties:', error);
+        return;
+      }
+
+      if (data) {
+        const mappedProperties: Property[] = data.map((p: any) => ({
+          id: p.id,
+          title: p.title,
+          location: p.location,
+          province: p.province || undefined,
+          price: p.price,
+          rating: p.rating,
+          reviews: p.reviews_count,
+          image: p.image,
+          images: p.images || [],
+          type: p.type,
+          amenities: p.amenities || [],
+          guests: p.guests,
+          bedrooms: p.bedrooms,
+          bathrooms: p.bathrooms,
+          description: p.description,
+          host: {
+            name: p.host?.full_name || 'Unknown Host',
+            image: p.host?.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Unknown',
+            joined: p.host?.created_at ? new Date(p.host.created_at).getFullYear().toString() : '2024'
+          },
+          coordinates: {
+            lat: p.latitude || 0,
+            lng: p.longitude || 0
+          }
+        }));
+
+        if (pageNumber === 0) {
           setProperties(mappedProperties);
           setFilteredProperties(mappedProperties);
+        } else {
+          setProperties(prev => [...prev, ...mappedProperties]);
+          setFilteredProperties(prev => [...prev, ...mappedProperties]);
         }
-      } catch (error) {
-        console.error('Error:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
 
-    fetchProperties();
+        if (data.length < PAGE_SIZE) {
+          setHasMore(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProperties(0);
   }, []);
+
+  const loadMore = () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    fetchProperties(nextPage);
+  };
 
   const handlePropertyClick = (property: Property) => {
     setSelectedProperty(property);
@@ -92,13 +117,13 @@ function Home() {
         const amenityMatch = p.amenities.some(a => a.toLowerCase().includes(category.toLowerCase()));
         const locationMatch = p.location.toLowerCase().includes(category.toLowerCase());
         const provinceMatch = p.province ? p.province.toLowerCase().includes(category.replace('-', ' ').toLowerCase()) : false;
-        
+
         if (category === "beach") return p.location.toLowerCase().includes("camps bay") || p.location.toLowerCase().includes("umhlanga");
         if (category === "safari") return p.location.toLowerCase().includes("kruger");
         if (category === "winelands") return p.location.toLowerCase().includes("franschhoek");
         if (category === "city") return p.location.toLowerCase().includes("johannesburg") || p.location.toLowerCase().includes("cape town");
-        if (["western-cape","eastern-cape","northern-cape","gauteng","kwazulu-natal","free-state","north-west","mpumalanga","limpopo"].includes(category)) return provinceMatch;
-        
+        if (["western-cape", "eastern-cape", "northern-cape", "gauteng", "kwazulu-natal", "free-state", "north-west", "mpumalanga", "limpopo"].includes(category)) return provinceMatch;
+
         return typeMatch || amenityMatch || locationMatch;
       });
       setFilteredProperties(filtered);
@@ -132,7 +157,7 @@ function Home() {
           }
         });
         arr = arr.filter(p => !unavailable.has(p.id));
-      } catch {}
+      } catch { }
     }
     setFilteredProperties(arr);
   };
@@ -151,7 +176,7 @@ function Home() {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       <Header />
-      
+
       <main className="flex-1 pt-24 pb-12">
         <div className="container mx-auto px-4">
           {/* Hero Search - Only visible on larger screens or when needed */}
@@ -160,9 +185,9 @@ function Home() {
           </div>
 
           <FilterBar onFilterChange={handleFilterChange} />
-          
+
           <div className="mt-6">
-            {loading ? (
+            {loading && page === 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-10 pb-20">
                 {[...Array(8)].map((_, i) => (
                   <div key={i} className="flex flex-col space-y-3">
@@ -176,17 +201,33 @@ function Home() {
               </div>
             ) : showMap ? (
               <div className="h-[600px] rounded-xl overflow-hidden border border-gray-200 shadow-sm">
-                <PropertyMap 
-                  properties={filteredProperties} 
+                <PropertyMap
+                  properties={filteredProperties}
                   onPropertyClick={handlePropertyClick}
-                  apiKey="AIzaSyA3LjUTBfGCrwazlqatey_UsoJnl0lj-B4"
+                  apiKey={import.meta.env.VITE_GOOGLE_MAPS_KEY}
                 />
               </div>
             ) : (
-              <PropertyGrid 
-                properties={filteredProperties} 
-                onPropertyClick={handlePropertyClick} 
-              />
+              <>
+                <PropertyGrid
+                  properties={filteredProperties}
+                  onPropertyClick={handlePropertyClick}
+                />
+
+                {/* Load More Button */}
+                {hasMore && !loading && (
+                  <div className="mt-12 flex justify-center">
+                    <Button
+                      onClick={loadMore}
+                      variant="outline"
+                      size="lg"
+                      className="min-w-[200px]"
+                    >
+                      {loading ? 'Loading...' : 'Load More'}
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -194,7 +235,7 @@ function Home() {
 
       {/* Floating Map/List Toggle Button */}
       <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-30">
-        <Button 
+        <Button
           onClick={() => setShowMap(!showMap)}
           className="rounded-full bg-gradient-to-r from-primary to-blue-400 text-white hover:opacity-90 px-6 py-6 shadow-xl flex items-center gap-2 transition-transform hover:scale-105"
         >
@@ -214,10 +255,10 @@ function Home() {
 
       <Footer />
 
-      <PropertyDetails 
-        property={selectedProperty} 
-        isOpen={isDetailsOpen} 
-        onClose={() => setIsDetailsOpen(false)} 
+      <PropertyDetails
+        property={selectedProperty}
+        isOpen={isDetailsOpen}
+        onClose={() => setIsDetailsOpen(false)}
       />
     </div>
   );
