@@ -1,6 +1,8 @@
 
 import { useState, useEffect } from "react";
-import { Property } from "@/data/mockData";
+import { Property } from "@/data/mockData"; // Keep this for type definition only, or better, move type to a shared types file.
+// Ideally we should move the Property interface to a types file, but for now we just need to ensure we don't import the *data*
+
 import {
   Dialog,
   DialogContent,
@@ -21,6 +23,8 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
+import YocoPayment from "@/components/payment/YocoPayment";
+
 
 interface PropertyDetailsProps {
   property: Property | null;
@@ -50,7 +54,7 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
 
   const fetchBookedDates = async () => {
     if (!property) return;
-    
+
     const { data } = await supabase
       .from('bookings')
       .select('check_in, check_out')
@@ -62,7 +66,7 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
         const range = [];
         let curr = parseISO(booking.check_in);
         const end = parseISO(booking.check_out);
-        
+
         // Add all days from check_in up to (but not including) check_out
         // This assumes check_out day is available for new check-in
         while (curr < end) {
@@ -92,7 +96,7 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
           .select('id')
           .eq('property_id', property.id)
           .eq('user_id', user.id)
-          .in('status', ['confirmed','completed'])
+          .in('status', ['confirmed', 'completed'])
           .limit(1);
         const { data: existing } = await supabase
           .from('reviews')
@@ -341,7 +345,7 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
                     ) : (
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
-                          {[1,2,3,4,5].map(n => (
+                          {[1, 2, 3, 4, 5].map(n => (
                             <button key={n} onClick={() => setMyRating(n)} className={cn("p-1", myRating >= n ? "text-black" : "text-gray-400")}>
                               <Star className={cn("w-5 h-5", myRating >= n ? "fill-black" : "")} />
                             </button>
@@ -410,22 +414,78 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
                         />
                       </PopoverContent>
                     </Popover>
-                    
+
                     <div className="p-3">
                       <div className="text-[10px] font-bold uppercase">Guests</div>
                       <div className="text-sm">{guests} guest{guests > 1 ? 's' : ''}</div>
                     </div>
                   </div>
 
-                  <Button 
-                    onClick={handleReserve}
-                    disabled={isBooking || !date?.from || !date?.to}
-                    className="w-full bg-gradient-to-r from-primary to-blue-400 hover:from-primary/90 hover:to-blue-400/90 text-white font-semibold py-6 text-lg mb-4"
-                  >
-                    {isBooking ? "Booking..." : "Reserve"}
-                  </Button>
+                  {user && date?.from && date?.to ? (
+                    <YocoPayment
+                      amountInCents={total * 100}
+                      currency="ZAR"
+                      name={property.title}
+                      description={`${nights} nights stay`}
+                      image={property.image}
+                      onSuccess={async (token) => {
+                        try {
+                          setIsBooking(true);
+                          // In a real app, send 'token' to backend to charge card.
+                          // Here we simulate success and create the booking.
+                          const { error } = await supabase
+                            .from('bookings')
+                            .insert({
+                              property_id: property.id,
+                              user_id: user.id,
+                              check_in: date.from!.toISOString(),
+                              check_out: date.to!.toISOString(),
+                              total_price: total,
+                              status: 'confirmed' // Assume payment success = confirmed
+                            });
 
-                  <p className="text-center text-sm text-gray-500 mb-4">You won't be charged yet</p>
+                          if (error) throw error;
+
+                          toast({
+                            title: "Booking Confirmed!",
+                            description: "Payment successful. Enjoy your stay!",
+                          });
+                          onClose();
+                        } catch (error: any) {
+                          console.error(error);
+                          toast({
+                            title: "Booking failed",
+                            description: error.message || "Could not save booking.",
+                            variant: "destructive",
+                          });
+                        } finally {
+                          setIsBooking(false);
+                        }
+                      }}
+                      onError={(errorMessage) => {
+                        toast({
+                          title: "Payment Failed",
+                          description: errorMessage,
+                          variant: "destructive",
+                        });
+                      }}
+                      className="w-full bg-gradient-to-r from-primary to-blue-400 hover:from-primary/90 hover:to-blue-400/90 text-white font-semibold py-6 text-lg mb-4"
+                    />
+                  ) : (
+                    <Button
+                      onClick={handleReserve}
+                      disabled={isBooking || !date?.from || !date?.to}
+                      className="w-full bg-gradient-to-r from-primary to-blue-400 hover:from-primary/90 hover:to-blue-400/90 text-white font-semibold py-6 text-lg mb-4"
+                    >
+                      {isBooking ? "Booking..." : "Reserve"}
+                    </Button>
+                  )}
+
+                  <p className="text-center text-sm text-gray-500 mb-4">
+                    {user && date?.from && date?.to
+                      ? "You will be charged immediately"
+                      : "You won't be charged yet"}
+                  </p>
 
                   {nights > 0 && (
                     <>

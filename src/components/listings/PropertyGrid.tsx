@@ -1,5 +1,6 @@
 
-import { Property } from "@/data/mockData";
+import { Property } from "@/data/mockData"; // Keep for type definition
+
 import PropertyCard from "./PropertyCard";
 
 interface PropertyGridProps {

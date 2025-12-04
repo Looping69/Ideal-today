@@ -52,8 +52,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
                 if (error) throw error;
                 setNotifications(data || []);
-            } catch (error) {
+            } catch (error: any) {
                 console.error('Error fetching notifications:', error);
+                if (error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+                    // Silent failure for missing table to avoid spamming toasts on every page load
+                    // The admin settings page will warn about missing tables
+                    console.warn('Notifications table missing. Please run migration.');
+                }
             } finally {
                 setLoading(false);
             }

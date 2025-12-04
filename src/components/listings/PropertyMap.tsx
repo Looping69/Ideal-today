@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { Property } from "@/data/mockData";
+import { Property } from "@/data/mockData"; // Keep for type definition
+
 import { Button } from "@/components/ui/button";
 import { Star } from "lucide-react";
 import L from "leaflet";
@@ -58,7 +59,7 @@ export default function PropertyMap({ properties = [], onPropertyClick }: Proper
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        
+
         <MapController properties={properties} />
 
         {(properties || []).map((property) => (
@@ -86,8 +87,8 @@ export default function PropertyMap({ properties = [], onPropertyClick }: Proper
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-sm">R{property.price} <span className="font-normal text-gray-500">/ night</span></span>
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     className="h-7 text-xs"
                     onClick={() => onPropertyClick(property)}
                   >

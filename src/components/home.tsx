@@ -5,7 +5,6 @@ import FilterBar from "./listings/FilterBar";
 import PropertyGrid from "./listings/PropertyGrid";
 import PropertyDetails from "./listings/PropertyDetails";
 import SearchFilterBar from "./search/SearchFilterBar";
-import AIChatPanel from "./ai/AIChatPanel";
 import PropertyMap from "./listings/PropertyMap";
 import { Property } from "@/data/mockData";
 import { Map, List } from "lucide-react";
@@ -53,9 +52,9 @@ function Home() {
           location: p.location,
           province: p.province || undefined,
           price: p.price,
-          rating: p.rating,
-          reviews: p.reviews_count,
-          image: p.image,
+          rating: p.rating || 0,
+          reviews: p.reviews_count || 0,
+          image: p.image || p.images?.[0] || 'https://images.unsplash.com/photo-1600596542815-27b88e54e621?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
           images: p.images || [],
           type: p.type,
           amenities: p.amenities || [],

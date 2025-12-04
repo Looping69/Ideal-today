@@ -3,9 +3,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Bell, Shield, Mail, Globe, Database, Save, DollarSign } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Bell, Shield, Mail, Globe, Database, Save, DollarSign, Copy, Check } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
+import { SETUP_SQL } from '@/lib/setup_sql';
 
 export default function AdminSettings() {
   const [loading, setLoading] = useState(false);
@@ -18,8 +28,19 @@ export default function AdminSettings() {
     require_email_verification: true,
     enable_2fa: true,
     maintenance_mode: false,
-    service_fee_percent: 10
+    service_fee_percent: 10,
+    welcome_email_template: '',
+    booking_confirmation_template: ''
   });
+
+  const [editingTemplate, setEditingTemplate] = useState<{
+    key: 'welcome_email_template' | 'booking_confirmation_template';
+    title: string;
+    value: string;
+  } | null>(null);
+
+  const [showSetupSql, setShowSetupSql] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -41,16 +62,27 @@ export default function AdminSettings() {
           require_email_verification: data.require_email_verification ?? true,
           enable_2fa: data.enable_2fa ?? true,
           maintenance_mode: data.maintenance_mode ?? false,
-          service_fee_percent: data.service_fee_percent ?? 10
+          service_fee_percent: data.service_fee_percent ?? 10,
+          welcome_email_template: data.welcome_email_template || '',
+          booking_confirmation_template: data.booking_confirmation_template || ''
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching settings:', error);
-      toast({
-        variant: "destructive",
-        title: "Error loading settings",
-        description: "Could not load platform settings.",
-      });
+      if (error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+        setShowSetupSql(true);
+        toast({
+          variant: "destructive",
+          title: "Database Setup Required",
+          description: "Required tables are missing. Click 'Database Setup' to view the SQL.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error loading settings",
+          description: "Could not load platform settings.",
+        });
+      }
     } finally {
       setFetching(false);
     }
@@ -70,15 +102,31 @@ export default function AdminSettings() {
         title: "Settings saved",
         description: "Platform settings have been updated successfully.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving settings:', error);
-      toast({
-        variant: "destructive",
-        title: "Error saving settings",
-        description: "Could not save changes. Please try again.",
-      });
+      if (error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+        setShowSetupSql(true);
+        toast({
+          variant: "destructive",
+          title: "Database Setup Required",
+          description: "The admin_settings table is missing. Please run the migration SQL.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error saving settings",
+          description: "Could not save changes. Please try again.",
+        });
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTemplateSave = () => {
+    if (editingTemplate) {
+      setSettings({ ...settings, [editingTemplate.key]: editingTemplate.value });
+      setEditingTemplate(null);
     }
   };
 
@@ -93,10 +141,18 @@ export default function AdminSettings() {
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Platform Settings</h1>
           <p className="text-gray-500 text-sm mt-1">Configure global application settings and preferences.</p>
         </div>
-        <Button onClick={handleSave} disabled={loading} className="bg-gray-900 text-white hover:bg-gray-800">
-          <Save className="w-4 h-4 mr-2" />
-          {loading ? 'Saving...' : 'Save Changes'}
-        </Button>
+        <div className="flex gap-2">
+          {showSetupSql && (
+            <Button onClick={() => setShowSetupSql(true)} variant="destructive">
+              <Database className="w-4 h-4 mr-2" />
+              Database Setup
+            </Button>
+          )}
+          <Button onClick={handleSave} disabled={loading} className="bg-gray-900 text-white hover:bg-gray-800">
+            <Save className="w-4 h-4 mr-2" />
+            {loading ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -215,14 +271,34 @@ export default function AdminSettings() {
                   <div className="font-medium text-gray-900">Welcome Email</div>
                   <div className="text-xs text-gray-500">Sent when a new user registers</div>
                 </div>
-                <Button variant="outline" size="sm">Edit Template</Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditingTemplate({
+                    key: 'welcome_email_template',
+                    title: 'Welcome Email Template',
+                    value: settings.welcome_email_template
+                  })}
+                >
+                  Edit Template
+                </Button>
               </div>
               <div className="flex items-center justify-between p-3 border rounded-xl hover:bg-gray-50 transition-colors cursor-pointer">
                 <div>
                   <div className="font-medium text-gray-900">Booking Confirmation</div>
                   <div className="text-xs text-gray-500">Sent when a booking is confirmed</div>
                 </div>
-                <Button variant="outline" size="sm">Edit Template</Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditingTemplate({
+                    key: 'booking_confirmation_template',
+                    title: 'Booking Confirmation Template',
+                    value: settings.booking_confirmation_template
+                  })}
+                >
+                  Edit Template
+                </Button>
               </div>
             </div>
           </div>
@@ -292,6 +368,61 @@ export default function AdminSettings() {
           </div>
         </div>
       </div>
+
+      <Dialog open={!!editingTemplate} onOpenChange={(open) => !open && setEditingTemplate(null)}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>{editingTemplate?.title}</DialogTitle>
+            <DialogDescription>
+              Edit the email template content below.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Textarea
+              value={editingTemplate?.value || ''}
+              onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, value: e.target.value } : null)}
+              className="h-[200px]"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingTemplate(null)}>Cancel</Button>
+            <Button onClick={handleTemplateSave}>Update Template</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSetupSql} onOpenChange={setShowSetupSql}>
+        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Database Setup Required</DialogTitle>
+            <DialogDescription>
+              The required tables (admin_settings, notifications) are missing from your Supabase database.
+              Please copy the SQL below and run it in your Supabase SQL Editor.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 border rounded-md bg-slate-950 p-4 overflow-auto relative group">
+            <Button
+              size="icon"
+              variant="secondary"
+              className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => {
+                navigator.clipboard.writeText(SETUP_SQL);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+                toast({ title: "Copied to clipboard" });
+              }}
+            >
+              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            </Button>
+            <pre className="text-xs font-mono text-slate-50 whitespace-pre-wrap">
+              {SETUP_SQL}
+            </pre>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowSetupSql(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
