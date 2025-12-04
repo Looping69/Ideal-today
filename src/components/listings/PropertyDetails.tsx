@@ -24,6 +24,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
 import YocoPayment from "@/components/payment/YocoPayment";
+import { sendEmail } from "@/lib/email";
+
 
 
 interface PropertyDetailsProps {
@@ -446,9 +448,26 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
 
                           if (error) throw error;
 
+                          // Send confirmation email
+                          await sendEmail(
+                            user.email || 'guest@example.com',
+                            'Booking Confirmation - Ideal Stay',
+                            `
+                              <h1>Booking Confirmed!</h1>
+                              <p>Hi there,</p>
+                              <p>Your booking at <strong>${property.title}</strong> has been confirmed.</p>
+                              <p><strong>Check-in:</strong> ${format(date.from!, 'dd MMM yyyy')}</p>
+                              <p><strong>Check-out:</strong> ${format(date.to!, 'dd MMM yyyy')}</p>
+                              <p><strong>Total Paid:</strong> R${total}</p>
+                              <br/>
+                              <p>Enjoy your stay!</p>
+                              <p>The Ideal Stay Team</p>
+                            `
+                          );
+
                           toast({
                             title: "Booking Confirmed!",
-                            description: "Payment successful. Enjoy your stay!",
+                            description: "Payment successful. Confirmation email sent.",
                           });
                           onClose();
                         } catch (error: any) {
