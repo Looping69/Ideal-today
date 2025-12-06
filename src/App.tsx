@@ -36,7 +36,21 @@ const AdminRewards = lazy(() => import("./components/admin/AdminRewards"));
 const AdminSettings = lazy(() => import("./components/admin/AdminSettings"));
 const AdminNotifications = lazy(() => import("./components/admin/AdminNotifications"));
 
+import DevelopmentLanding from "./components/DevelopmentLanding";
+import { useState } from "react";
+
 function App() {
+  const [hasEntered, setHasEntered] = useState(() => {
+    return sessionStorage.getItem("hasEnteredPreview") === "true";
+  });
+
+  if (!hasEntered) {
+    return <DevelopmentLanding onEnter={() => {
+      sessionStorage.setItem("hasEnteredPreview", "true");
+      setHasEntered(true);
+    }} />;
+  }
+
   return (
     <AuthProvider>
       <NotificationProvider>
