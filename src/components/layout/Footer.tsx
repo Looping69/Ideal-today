@@ -1,9 +1,10 @@
 
 import { Facebook, Instagram, Twitter } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export default function Footer() {
   return (
-    <footer className="bg-gray-50 border-t border-gray-200 pt-16 pb-12">
+    <footer className="bg-gray-50 border-t border-gray-200 pt-16 pb-12 relative z-40">
       <div className="container mx-auto px-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
           <div>
@@ -52,9 +53,17 @@ export default function Footer() {
           <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
             <span>© 2024 IdealStay, Inc.</span>
             <span className="hidden md:inline text-gray-300">·</span>
-            <a href="#" className="hover:text-gray-900 transition-colors">Privacy</a>
+            <Link to="/privacy" className="hover:text-gray-900 transition-colors">Privacy</Link>
             <span className="hidden md:inline text-gray-300">·</span>
-            <a href="#" className="hover:text-gray-900 transition-colors">Terms</a>
+            <Link to="/terms-of-service" className="hover:text-gray-900 transition-colors">Terms</Link>
+            <span className="hidden md:inline text-gray-300">·</span>
+            <Link to="/host-agreement" className="hover:text-gray-900 transition-colors">Host Agreement</Link>
+            <span className="hidden md:inline text-gray-300">·</span>
+            <Link to="/guest-agreement" className="hover:text-gray-900 transition-colors">Guest Agreement</Link>
+            <span className="hidden md:inline text-gray-300">·</span>
+            <Link to="/liability-waiver" className="hover:text-gray-900 transition-colors">Liability Waiver</Link>
+            <span className="hidden md:inline text-gray-300">·</span>
+            <Link to="/cancellation-policy" className="hover:text-gray-900 transition-colors">Cancellation Policy</Link>
             <span className="hidden md:inline text-gray-300">·</span>
             <a href="#" className="hover:text-gray-900 transition-colors">Sitemap</a>
           </div>

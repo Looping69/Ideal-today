@@ -12,6 +12,7 @@ import { NotificationProvider } from "./contexts/NotificationContext";
 import { Toaster } from "./components/ui/toaster";
 import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
+import { Analytics } from "@vercel/analytics/react";
 
 const HostListings = lazy(() => import("./components/host/HostListings"));
 const HostBookings = lazy(() => import("./components/host/HostBookings"));
@@ -25,6 +26,12 @@ const HostCalendar = lazy(() => import("./components/host/HostCalendar"));
 const InboxPage = lazy(() => import("./components/inbox/InboxPage"));
 const HostInbox = lazy(() => import("./components/host/HostInbox"));
 const AccountPage = lazy(() => import("./components/account/AccountPage"));
+const TermsOfService = lazy(() => import("./components/legal/TermsOfService"));
+const HostAgreement = lazy(() => import("./components/legal/HostAgreement"));
+const GuestAgreement = lazy(() => import("./components/legal/GuestAgreement"));
+const LiabilityWaiver = lazy(() => import("./components/legal/LiabilityWaiver"));
+const CancellationPolicy = lazy(() => import("./components/legal/CancellationPolicy"));
+const PrivacyPolicy = lazy(() => import("./components/legal/PrivacyPolicy"));
 const AdminLayout = lazy(() => import("./components/admin/AdminLayout"));
 const AdminOverview = lazy(() => import("./components/admin/AdminOverview"));
 const AdminUsers = lazy(() => import("./components/admin/AdminUsers"));
@@ -94,6 +101,7 @@ function App() {
                 </div>
               } />
 
+
               <Route path="/account" element={
                 <div className="min-h-screen bg-white flex flex-col">
                   <Header />
@@ -101,6 +109,14 @@ function App() {
                   <Footer />
                 </div>
               } />
+
+              <Route path="/terms-of-service" element={<TermsOfService />} />
+              <Route path="/host-agreement" element={<HostAgreement />} />
+              <Route path="/guest-agreement" element={<GuestAgreement />} />
+              <Route path="/liability-waiver" element={<LiabilityWaiver />} />
+              <Route path="/cancellation-policy" element={<CancellationPolicy />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+
 
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<AdminOverview />} />
@@ -133,6 +149,7 @@ function App() {
           </>
         </Suspense>
         <Toaster />
+        <Analytics />
       </NotificationProvider>
     </AuthProvider>
   );
