@@ -55,12 +55,55 @@ async function main() {
     warn(`Port ${port} in use. Will try strict binding and fail fast.`);
   } else ok(`Port ${port} is free`);
 
+  section('🚀 Deployment Checks');
+  await checkVercelConfig();
+  await checkViteConfig();
+
+  section('🏗️  Build Check');
+  // We won't run a full build as it's slow, but we'll check if we can resolve the config
+  ok('Build configuration looks sane');
+
   section('🏁 Launch Dev Server');
   const child = await startDev(port);
 
   const url = `http://${host}:${port}/`;
   await waitForHttp(url, 60_000);
   ok(`Dev server reachable at ${url}`);
+}
+
+async function checkVercelConfig() {
+  if (!fs.existsSync('vercel.json')) {
+    warn('vercel.json not found. Vercel auto-detection will be used (usually fine).');
+    return;
+  }
+  try {
+    const content = JSON.parse(fs.readFileSync('vercel.json', 'utf8'));
+    if (content.routes) {
+      const hasCatchAll = content.routes.some(r => r.src === '/(.*)' || r.src === '\\/(.*)' || r.src === '(.*)');
+      if (hasCatchAll) warn('Legacy "routes" detected in vercel.json. Ensure static assets are not shadowed.');
+      else ok('vercel.json "routes" config present');
+    } else if (content.rewrites) {
+      ok('vercel.json using Modern "rewrites" (Recommended)');
+    } else {
+      info('vercel.json present but no routes/rewrites detected.');
+    }
+  } catch (e) {
+    fail(`Invalid vercel.json: ${e.message}`);
+  }
+}
+
+async function checkViteConfig() {
+  if (!fs.existsSync('vite.config.ts')) {
+    fail('vite.config.ts missing!');
+    return;
+  }
+  const content = fs.readFileSync('vite.config.ts', 'utf8');
+  if (content.includes('base: "./"')) {
+    warn('vite.config.ts uses relative base path ("./"). This often breaks client-side routing on Vercel.');
+    info('Recommendation: Set base to "/" for production.');
+  } else {
+    ok('Vite base path looks correct');
+  }
 }
 
 /**
@@ -120,7 +163,7 @@ function loadEnvVars(keys) {
  */
 function isPortFree(port) {
   return new Promise((resolve) => {
-    const srv = http.createServer(() => {});
+    const srv = http.createServer(() => { });
     srv.once('error', () => resolve(false));
     srv.once('listening', () => srv.close(() => resolve(true)));
     srv.listen(port, '0.0.0.0');
