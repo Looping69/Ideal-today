@@ -36,7 +36,7 @@ function Home() {
         .from('properties')
         .select(`
           *,
-          host:profiles!properties_host_id_fkey(full_name, avatar_url, created_at)
+          host:profiles!properties_host_id_fkey(full_name, avatar_url, created_at, host_plan)
         `)
         .range(from, to);
 
@@ -73,15 +73,24 @@ function Home() {
           },
           cleaning_fee: p.cleaning_fee || 0,
           service_fee: p.service_fee || 0,
-          categories: p.categories || []
+          categories: p.categories || [],
+          isVerifiedHost: p.host?.host_plan && p.host.host_plan !== 'free'
         }));
 
+        // Sort by host plan priority: premium > standard > free
+        const planPriority = { premium: 0, standard: 1, free: 2 };
+        const sortedProperties = mappedProperties.sort((a, b) => {
+          const aPlan = (data.find((d: any) => d.id === a.id)?.host?.host_plan || 'free') as keyof typeof planPriority;
+          const bPlan = (data.find((d: any) => d.id === b.id)?.host?.host_plan || 'free') as keyof typeof planPriority;
+          return (planPriority[aPlan] ?? 2) - (planPriority[bPlan] ?? 2);
+        });
+
         if (pageNumber === 0) {
-          setProperties(mappedProperties);
-          setFilteredProperties(mappedProperties);
+          setProperties(sortedProperties);
+          setFilteredProperties(sortedProperties);
         } else {
-          setProperties(prev => [...prev, ...mappedProperties]);
-          setFilteredProperties(prev => [...prev, ...mappedProperties]);
+          setProperties(prev => [...prev, ...sortedProperties]);
+          setFilteredProperties(prev => [...prev, ...sortedProperties]);
         }
 
         if (data.length < PAGE_SIZE) {

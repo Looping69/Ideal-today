@@ -25,6 +25,7 @@ type Row = {
   points?: number;
   verification_status?: 'none' | 'pending' | 'verified' | 'rejected';
   verification_docs?: any;
+  host_plan?: 'free' | 'standard' | 'premium';
 };
 
 export default function AdminUsers() {
@@ -47,7 +48,7 @@ export default function AdminUsers() {
       setLoading(true);
       const { data } = await supabase
         .from('profiles')
-        .select('id,email,full_name,is_admin,deactivated,points,verification_status,verification_docs')
+        .select('id,email,full_name,is_admin,deactivated,points,verification_status,verification_docs,host_plan')
         .order('created_at', { ascending: false })
         .range(page * pageSize, page * pageSize + pageSize - 1);
 
@@ -59,7 +60,8 @@ export default function AdminUsers() {
         deactivated: !!r.deactivated,
         points: r.points,
         verification_status: r.verification_status || 'none',
-        verification_docs: r.verification_docs
+        verification_docs: r.verification_docs,
+        host_plan: r.host_plan || 'free'
       })));
       setLoading(false);
     };
@@ -106,6 +108,7 @@ export default function AdminUsers() {
               <tr>
                 <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">User</th>
                 <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Role</th>
+                <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Plan</th>
                 <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Verification</th>
                 <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Status</th>
                 <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs text-right">Actions</th>
@@ -134,6 +137,14 @@ export default function AdminUsers() {
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${r.is_admin ? 'bg-purple-50 text-purple-700 border-purple-100' : 'bg-gray-50 text-gray-600 border-gray-100'}`}>
                         {r.is_admin ? <ShieldCheck className="w-3 h-3 mr-1" /> : <User className="w-3 h-3 mr-1" />}
                         {r.is_admin ? 'Admin' : 'User'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${r.host_plan === 'premium' ? 'bg-purple-50 text-purple-700 border-purple-100' :
+                          r.host_plan === 'standard' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                            'bg-gray-50 text-gray-600 border-gray-100'
+                        }`}>
+                        {r.host_plan === 'premium' ? '★ Premium' : r.host_plan === 'standard' ? '✓ Standard' : 'Free'}
                       </span>
                     </td>
                     <td className="px-6 py-4">

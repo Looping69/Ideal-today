@@ -85,13 +85,19 @@ export default function PropertyCard({ property, onClick }: PropertyCardProps) {
           />
         </button>
 
-        {property.rating >= 4.8 && (
-          <div className="absolute top-3 left-3 z-10">
+        {/* Badges row */}
+        <div className="absolute top-3 left-3 z-10 flex gap-2">
+          {property.isVerifiedHost && (
+            <Badge className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold shadow-sm hover:from-blue-600 hover:to-indigo-700 px-2.5 py-1 border-none">
+              ✓ Verified
+            </Badge>
+          )}
+          {property.rating >= 4.8 && (
             <Badge variant="secondary" className="bg-white/95 text-black font-semibold shadow-sm hover:bg-white px-2.5 py-1 backdrop-blur-sm border-none">
               Guest favorite
             </Badge>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Carousel Dots (Mock) */}
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">

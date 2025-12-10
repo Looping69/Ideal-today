@@ -26,4 +26,5 @@ export interface Property {
     cleaning_fee?: number;
     service_fee?: number;
     categories?: string[];
+    isVerifiedHost?: boolean;
 }

@@ -1,6 +1,6 @@
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +18,9 @@ import {
   ChevronRight,
   ChevronLeft,
   MapPin,
-  Loader2
+  Loader2,
+  Lock,
+  Video
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -69,6 +71,75 @@ export default function CreateListing() {
     price: "",
     images: [] as string[]
   });
+
+  const [plan, setPlan] = useState<'free' | 'standard' | 'premium'>('free');
+  const [checkingLimit, setCheckingLimit] = useState(true);
+  const [canCreate, setCanCreate] = useState(true);
+
+  useEffect(() => {
+    async function checkLimits() {
+      if (!user) return;
+
+      // 1. Get Plan from database
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('host_plan')
+        .eq('id', user.id)
+        .single();
+
+      const currentPlan = (profileData?.host_plan as 'free' | 'standard' | 'premium') || 'free';
+      setPlan(currentPlan);
+
+      if (profileError) {
+        console.error('Error fetching plan:', profileError);
+      }
+
+      // 2. Count Listings
+      const { count, error } = await supabase
+        .from('properties')
+        .select('*', { count: 'exact', head: true })
+        .eq('host_id', user.id);
+
+      if (error) {
+        console.error(error);
+      } else {
+        const listingCount = count || 0;
+        // Free plan limit: 1 listing
+        if (currentPlan === 'free' && listingCount >= 1) {
+          setCanCreate(false);
+        }
+      }
+      setCheckingLimit(false);
+    }
+    checkLimits();
+  }, [user]);
+
+  if (checkingLimit) return <div className="flex justify-center p-20"><Loader2 className="animate-spin" /></div>;
+
+  if (!canCreate) {
+    return (
+      <div className="max-w-2xl mx-auto py-20 text-center space-y-6">
+        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <Lock className="w-10 h-10 text-gray-400" />
+        </div>
+        <h1 className="text-3xl font-bold text-gray-900">Listing Limit Reached</h1>
+        <p className="text-gray-600 text-lg max-w-md mx-auto">
+          You are currently on the <strong>Free Plan</strong>, which allows only 1 property listing.
+          To publish more listings and unlock video features, please upgrade.
+        </p>
+        <div className="pt-6">
+          <Button onClick={() => navigate('/host/subscription')} className="h-12 px-8 text-base bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
+            Upgrade My Plan
+          </Button>
+          <div className="mt-4">
+            <Link to="/host" className="text-sm text-gray-500 hover:text-gray-900 font-medium">
+              Return to Dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleNext = () => setStep(step + 1);
   const handleBack = () => setStep(step - 1);
@@ -368,6 +439,35 @@ export default function CreateListing() {
                       maxFiles={5}
                     />
                   </div>
+
+                  {/* Video Upload - Locked for Free Plan */}
+                  <div className="space-y-2 pt-4 border-t border-gray-100">
+                    <div className="flex items-center justify-between">
+                      <Label>Showcase Video</Label>
+                      {plan === 'free' && (
+                        <div className="flex items-center text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                          <Lock className="w-3 h-3 mr-1" /> Standard Plan
+                        </div>
+                      )}
+                    </div>
+                    <div className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center ${plan === 'free' ? 'bg-gray-50 border-gray-200 opacity-60 cursor-not-allowed' : 'border-gray-200 hover:bg-gray-50 cursor-pointer'}`}>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-3 ${plan === 'free' ? 'bg-gray-200' : 'bg-blue-100'}`}>
+                        <Video className={`w-5 h-5 ${plan === 'free' ? 'text-gray-400' : 'text-blue-600'}`} />
+                      </div>
+                      {plan === 'free' ? (
+                        <>
+                          <p className="text-sm font-medium text-gray-500">Video upload is locked</p>
+                          <p className="text-xs text-gray-400 mt-1">Upgrade to Standard to add a video tour.</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm font-medium text-gray-700">Click to upload video</p>
+                          <p className="text-xs text-gray-500 mt-1">MP4 or MOV up to 60 seconds</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
                 </div>
               </div>
             </div>

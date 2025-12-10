@@ -12,7 +12,8 @@ import {
   ClipboardList,
   Users,
   CheckSquare,
-  BarChart3
+  BarChart3,
+  CreditCard
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -40,13 +41,14 @@ export default function HostLayout() {
 
   const sidebarItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/host" },
+    { icon: MessageSquare, label: "Inbox", path: "/host/inbox" },
     { icon: Calendar, label: "Calendar", path: "/host/calendar" },
     { icon: ClipboardList, label: "Bookings", path: "/host/bookings" },
+    { icon: CheckSquare, label: "Operations", path: "/host/operations" },
     { icon: Building2, label: "Listings", path: "/host/listings" },
     { icon: Users, label: "Guests", path: "/host/guests" },
-    { icon: CheckSquare, label: "Operations", path: "/host/operations" },
+    { icon: CreditCard, label: "Plan & Billing", path: "/host/subscription" },
     { icon: BarChart3, label: "Reports", path: "/host/reports" },
-    { icon: MessageSquare, label: "Inbox", path: "/host/inbox" },
     { icon: Settings, label: "Settings", path: "/host/settings" },
   ];
 

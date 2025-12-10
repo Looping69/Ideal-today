@@ -21,6 +21,7 @@ const HostGuests = lazy(() => import("./components/host/HostGuests"));
 const HostOperations = lazy(() => import("./components/host/HostOperations"));
 const HostReports = lazy(() => import("./components/host/HostReports"));
 const HostVerification = lazy(() => import("./components/host/HostVerification"));
+const HostSubscription = lazy(() => import("./components/host/HostSubscription"));
 
 const HostCalendar = lazy(() => import("./components/host/HostCalendar"));
 const InboxPage = lazy(() => import("./components/inbox/InboxPage"));
@@ -144,6 +145,7 @@ function App() {
                 <Route path="inbox/:bookingId" element={<HostInbox />} />
                 <Route path="verification" element={<HostVerification />} />
                 <Route path="settings" element={<HostSettings />} />
+                <Route path="subscription" element={<HostSubscription />} />
               </Route>
             </Routes>
           </>

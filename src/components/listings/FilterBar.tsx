@@ -34,7 +34,8 @@ export default function FilterBar({ onFilterChange }: FilterBarProps) {
         .order("sort_order", { ascending: true });
 
       if (!error && data && data.length > 0) {
-        setCategories(data);
+        // Filter out provinces from visible bar as per user request
+        setCategories(data.filter((c: any) => !c.is_province));
       }
     };
 
@@ -74,7 +75,7 @@ export default function FilterBar({ onFilterChange }: FilterBarProps) {
             "overflow-x-auto no-scrollbar flex items-center transition-all duration-200",
             isCollapsed
               ? "bg-white/90 backdrop-blur-md border border-gray-200 shadow-lg rounded-full px-3 py-1 gap-1 max-w-[280px]"
-              : "flex-1 pb-1 gap-2"
+              : "flex-1 pb-1 gap-2 justify-center"
           )}
           style={{ willChange: "transform, opacity" }}
         >
