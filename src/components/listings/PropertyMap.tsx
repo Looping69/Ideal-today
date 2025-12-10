@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { Property } from "@/data/mockData"; // Keep for type definition
+import { Property } from "@/types/property"; // Keep for type definition
 
 import { Button } from "@/components/ui/button";
 import { Star } from "lucide-react";

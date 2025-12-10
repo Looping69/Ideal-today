@@ -1,5 +1,5 @@
 
-import { Property } from "@/data/mockData"; // Keep for type definition
+import { Property } from "@/types/property"; // Keep for type definition
 
 import PropertyCard from "./PropertyCard";
 

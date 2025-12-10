@@ -61,26 +61,14 @@ export default function HostLayout() {
       >
         <div className="h-20 flex items-center px-6 border-b border-gray-100">
           <div className="flex items-center gap-3 cursor-pointer group" onClick={() => navigate("/")}>
-            <div className="w-10 h-10 bg-gradient-to-br from-primary to-blue-600 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-primary/20 transition-transform group-hover:scale-105">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="w-6 h-6 text-white"
-              >
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                <polyline points="9 22 9 12 15 12 15 22" />
-              </svg>
-            </div>
-            {isSidebarOpen && (
-              <span className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent truncate tracking-tight">
-                IdealHost
-              </span>
-            )}
+            <img
+              src="/logo.png"
+              alt="IdealStay"
+              className={cn(
+                "object-contain transition-transform group-hover:scale-105",
+                isSidebarOpen ? "h-14 w-auto" : "h-10 w-10 object-cover"
+              )}
+            />
           </div>
         </div>
 
@@ -178,7 +166,7 @@ export default function HostLayout() {
             <div className="flex items-center gap-3 pl-6 border-l border-gray-200">
               <div className="text-right hidden md:block">
                 <p className="text-sm font-semibold text-gray-900">{user?.user_metadata?.full_name || 'Host'}</p>
-                <p className="text-xs text-gray-500">Superhost</p>
+                {user?.user_metadata?.is_superhost && <p className="text-xs text-gray-500">Superhost</p>}
               </div>
               <div className="w-10 h-10 rounded-full bg-gray-100 p-0.5 ring-2 ring-gray-100 overflow-hidden">
                 <img

@@ -12,6 +12,7 @@ export default function HostDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [activityFeed, setActivityFeed] = useState<any[]>([]);
   const [stats, setStats] = useState({
     revenue: 0,
     bookings: 0,
@@ -25,57 +26,166 @@ export default function HostDashboard() {
     available: 0
   });
 
-  // Mock data for the graph
-  const occupancyData = [
-    { name: 'Mon', occupancy: 45 },
-    { name: 'Tue', occupancy: 52 },
-    { name: 'Wed', occupancy: 48 },
-    { name: 'Thu', occupancy: 61 },
-    { name: 'Fri', occupancy: 85 },
-    { name: 'Sat', occupancy: 92 },
-    { name: 'Sun', occupancy: 78 },
-  ];
-
   useEffect(() => {
     if (!user) return;
 
     const fetchData = async () => {
       try {
-        // Fetch properties
+        setLoading(true);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // 1. Fetch properties
         const { data: propsData } = await supabase.from("properties").select("id").eq("host_id", user.id);
         const propIds = (propsData || []).map(p => p.id);
+        const totalProperties = propIds.length;
 
-        if (propIds.length === 0) {
+        if (totalProperties === 0) {
           setLoading(false);
           return;
         }
 
-        // Fetch bookings
+        // 2. Fetch bookings (all active ones)
         const { data: bookingsData } = await supabase
           .from("bookings")
-          .select("total_price, status, check_in, check_out")
-          .in("property_id", propIds);
+          .select("id, total_price, status, check_in, check_out, created_at, user:profiles(full_name)")
+          .in("property_id", propIds)
+          .neq('status', 'canceled'); // We need non-canceled for occupancy
 
-        // Calculate stats
-        const totalRevenue = (bookingsData || [])
-          .filter(b => b.status !== 'canceled')
+        const allBookings = bookingsData || [];
+
+        // 3. Fetch reviews
+        const { data: reviewsData } = await supabase
+          .from("reviews")
+          .select("rating, created_at, content, user:profiles(full_name)")
+          .in("property_id", propIds)
+          .order("created_at", { ascending: false })
+          .limit(5);
+
+        // --- Calculate Stats ---
+
+        // Revenue (Total from confirmed/completed)
+        const totalRevenue = allBookings
+          .filter(b => b.status === 'confirmed' || b.status === 'completed')
           .reduce((sum, b) => sum + (b.total_price || 0), 0);
 
-        const activeBookings = (bookingsData || []).filter(b => b.status === 'pending' || b.status === 'confirmed').length;
+        // Active Bookings Count (Pending + Confirmed)
+        const activeBookingsCount = allBookings.filter(b => b.status === 'pending' || b.status === 'confirmed').length;
 
-        // Mock today's activity logic (since we don't have real dates aligned with "today" in mock data usually)
-        setTodaysActivity({
-          arrivals: 2,
-          departures: 1,
-          inHouse: 4,
-          available: 3
+        // Average Rating
+        const allReviews = reviewsData || []; // In real app, fetch aggregate or all to average
+        // For accurate average, usually best to use a DB function or fetch just ratings. 
+        // We'll approximate or assume we can fetch basic average if needed.
+        // Let's do a quick separate fetch for pure average to be accurate
+        const { data: ratingsData } = await supabase.from("reviews").select("rating").in("property_id", propIds);
+        const totalRating = (ratingsData || []).reduce((sum, r) => sum + r.rating, 0);
+        const avgRating = ratingsData?.length ? (totalRating / ratingsData.length).toFixed(1) : 0;
+
+        // --- Today's Activity ---
+        let arrivals = 0;
+        let departures = 0;
+        let inHouse = 0;
+
+        // Helper to check date equality
+        const isSameDate = (d1: Date, d2: Date) =>
+          d1.getDate() === d2.getDate() &&
+          d1.getMonth() === d2.getMonth() &&
+          d1.getFullYear() === d2.getFullYear();
+
+        allBookings.forEach(b => {
+          if (b.status !== 'confirmed' && b.status !== 'completed') return;
+          const checkIn = new Date(b.check_in);
+          const checkOut = new Date(b.check_out);
+
+          if (isSameDate(checkIn, today)) arrivals++;
+          if (isSameDate(checkOut, today)) departures++;
+
+          // In House: checkIn < today < checkOut
+          if (checkIn < today && checkOut > today) inHouse++;
         });
 
+        const available = totalProperties - (inHouse + arrivals); // Rough estimate: Total - (Occupied tonight)
+
+        setTodaysActivity({
+          arrivals,
+          departures,
+          inHouse,
+          available: Math.max(0, available)
+        });
+
+        // --- Occupancy Graph (Next 7 Days) ---
+        const next7Days = [];
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(today);
+          d.setDate(today.getDate() + i);
+
+          // Count properties occupied on this night
+          const occupiedCount = allBookings.filter(b => {
+            const start = new Date(b.check_in);
+            const end = new Date(b.check_out);
+            return (b.status === 'confirmed' || b.status === 'completed' || b.status === 'blocked') &&
+              d >= start && d < end;
+          }).length;
+
+          const occupancyPct = totalProperties > 0 ? Math.round((occupiedCount / totalProperties) * 100) : 0;
+
+          next7Days.push({
+            name: dayNames[d.getDay()],
+            occupancy: occupancyPct
+          });
+        }
+
+        // --- Activity Feed ---
+        // Combine bookings and reviews
+        const feedItems = [];
+
+        // Add recent bookings
+        allBookings
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .slice(0, 5)
+          .forEach((b: any) => {
+            const userName = Array.isArray(b.user) ? b.user[0]?.full_name : b.user?.full_name;
+            feedItems.push({
+              type: 'booking',
+              title: b.status === 'pending' ? 'New Request' : 'New Booking',
+              desc: `${userName || 'Guest'} - ${new Date(b.check_in).toLocaleDateString()}`,
+              time: new Date(b.created_at),
+              icon: Calendar,
+              color: 'text-blue-600',
+              bg: 'bg-blue-50'
+            });
+          });
+
+        // Add recent reviews
+        allReviews.forEach((r: any) => {
+          const userName = Array.isArray(r.user) ? r.user[0]?.full_name : r.user?.full_name;
+          feedItems.push({
+            type: 'review',
+            title: 'New Review',
+            desc: `${r.rating} stars from ${userName || 'Guest'}`,
+            time: new Date(r.created_at),
+            icon: Star,
+            color: 'text-yellow-600',
+            bg: 'bg-yellow-50'
+          });
+        });
+
+        // Sort combined feed
+        feedItems.sort((a, b) => b.time.getTime() - a.time.getTime());
+        setActivityFeed(feedItems.slice(0, 5)); // Keep top 5
+
+        // Calculate overall occupancy avg for stats (e.g. over next 30 days or general)
+        // Let's use the average of the next 7 days for the "Occupancy" stat
+        const avgOccupancy = Math.round(next7Days.reduce((acc, curr) => acc + curr.occupancy, 0) / 7);
+
+        setOccupancyData(next7Days);
         setStats({
           revenue: totalRevenue,
-          bookings: activeBookings,
-          rating: 4.8, // Mock
-          occupancy: 72 // Mock
+          bookings: activeBookingsCount,
+          rating: Number(avgRating),
+          occupancy: avgOccupancy
         });
 
       } catch (error) {
@@ -87,6 +197,9 @@ export default function HostDashboard() {
 
     fetchData();
   }, [user]);
+
+  // State for chart data
+  const [occupancyData, setOccupancyData] = useState<any[]>([]);
 
   if (loading) {
     return (
@@ -172,28 +285,33 @@ export default function HostDashboard() {
               <CardTitle className="text-lg font-bold text-gray-900">Occupancy Forecast</CardTitle>
               <select className="text-sm border-none bg-gray-50 rounded-lg px-2 py-1 font-medium text-gray-600 focus:ring-0">
                 <option>Next 7 Days</option>
-                <option>Next 30 Days</option>
               </select>
             </CardHeader>
             <CardContent>
               <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={occupancyData}>
-                    <defs>
-                      <linearGradient id="colorOccupancy" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#0f172a" stopOpacity={0.1} />
-                        <stop offset="95%" stopColor="#0f172a" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                    <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}%`} />
-                    <Tooltip
-                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    />
-                    <Area type="monotone" dataKey="occupancy" stroke="#0f172a" strokeWidth={3} fillOpacity={1} fill="url(#colorOccupancy)" />
-                  </AreaChart>
-                </ResponsiveContainer>
+                {occupancyData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={occupancyData}>
+                      <defs>
+                        <linearGradient id="colorOccupancy" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#0f172a" stopOpacity={0.1} />
+                          <stop offset="95%" stopColor="#0f172a" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                      <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}%`} />
+                      <Tooltip
+                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      />
+                      <Area type="monotone" dataKey="occupancy" stroke="#0f172a" strokeWidth={3} fillOpacity={1} fill="url(#colorOccupancy)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-400">
+                    No data available in forecast
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -226,7 +344,7 @@ export default function HostDashboard() {
                     <Star className="w-5 h-5 fill-current" />
                   </div>
                 </div>
-                <p className="text-sm text-gray-500 mt-1">Based on 124 reviews</p>
+                <p className="text-sm text-gray-500 mt-1">Based on reviews</p>
               </CardContent>
             </Card>
           </div>
@@ -234,32 +352,35 @@ export default function HostDashboard() {
 
         {/* Sidebar / Activity Feed */}
         <div className="space-y-6">
-          <Card className="border-gray-200 shadow-sm h-full">
+          <Card className="border-gray-200 shadow-sm h-full max-h-[600px] flex flex-col">
             <CardHeader className="flex flex-row items-center justify-between pb-4">
               <CardTitle className="text-lg font-bold text-gray-900">Activity Feed</CardTitle>
               <Button variant="ghost" size="icon" className="h-8 w-8">
                 <Bell className="w-4 h-4 text-gray-500" />
               </Button>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {[
-                { type: 'booking', title: 'New Booking', desc: 'Alice J. booked Seaside Villa', time: '2 min ago', icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
-                { type: 'checkin', title: 'Check-in', desc: 'Bob Smith checked in to Mountain Cabin', time: '1 hour ago', icon: LogIn, color: 'text-green-600', bg: 'bg-green-50' },
-                { type: 'review', title: 'New Review', desc: '5-star review from Charlie', time: '3 hours ago', icon: Star, color: 'text-yellow-600', bg: 'bg-yellow-50' },
-                { type: 'issue', title: 'Maintenance', desc: 'AC reported broken in Room 102', time: '5 hours ago', icon: Loader2, color: 'text-red-600', bg: 'bg-red-50' },
-              ].map((item, i) => (
-                <div key={i} className="flex gap-4">
-                  <div className={`w-10 h-10 rounded-full ${item.bg} flex items-center justify-center shrink-0`}>
-                    <item.icon className={`w-5 h-5 ${item.color}`} />
+            <CardContent className="space-y-6 overflow-y-auto pr-2">
+              {activityFeed.length === 0 ? (
+                <div className="text-center text-gray-500 py-4">No recent activity</div>
+              ) : (
+                activityFeed.map((item, i) => (
+                  <div key={i} className="flex gap-4">
+                    <div className={`w-10 h-10 rounded-full ${item.bg} flex items-center justify-center shrink-0`}>
+                      <item.icon className={`w-5 h-5 ${item.color}`} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-gray-900">{item.title}</p>
+                      <p className="text-xs text-gray-500 truncate">{item.desc}</p>
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        {Math.floor((new Date().getTime() - item.time.getTime()) / (1000 * 60 * 60)) < 24
+                          ? `${Math.floor((new Date().getTime() - item.time.getTime()) / (1000 * 60 * 60))}h ago`
+                          : item.time.toLocaleDateString()}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-gray-900">{item.title}</p>
-                    <p className="text-xs text-gray-500 truncate">{item.desc}</p>
-                    <p className="text-[10px] text-gray-400 mt-1">{item.time}</p>
-                  </div>
-                </div>
-              ))}
-              <Button variant="outline" className="w-full mt-4">View All Activity</Button>
+                ))
+              )}
+              <Button variant="outline" className="w-full mt-4" onClick={() => navigate('/host/bookings')}>View All Bookings</Button>
             </CardContent>
           </Card>
         </div>

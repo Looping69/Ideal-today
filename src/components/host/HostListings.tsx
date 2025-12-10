@@ -67,9 +67,64 @@ export default function HostListings() {
   }
 
   async function deleteListing(id: string) {
-    if (!confirm("Are you sure you want to delete this listing?")) return;
+    if (!confirm("Are you sure you want to delete this listing? This action cannot be undone.")) return;
 
     try {
+      // 1. Check for active bookings
+      const today = new Date().toISOString();
+      const { data: activeBookings, error: checkError } = await supabase
+        .from("bookings")
+        .select("id")
+        .eq("property_id", id)
+        .gte("check_out", today)
+        .neq("status", "canceled");
+
+      if (checkError) throw checkError;
+
+      if (activeBookings && activeBookings.length > 0) {
+        toast({
+          variant: "destructive",
+          title: "Cannot delete listing",
+          description: "This property has active or upcoming bookings. Please cancel them first.",
+        });
+        return;
+      }
+
+      // 2. Delete dependencies (client-side cascade)
+      // Delete reviews
+      const { error: reviewsError } = await supabase
+        .from("reviews")
+        .delete()
+        .eq("property_id", id);
+
+      if (reviewsError) throw reviewsError;
+
+      // Fetch booking IDs to delete related messages
+      const { data: bookingIds } = await supabase
+        .from("bookings")
+        .select("id")
+        .eq("property_id", id);
+
+      if (bookingIds && bookingIds.length > 0) {
+        const ids = bookingIds.map(b => b.id);
+        // Delete messages for these bookings
+        const { error: messagesError } = await supabase
+          .from("messages")
+          .delete()
+          .in("booking_id", ids);
+
+        if (messagesError) throw messagesError;
+      }
+
+      // Delete past/canceled bookings
+      const { error: bookingsError } = await supabase
+        .from("bookings")
+        .delete()
+        .eq("property_id", id);
+
+      if (bookingsError) throw bookingsError;
+
+      // 3. Delete property
       const { data, error } = await supabase
         .from("properties")
         .delete()
@@ -85,7 +140,7 @@ export default function HostListings() {
       setListings(listings.filter(l => l.id !== id));
       toast({
         title: "Listing deleted",
-        description: "Your listing has been removed.",
+        description: "Your listing has been removed successfully.",
       });
     } catch (error: any) {
       console.error("Error deleting listing:", error);

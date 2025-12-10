@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import PropertyCard from "@/components/listings/PropertyCard";
-import { Property } from "@/data/mockData";
+import { Property } from "@/types/property";
 
 export default function WishlistsPage() {
   const navigate = useNavigate();
