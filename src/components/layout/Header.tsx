@@ -45,25 +45,12 @@ export default function Header() {
     <header className="fixed top-0 w-full z-[100] bg-white/80 backdrop-blur-md border-b border-gray-100 transition-all duration-300">
       <div className="container mx-auto px-6 h-20 flex items-center justify-between">
         {/* Logo */}
-        <div className="flex items-center gap-2 cursor-pointer group" onClick={() => navigate("/")}>
-          <div className="w-9 h-9 bg-gradient-to-br from-primary to-blue-500 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 transition-transform group-hover:scale-105">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="w-5 h-5 text-white"
-            >
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-              <polyline points="9 22 9 12 15 12 15 22" />
-            </svg>
-          </div>
-          <span className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent hidden md:block tracking-tight">
-            IdealStay
-          </span>
+        <div className="flex items-center cursor-pointer group" onClick={() => navigate("/")}>
+          <img
+            src="/logo.png"
+            alt="IdealStay"
+            className="h-12 w-auto object-contain transition-transform group-hover:scale-105"
+          />
         </div>
 
         {/* User Menu */}

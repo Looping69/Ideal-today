@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 import { Search, Mail, Phone, MapPin, Star, MoreHorizontal, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,12 +14,81 @@ import {
 export default function HostGuests() {
     const [search, setSearch] = useState('');
 
-    const guests = [
-        { id: 1, name: 'Alice Johnson', email: 'alice@example.com', phone: '+1 555-0123', stays: 4, spent: 3200, rating: 5.0, lastStay: '2023-11-15', status: 'VIP' },
-        { id: 2, name: 'Bob Smith', email: 'bob@example.com', phone: '+1 555-0124', stays: 1, spent: 450, rating: 4.0, lastStay: '2023-12-01', status: 'New' },
-        { id: 3, name: 'Charlie Brown', email: 'charlie@example.com', phone: '+1 555-0125', stays: 2, spent: 1200, rating: 4.5, lastStay: '2023-10-20', status: 'Returning' },
-        { id: 4, name: 'Diana Prince', email: 'diana@example.com', phone: '+1 555-0126', stays: 8, spent: 8500, rating: 5.0, lastStay: '2023-12-03', status: 'VIP' },
-    ];
+    const [guests, setGuests] = useState<any[]>([]);
+    const { user } = useAuth();
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!user) return;
+
+        const fetchGuests = async () => {
+            try {
+                // 1. Get host property IDs
+                const { data: props } = await supabase.from('properties').select('id').eq('host_id', user.id);
+                const propIds = (props || []).map(p => p.id);
+
+                if (propIds.length === 0) {
+                    setLoading(false);
+                    return;
+                }
+
+                // 2. Fetch all bookings for these properties
+                const { data: bookings } = await supabase
+                    .from('bookings')
+                    .select('total_price, check_in, status, user:profiles(id, full_name, avatar_url, email)')
+                    .in('property_id', propIds)
+                    .neq('status', 'canceled');
+
+                if (!bookings) return;
+
+                // 3. Aggregate by User
+                const guestMap = new Map();
+
+                bookings.forEach((b: any) => {
+                    const guestId = b.user?.id;
+                    if (!guestId) return; // Skip if no user linked
+
+                    if (!guestMap.has(guestId)) {
+                        guestMap.set(guestId, {
+                            id: guestId,
+                            name: b.user.full_name || 'Unknown Guest',
+                            email: b.user.email || 'No email',
+                            phone: 'N/A', // Phone not currently in profile, placeholder
+                            stays: 0,
+                            spent: 0,
+                            lastStay: null,
+                            avatar_url: b.user.avatar_url
+                        });
+                    }
+
+                    const guest = guestMap.get(guestId);
+                    guest.stays += 1;
+                    guest.spent += b.total_price || 0;
+
+                    // Update last stay if this booking is later
+                    if (!guest.lastStay || new Date(b.check_in) > new Date(guest.lastStay)) {
+                        guest.lastStay = b.check_in;
+                    }
+                });
+
+                // 4. Transform to array and determine status
+                const guestList = Array.from(guestMap.values()).map(g => ({
+                    ...g,
+                    lastStay: g.lastStay ? new Date(g.lastStay).toISOString().split('T')[0] : 'N/A',
+                    status: g.stays > 5 ? 'VIP' : g.stays > 1 ? 'Returning' : 'New',
+                    rating: 5.0 // Mocking rating as we don't have per-guest rating aggregation yet
+                }));
+
+                setGuests(guestList);
+            } catch (err) {
+                console.error("Error fetching guests:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchGuests();
+    }, [user]);
 
     return (
         <div className="space-y-6">
@@ -90,8 +161,8 @@ export default function HostGuests() {
                                 </td>
                                 <td className="px-6 py-4">
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${guest.status === 'VIP' ? 'bg-purple-50 text-purple-700 border-purple-100' :
-                                            guest.status === 'New' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                                                'bg-gray-50 text-gray-700 border-gray-100'
+                                        guest.status === 'New' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                                            'bg-gray-50 text-gray-700 border-gray-100'
                                         }`}>
                                         {guest.status === 'VIP' && <Star className="w-3 h-3 mr-1 fill-purple-700" />}
                                         {guest.status}

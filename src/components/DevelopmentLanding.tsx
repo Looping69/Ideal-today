@@ -1,6 +1,6 @@
 
 import { motion } from "framer-motion";
-import { ArrowRight, Hammer, Construction } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Button } from "./ui/button";
 
 interface DevelopmentLandingProps {
@@ -27,8 +27,8 @@ export default function DevelopmentLanding({ onEnter }: DevelopmentLandingProps)
                     <div className="flex justify-center mb-8">
                         <div className="relative">
                             <div className="absolute inset-0 bg-blue-500 opacity-20 blur-xl rounded-full" />
-                            <div className="relative bg-slate-900/50 p-6 rounded-2xl border border-white/10 backdrop-blur-sm ring-1 ring-white/20 shadow-2xl">
-                                <Construction className="w-16 h-16 text-blue-400" />
+                            <div className="relative bg-slate-900/50 p-4 rounded-2xl border border-white/10 backdrop-blur-sm ring-1 ring-white/20 shadow-2xl">
+                                <img src="/logo.png" alt="IdealStay" className="w-24 h-auto" />
                             </div>
                         </div>
                     </div>

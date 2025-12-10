@@ -18,12 +18,10 @@ export default function SearchFilterBar({ onChange, onModeChange, onSendMessage 
   const [checkOut, setCheckOut] = useState<Date | null>(null);
   const [guests, setGuests] = useState(1);
   const [location, setLocation] = useState("");
+  // Removed hardcoded PROVINCES, replaced with purely dynamic logic
   const [suggestions, setSuggestions] = useState<{ label: string; type: "province" | "place" | "listing" }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const PROVINCES = [
-    "Western Cape", "Eastern Cape", "Northern Cape", "Gauteng", "KwaZulu-Natal", "Free State", "North West", "Mpumalanga", "Limpopo"
-  ];
 
   const handleFlip = () => {
     setIsFlipped(!isFlipped);
@@ -58,24 +56,31 @@ export default function SearchFilterBar({ onChange, onModeChange, onSendMessage 
         setSuggestions([]);
         return;
       }
-      const pv = PROVINCES.filter(p => p.toLowerCase().includes(v.toLowerCase())).map(p => ({ label: p, type: "province" as const }));
+
       try {
         const { data } = await supabase
           .from("properties")
           .select("title, location, province")
           .or(`location.ilike.%${v}%,title.ilike.%${v}%,province.ilike.%${v}%`)
           .limit(6);
+
         const places = new Set<string>();
         const listings: { label: string; type: "listing" }[] = [];
+        const provinces = new Set<string>();
+
         (data || []).forEach((p: any) => {
           if (p.location && !places.has(p.location)) places.add(p.location);
           if (p.title) listings.push({ label: p.title, type: "listing" });
+          if (p.province && p.province.toLowerCase().includes(v.toLowerCase())) provinces.add(p.province);
         });
+
         const placeItems = Array.from(places).slice(0, 5).map(l => ({ label: l, type: "place" as const }));
-        const merged = [...pv.slice(0, 3), ...placeItems, ...listings.slice(0, 3)];
+        const provinceItems = Array.from(provinces).slice(0, 3).map(p => ({ label: p, type: "province" as const }));
+
+        const merged = [...provinceItems, ...placeItems, ...listings.slice(0, 3)];
         setSuggestions(merged);
       } catch {
-        setSuggestions(pv);
+        setSuggestions([]);
       }
     }, 200);
   };

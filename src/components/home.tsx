@@ -6,7 +6,7 @@ import PropertyGrid from "./listings/PropertyGrid";
 import PropertyDetails from "./listings/PropertyDetails";
 import SearchFilterBar from "./search/SearchFilterBar";
 import PropertyMap from "./listings/PropertyMap";
-import { Property } from "@/data/mockData";
+import { Property } from "@/types/property";
 import { Map, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
@@ -63,14 +63,17 @@ function Home() {
           bathrooms: p.bathrooms,
           description: p.description,
           host: {
-            name: p.host?.full_name || 'Unknown Host',
-            image: p.host?.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Unknown',
-            joined: p.host?.created_at ? new Date(p.host.created_at).getFullYear().toString() : '2024'
+            name: p.host?.full_name || p.host_name || 'Unknown Host',
+            image: p.host?.avatar_url || p.host_avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Unknown',
+            joined: p.host?.created_at ? new Date(p.host.created_at).getFullYear().toString() : (p.host_joined || '2024')
           },
           coordinates: {
             lat: p.latitude || 0,
             lng: p.longitude || 0
-          }
+          },
+          cleaning_fee: p.cleaning_fee || 0,
+          service_fee: p.service_fee || 0,
+          categories: p.categories || []
         }));
 
         if (pageNumber === 0) {
@@ -112,18 +115,22 @@ function Home() {
       setFilteredProperties(properties);
     } else {
       const filtered = properties.filter(p => {
-        const typeMatch = p.type.toLowerCase().includes(category.toLowerCase());
-        const amenityMatch = p.amenities.some(a => a.toLowerCase().includes(category.toLowerCase()));
-        const locationMatch = p.location.toLowerCase().includes(category.toLowerCase());
-        const provinceMatch = p.province ? p.province.toLowerCase().includes(category.replace('-', ' ').toLowerCase()) : false;
+        // 1. Direct category match (DB tags from 'categories' column)
+        if (p.categories?.includes(category)) return true;
 
-        if (category === "beach") return p.location.toLowerCase().includes("camps bay") || p.location.toLowerCase().includes("umhlanga");
-        if (category === "safari") return p.location.toLowerCase().includes("kruger");
-        if (category === "winelands") return p.location.toLowerCase().includes("franschhoek");
-        if (category === "city") return p.location.toLowerCase().includes("johannesburg") || p.location.toLowerCase().includes("cape town");
-        if (["western-cape", "eastern-cape", "northern-cape", "gauteng", "kwazulu-natal", "free-state", "north-west", "mpumalanga", "limpopo"].includes(category)) return provinceMatch;
+        // 2. Type match (e.g. 'apartment' matches 'Apartment')
+        if (p.type.toLowerCase().includes(category.toLowerCase())) return true;
 
-        return typeMatch || amenityMatch || locationMatch;
+        // 3. Province match
+        if (p.province && p.province.toLowerCase().includes(category.replace(/-/g, ' ').toLowerCase())) return true;
+
+        // 4. Amenity match
+        if (p.amenities.some(a => a.toLowerCase().includes(category.toLowerCase()))) return true;
+
+        // 5. Fallback: Search in location string (generic)
+        if (p.location.toLowerCase().includes(category.replace(/-/g, ' ').toLowerCase())) return true;
+
+        return false;
       });
       setFilteredProperties(filtered);
     }

@@ -17,7 +17,7 @@ interface YocoPaymentProps {
 const YOCO_SDK_URL = 'https://js.yoco.com/sdk/v1/yoco-sdk-web.js';
 // Use the provided test key or fall back to a placeholder. 
 // Ideally this comes from import.meta.env.VITE_YOCO_PUBLIC_KEY
-const PUBLIC_KEY = import.meta.env.VITE_YOCO_PUBLIC_KEY || 'pk_test_ed3c54a6gOol69QA7f45';
+const PUBLIC_KEY = import.meta.env.VITE_YOCO_PUBLIC_KEY || '';
 
 export default function YocoPayment({
     amountInCents,

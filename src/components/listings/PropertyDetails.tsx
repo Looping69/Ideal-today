@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Property } from "@/data/mockData"; // Keep this for type definition only, or better, move type to a shared types file.
-// Ideally we should move the Property interface to a types file, but for now we just need to ensure we don't import the *data*
+import { Property } from "@/types/property";
 
 import {
   Dialog,
@@ -153,8 +152,8 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
 
   const nights = date?.from && date?.to ? differenceInDays(date.to, date.from) : 0;
   const subtotal = property.price * nights;
-  const cleaningFee = 450;
-  const serviceFee = 800;
+  const cleaningFee = property.cleaning_fee || 0;
+  const serviceFee = property.service_fee || 0;
   const total = subtotal + cleaningFee + serviceFee;
 
   const handleReserve = async () => {
@@ -211,7 +210,7 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-[90vh] p-0 overflow-hidden flex flex-col">
+      <DialogContent className="max-w-6xl w-[95vw] h-[95vh] p-0 overflow-hidden flex flex-col">
         <ScrollArea className="flex-1">
           <div className="p-6">
             {/* Header */}

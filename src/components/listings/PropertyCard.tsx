@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from "react";
-import { Property } from "@/data/mockData";
+import { Property } from "@/types/property";
 import { Star, Heart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
