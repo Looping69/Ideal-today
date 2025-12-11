@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Loader2, CreditCard } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
@@ -15,8 +16,6 @@ interface YocoPaymentProps {
 }
 
 const YOCO_SDK_URL = 'https://js.yoco.com/sdk/v1/yoco-sdk-web.js';
-// Use the provided test key or fall back to a placeholder. 
-// Ideally this comes from import.meta.env.VITE_YOCO_PUBLIC_KEY
 const PUBLIC_KEY = import.meta.env.VITE_YOCO_PUBLIC_KEY || '';
 
 export default function YocoPayment({
@@ -31,6 +30,7 @@ export default function YocoPayment({
 }: YocoPaymentProps) {
     const [loading, setLoading] = useState(false);
     const [sdkLoaded, setSdkLoaded] = useState(false);
+    const [showOverlay, setShowOverlay] = useState(false);
     const { toast } = useToast();
 
     useEffect(() => {
@@ -53,10 +53,6 @@ export default function YocoPayment({
             });
         };
         document.body.appendChild(script);
-
-        return () => {
-            // Optional: remove script on unmount if needed, but usually better to keep it
-        };
     }, [toast]);
 
     const handlePay = () => {
@@ -70,6 +66,48 @@ export default function YocoPayment({
         }
 
         setLoading(true);
+        setShowOverlay(true);
+
+        // Setup MutationObserver to catch the Yoco popup when it's added to DOM
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                    if (node instanceof HTMLElement) {
+                        // Check for likely Yoco popup characteristics
+                        const isYoco =
+                            node.classList.contains('yoco-popup-wrapper') ||
+                            node.querySelector('iframe[src*="yoco"]') ||
+                            node.style.position === 'fixed';
+
+                        if (isYoco) {
+                            node.style.zIndex = '2147483647';
+                            node.style.position = 'fixed';
+                        }
+                    }
+                });
+            });
+        });
+
+        observer.observe(document.body, { childList: true, subtree: false });
+
+        // Backup: Iterate identifying likely Yoco elements and force z-index
+        const forceZIndex = () => {
+            // Target by common Yoco classes or generic structures
+            const candidates = document.querySelectorAll('div[style*="z-index"], iframe[src*="yoco"], .yoco-overlay, .yoco-modal');
+            candidates.forEach((el) => {
+                if (el instanceof HTMLElement) {
+                    // Heuristic: if it looks like a modal/overlay added recently
+                    const z = parseInt(el.style.zIndex || '0');
+                    if (z > 0 || el.tagName === 'IFRAME') {
+                        el.style.zIndex = '2147483647';
+                    }
+                }
+            });
+        };
+
+        // Run forceZIndex repeatedly for a short duration
+        const interval = setInterval(forceZIndex, 100);
+        setTimeout(() => clearInterval(interval), 3000);
 
         try {
             const yoco = new window.YocoSDK({
@@ -84,6 +122,10 @@ export default function YocoPayment({
                 image,
                 callback: (result) => {
                     setLoading(false);
+                    setShowOverlay(false);
+                    observer.disconnect();
+                    clearInterval(interval);
+
                     if (result.error) {
                         const errorMessage = result.error.message;
                         onError(errorMessage);
@@ -99,28 +141,50 @@ export default function YocoPayment({
             });
         } catch (error: any) {
             setLoading(false);
+            setShowOverlay(false);
+            observer.disconnect();
+            clearInterval(interval);
             onError(error.message || 'An unexpected error occurred');
             console.error("Yoco Error:", error);
         }
     };
 
+    // Overlay Portal - renders at body level to ensure proper z-index
+    // We keep this just behind the Yoco popup (max int - 1)
+    const overlay = showOverlay ? createPortal(
+        <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+            style={{ zIndex: 2147483646 }}
+            onClick={() => {
+                // Warning: Yoco popup handles its own closing, so clicking this 
+                // might close the overlay but leave Yoco open if not synchronized.
+                // It's safer to let Yoco handle strict closing or only close if user cancels specifically.
+                // But for UX we allow closing if it seems stuck.
+            }}
+        />,
+        document.body
+    ) : null;
+
     return (
-        <Button
-            onClick={handlePay}
-            disabled={loading || !sdkLoaded}
-            className={className}
-        >
-            {loading ? (
-                <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
-                </>
-            ) : (
-                <>
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    Pay R{(amountInCents / 100).toFixed(2)}
-                </>
-            )}
-        </Button>
+        <>
+            <Button
+                onClick={handlePay}
+                disabled={loading || !sdkLoaded}
+                className={className}
+            >
+                {loading ? (
+                    <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                    </>
+                ) : (
+                    <>
+                        <CreditCard className="mr-2 h-4 w-4" />
+                        Pay R{(amountInCents / 100).toFixed(2)}
+                    </>
+                )}
+            </Button>
+            {overlay}
+        </>
     );
 }

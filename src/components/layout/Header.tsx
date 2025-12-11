@@ -93,7 +93,7 @@ export default function Header() {
               <div className="text-[10px] font-bold text-gray-800 leading-tight">Who</div>
               <div className="text-xs text-gray-500 font-medium truncate">Add guests</div>
             </div>
-            <div className="bg-[#ff385c] hover:bg-[#d90b3e] text-white rounded-full px-4 py-2 flex items-center gap-2 transition-colors ml-auto shadow-sm">
+            <div className="bg-primary hover:bg-primary/90 text-white rounded-full px-4 py-2 flex items-center gap-2 transition-colors ml-auto shadow-sm">
               <Search className="w-3.5 h-3.5 stroke-[3px]" />
               <span className="text-xs font-bold">Search</span>
             </div>

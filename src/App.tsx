@@ -44,6 +44,8 @@ const AdminRewards = lazy(() => import("./components/admin/AdminRewards"));
 const AdminSettings = lazy(() => import("./components/admin/AdminSettings"));
 const AdminNotifications = lazy(() => import("./components/admin/AdminNotifications"));
 
+const PaymentPage = lazy(() => import("./components/payment/PaymentPage"));
+
 import DevelopmentLanding from "./components/DevelopmentLanding";
 import { useState } from "react";
 
@@ -66,6 +68,7 @@ function App() {
           <>
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/book" element={<PaymentPage />} />
               <Route path="/rewards" element={
                 <div className="min-h-screen bg-white flex flex-col">
                   <Header />

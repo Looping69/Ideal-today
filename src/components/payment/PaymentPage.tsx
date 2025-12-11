@@ -1,0 +1,217 @@
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, Calendar, Users, MapPin, ShieldCheck, Star } from 'lucide-react';
+import YocoPayment from './YocoPayment';
+import { format } from 'date-fns';
+import { supabase } from '@/lib/supabase';
+import { useToast } from '@/components/ui/use-toast';
+import { useState } from 'react';
+
+export default function PaymentPage() {
+    const location = useLocation();
+    const navigate = useNavigate();
+    const { toast } = useToast();
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    // Get booking data passed from the previous screen
+    const bookingData = location.state;
+
+    if (!bookingData) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+                <div className="text-center space-y-4">
+                    <h1 className="text-2xl font-bold text-gray-900">No booking details found</h1>
+                    <p className="text-gray-500">Please select a property and dates first.</p>
+                    <Button onClick={() => navigate('/')}>Return Home</Button>
+                </div>
+            </div>
+        );
+    }
+
+    const { property, date, guests, total, nights } = bookingData;
+    const user = bookingData.user;
+
+    const handleSuccess = async (token: string) => {
+        try {
+            setIsProcessing(true);
+
+            // Create the booking in Supabase
+            const { error } = await supabase
+                .from('bookings')
+                .insert({
+                    property_id: property.id,
+                    user_id: user.id,
+                    check_in: date.from,
+                    check_out: date.to,
+                    total_price: total,
+                    status: 'confirmed'
+                });
+
+            if (error) throw error;
+
+            // Send confirmation email (simulated for now, or via Edge Function)
+            // Note: In a real app the Edge Function call would go here
+
+            toast({
+                title: "Booking Confirmed!",
+                description: "Payment successful. You will receive a confirmation email shortly.",
+                duration: 5000,
+            });
+
+            // Navigate to home or a success page
+            navigate('/', { replace: true });
+
+        } catch (error: any) {
+            console.error(error);
+            toast({
+                title: "Booking failed",
+                description: error.message || "Could not save booking. Please contact support.",
+                variant: "destructive",
+            });
+            setIsProcessing(false);
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-gray-50 pb-20">
+            {/* Header */}
+            <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
+                <div className="max-w-7xl mx-auto px-4 h-16 flex items-center gap-4">
+                    <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+                        <ArrowLeft className="w-5 h-5" />
+                    </Button>
+                    <h1 className="font-semibold text-lg">Confirm and Pay</h1>
+                </div>
+            </header>
+
+            <main className="max-w-3xl mx-auto px-4 py-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+                    {/* Left Column: Trip Details */}
+                    <div className="space-y-6">
+                        <section className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                            <h2 className="text-xl font-bold mb-6">Your Trip</h2>
+
+                            <div className="space-y-6">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <h3 className="font-medium text-gray-900 mb-1">Dates</h3>
+                                        <p className="text-gray-600">
+                                            {format(new Date(date.from), 'MMM d')} – {format(new Date(date.to), 'MMM d, yyyy')}
+                                        </p>
+                                    </div>
+                                    <Calendar className="w-5 h-5 text-gray-400" />
+                                </div>
+
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <h3 className="font-medium text-gray-900 mb-1">Guests</h3>
+                                        <p className="text-gray-600">{guests} guest{guests !== 1 && 's'}</p>
+                                    </div>
+                                    <Users className="w-5 h-5 text-gray-400" />
+                                </div>
+
+                                <div className="pt-6 border-t border-gray-100">
+                                    <h3 className="font-medium text-gray-900 mb-4">Price Details</h3>
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between text-gray-600">
+                                            <span>R{property.price} x {nights} nights</span>
+                                            <span>R{property.price * nights}</span>
+                                        </div>
+                                        <div className="flex justify-between text-gray-600">
+                                            <span>Cleaning fee</span>
+                                            <span>R{property.cleaning_fee || 0}</span>
+                                        </div>
+                                        <div className="flex justify-between text-gray-600">
+                                            <span>Service fee</span>
+                                            <span>R{property.service_fee || 0}</span>
+                                        </div>
+                                        <div className="flex justify-between font-bold text-lg pt-4 border-t border-gray-100 mt-4">
+                                            <span>Total (ZAR)</span>
+                                            <span>R{total}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                            <div className="flex items-center gap-2 mb-4">
+                                <ShieldCheck className="w-5 h-5 text-green-600" />
+                                <h2 className="font-semibold">Payment</h2>
+                            </div>
+
+                            <p className="text-sm text-gray-500 mb-6">
+                                Select a payment method to complete your booking. Your payment is secure and encrypted.
+                            </p>
+
+                            <YocoPayment
+                                amountInCents={total * 100}
+                                currency="ZAR"
+                                name={`Booking: ${property.title}`}
+                                description={`${nights} nights stay`}
+                                image={property.image}
+                                onSuccess={handleSuccess}
+                                onError={(msg) => toast({ variant: "destructive", title: "Wait", description: msg })}
+                                className="w-full bg-gradient-to-r from-primary to-blue-400 hover:from-primary/90 text-white font-bold py-6 text-lg rounded-xl shadow-lg shadow-blue-500/20"
+                            />
+
+                            <div className="mt-4 flex justify-center gap-4 opacity-50 grayscale hover:grayscale-0 transition-all duration-300">
+                                {/* Trusted payment badges visualization */}
+                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Visa_Inc._logo.svg/2560px-Visa_Inc._logo.svg.png" alt="Visa" className="h-6 object-contain" />
+                                <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard" className="h-6 object-contain" />
+                            </div>
+                        </section>
+                    </div>
+
+                    {/* Right Column: Property Card */}
+                    <div className="md:sticky md:top-24 h-fit">
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                            <div className="aspect-video w-full relative">
+                                <img
+                                    src={property.image}
+                                    alt={property.title}
+                                    className="w-full h-full object-cover"
+                                />
+                                <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold shadow-sm">
+                                    {property.type}
+                                </div>
+                            </div>
+
+                            <div className="p-6">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <p className="text-xs text-gray-500 mb-1">Entire property</p>
+                                        <h3 className="font-bold text-gray-900 leading-tight mb-2">{property.title}</h3>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                                        <span className="font-medium text-sm">{property.rating}</span>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 text-gray-500 text-sm mb-6">
+                                    <MapPin className="w-4 h-4 shrink-0" />
+                                    <span className="truncate">{property.location}</span>
+                                </div>
+
+                                <div className="pt-6 border-t border-gray-100">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-gray-100 overflow-hidden">
+                                            <img src={property.host?.image} alt={property.host?.name} className="w-full h-full object-cover" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500">Hosted by</p>
+                                            <p className="font-medium text-sm">{property.host?.name}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </main>
+        </div>
+    );
+}

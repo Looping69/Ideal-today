@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, Loader2, Sparkles, Smartphone, ShieldCheck, Video, BarChart4, Gift } from "lucide-react";
+import { Check, Loader2, Sparkles, Smartphone, ShieldCheck, Video, BarChart4, Gift, Users, Share2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabase";
@@ -87,9 +87,37 @@ const plans: Plan[] = [
 export default function HostSubscription() {
     const { user } = useAuth();
     const { toast } = useToast();
-    const [loading, setLoading] = useState(false);
+    const [loadingPlan, setLoadingPlan] = useState<PlanTier | null>(null);
     const [fetchingPlan, setFetchingPlan] = useState(true);
     const [currentPlan, setCurrentPlan] = useState<PlanTier>('free');
+    const [sdkLoaded, setSdkLoaded] = useState(false);
+    const YOCO_SDK_URL = 'https://js.yoco.com/sdk/v1/yoco-sdk-web.js';
+    const PUBLIC_KEY = import.meta.env.VITE_YOCO_PUBLIC_KEY || '';
+
+    useEffect(() => {
+        if (!PUBLIC_KEY) {
+            console.error("Yoco Public Key is missing! Check VITE_YOCO_PUBLIC_KEY in your .env file.");
+            toast({
+                variant: "destructive",
+                title: "Configuration Error",
+                description: "Payment system is not configured (Missing Public Key).",
+            });
+        }
+    }, [toast]);
+
+    useEffect(() => {
+        // Load Yoco SDK
+        if (document.querySelector(`script[src="${YOCO_SDK_URL}"]`)) {
+            setSdkLoaded(true);
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.src = YOCO_SDK_URL;
+        script.async = true;
+        script.onload = () => setSdkLoaded(true);
+        document.body.appendChild(script);
+    }, []);
 
     useEffect(() => {
         async function fetchPlan() {
@@ -116,29 +144,90 @@ export default function HostSubscription() {
 
     const handleUpgrade = async (planId: PlanTier) => {
         if (!user) return;
-        setLoading(true);
 
-        try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({ host_plan: planId })
-                .eq('id', user.id);
+        const plan = plans.find(p => p.id === planId);
+        if (!plan) return;
 
-            if (error) throw error;
+        const priceAmount = parseInt(plan.price.replace('R', ''), 10);
 
-            setCurrentPlan(planId);
-            toast({
-                title: "Plan Updated!",
-                description: `You are now on the ${planId.charAt(0).toUpperCase() + planId.slice(1)} plan.`,
-            });
-        } catch (err: any) {
+        // Helper to perform the database update
+        const performUpgrade = async () => {
+            setLoadingPlan(planId);
+            try {
+                const { error } = await supabase
+                    .from('profiles')
+                    .update({ host_plan: planId })
+                    .eq('id', user.id);
+
+                if (error) throw error;
+
+                setCurrentPlan(planId);
+                toast({
+                    title: "Plan Updated!",
+                    description: `You are now on the ${planId.charAt(0).toUpperCase() + planId.slice(1)} plan.`,
+                });
+            } catch (err: any) {
+                toast({
+                    variant: "destructive",
+                    title: "Failed to update plan",
+                    description: err.message || "Please try again.",
+                });
+            } finally {
+                setLoadingPlan(null);
+            }
+        };
+
+        // If free plan, just update
+        if (priceAmount === 0) {
+            await performUpgrade();
+            return;
+        }
+
+        // For paid plans, init Yoco
+        if (!sdkLoaded || !window.YocoSDK) {
             toast({
                 variant: "destructive",
-                title: "Failed to update plan",
-                description: err.message || "Please try again.",
+                title: "Not Ready",
+                description: "Payment system is connecting...",
             });
-        } finally {
-            setLoading(false);
+            return;
+        }
+
+        setLoadingPlan(planId);
+
+        try {
+            const yoco = new window.YocoSDK({
+                publicKey: PUBLIC_KEY,
+            });
+
+            yoco.showPopup({
+                amountInCents: priceAmount * 100,
+                currency: 'ZAR',
+                name: `Upgrade to ${plan.name}`,
+                description: plan.description,
+                image: 'https://idealstay.co.za/logo.png', // Optional: add your logo
+                callback: (result: any) => {
+                    if (result.error) {
+                        setLoadingPlan(null);
+                        toast({
+                            variant: "destructive",
+                            title: "Payment Failed",
+                            description: result.error.message,
+                        });
+                    } else {
+                        // Payment successful
+                        performUpgrade();
+                    }
+                }
+            });
+        } catch (error) {
+            setLoadingPlan(null);
+            console.error("Payment error:", error);
+            toast({
+                variant: "destructive",
+                title: "Payment Error",
+                description: "Could not initialize payment window.",
+            });
         }
     };
 
@@ -162,6 +251,8 @@ export default function HostSubscription() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-8">
                 {plans.map((plan) => {
                     const isCurrent = currentPlan === plan.id;
+                    const isLoading = loadingPlan === plan.id;
+
                     return (
                         <Card
                             key={plan.id}
@@ -208,12 +299,12 @@ export default function HostSubscription() {
                             <CardFooter>
                                 <Button
                                     onClick={() => handleUpgrade(plan.id)}
-                                    disabled={loading || isCurrent}
+                                    disabled={loadingPlan !== null || isCurrent}
                                     variant={isCurrent ? "outline" : plan.id === 'premium' ? "default" : "secondary"}
                                     className={`w-full h-12 rounded-xl text-base font-semibold ${plan.id === 'premium' ? 'bg-primary hover:bg-primary/90' : ''
                                         }`}
                                 >
-                                    {loading && isCurrent ? (
+                                    {isLoading ? (
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                     ) : isCurrent ? (
                                         "Current Plan"
@@ -227,7 +318,47 @@ export default function HostSubscription() {
                 })}
             </div>
 
-            <div className="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm grid md:grid-cols-2 gap-8 items-center mt-12">
+            <div className="bg-indigo-600 rounded-2xl p-8 md:p-12 shadow-lg text-white grid md:grid-cols-2 gap-12 items-center mt-12 overflow-hidden relative">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
+                <div className="relative z-10 space-y-6">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-sm font-medium backdrop-blur-sm border border-white/20">
+                        <Users className="w-4 h-4" />
+                        <span>1 Million+ Followers</span>
+                    </div>
+                    <h3 className="text-3xl font-extrabold leading-tight">
+                        Instant Access to South Africa's Largest Travel Community
+                    </h3>
+                    <p className="text-indigo-100 text-lg leading-relaxed">
+                        One of the biggest reasons to join our host plans is the exclusive access to our Facebook groups.
+                        You'll get full posting rights and a <span className="font-semibold text-white">verified tag</span> to build instant trust.
+                        We even create custom social media posts for you, tailored to your plan, ensuring your property is seen by thousands of potential guests.
+                    </p>
+                </div>
+                <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="bg-white/10 backdrop-blur-md p-5 rounded-xl border border-white/20 hover:bg-white/15 transition-colors">
+                        <Share2 className="w-8 h-8 text-indigo-200 mb-3" />
+                        <div className="font-bold text-lg">Viral Reach</div>
+                        <p className="text-sm text-indigo-200 mt-1">Direct access to almost 1 million travelers.</p>
+                    </div>
+                    <div className="bg-white/10 backdrop-blur-md p-5 rounded-xl border border-white/20 hover:bg-white/15 transition-colors">
+                        <ShieldCheck className="w-8 h-8 text-indigo-200 mb-3" />
+                        <div className="font-bold text-lg">Verified Tag</div>
+                        <p className="text-sm text-indigo-200 mt-1">Stand out with official Facebook verification.</p>
+                    </div>
+                    <div className="bg-white/10 backdrop-blur-md p-5 rounded-xl border border-white/20 hover:bg-white/15 transition-colors">
+                        <Video className="w-8 h-8 text-indigo-200 mb-3" />
+                        <div className="font-bold text-lg">Content Creation</div>
+                        <p className="text-sm text-indigo-200 mt-1">We design posts that showcase your stay.</p>
+                    </div>
+                    <div className="bg-white/10 backdrop-blur-md p-5 rounded-xl border border-white/20 hover:bg-white/15 transition-colors">
+                        <Smartphone className="w-8 h-8 text-indigo-200 mb-3" />
+                        <div className="font-bold text-lg">Community Access</div>
+                        <p className="text-sm text-indigo-200 mt-1">Post directly to our massive audience.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm grid md:grid-cols-2 gap-8 items-center mt-8">
                 <div className="space-y-4">
                     <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center text-green-600 mb-4">
                         <BarChart4 className="w-6 h-6" />

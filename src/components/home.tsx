@@ -3,6 +3,7 @@ import Header from "./layout/Header";
 import Footer from "./layout/Footer";
 import FilterBar from "./listings/FilterBar";
 import PropertyGrid from "./listings/PropertyGrid";
+import PropertyCard from "./listings/PropertyCard";
 import PropertyDetails from "./listings/PropertyDetails";
 import SearchFilterBar from "./search/SearchFilterBar";
 import PropertyMap from "./listings/PropertyMap";
@@ -74,6 +75,7 @@ function Home() {
           cleaning_fee: p.cleaning_fee || 0,
           service_fee: p.service_fee || 0,
           categories: p.categories || [],
+          isFeatured: p.is_featured === true,
           isVerifiedHost: p.host?.host_plan && p.host.host_plan !== 'free'
         }));
 
@@ -224,10 +226,46 @@ function Home() {
               </div>
             ) : (
               <>
-                <PropertyGrid
-                  properties={filteredProperties}
-                  onPropertyClick={handlePropertyClick}
-                />
+                {/* Featured Listings Section */}
+                {filteredProperties.filter(p => p.isFeatured).length > 0 && (
+                  <div className="mb-12">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+                        <span className="text-white text-lg">★</span>
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold text-gray-900">Featured Listings</h2>
+                        <p className="text-sm text-gray-500">Top-rated stays from verified hosts</p>
+                      </div>
+                    </div>
+                    <div className="relative">
+                      <div className="flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide">
+                        {filteredProperties
+                          .filter(p => p.isFeatured)
+                          .slice(0, 6)
+                          .map((property) => (
+                            <div key={property.id} className="min-w-[300px] max-w-[300px] snap-start">
+                              <PropertyCard property={property} onClick={handlePropertyClick} />
+                            </div>
+                          ))}
+                      </div>
+                      {/* Gradient fade on edges */}
+                      <div className="absolute right-0 top-0 bottom-4 w-16 bg-gradient-to-l from-white to-transparent pointer-events-none" />
+                    </div>
+                  </div>
+                )}
+
+                {/* All Listings Section */}
+                <div>
+                  {filteredProperties.filter(p => p.isFeatured).length > 0 && (
+                    <h2 className="text-xl font-bold text-gray-900 mb-6">All Listings</h2>
+                  )}
+                  <PropertyGrid
+                    properties={filteredProperties.filter(p => !p.isFeatured || filteredProperties.filter(fp => fp.isFeatured).length === 0 ? true : !p.isFeatured)}
+                    onPropertyClick={handlePropertyClick}
+                    compact={true}
+                  />
+                </div>
 
                 {/* Load More Button */}
                 {hasMore && !loading && (

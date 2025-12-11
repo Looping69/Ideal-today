@@ -10,6 +10,7 @@ declare global {
 
 export interface YocoInstance {
     showPopup: (options: YocoPopupOptions) => void;
+    inline: (options: YocoInlineOptions) => YocoInlineForm;
 }
 
 export interface YocoPopupOptions {
@@ -21,9 +22,22 @@ export interface YocoPopupOptions {
     callback: (result: YocoResult) => void;
 }
 
+export interface YocoInlineOptions {
+    layout?: 'field' | 'plain';
+    amountInCents?: number;
+    currency?: 'ZAR';
+}
+
+export interface YocoInlineForm {
+    mount: (container: HTMLElement) => void;
+    unmount: () => void;
+    submit: () => Promise<YocoResult>;
+}
+
 export interface YocoResult {
     id: string; // The token ID
     error?: {
         message: string;
     };
 }
+

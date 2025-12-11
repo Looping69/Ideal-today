@@ -1,5 +1,5 @@
-
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Property } from "@/types/property";
 
 import {
@@ -22,10 +22,6 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
-import YocoPayment from "@/components/payment/YocoPayment";
-import { sendEmail } from "@/lib/email";
-
-
 
 interface PropertyDetailsProps {
   property: Property | null;
@@ -36,6 +32,7 @@ interface PropertyDetailsProps {
 export default function PropertyDetails({ property, isOpen, onClose }: PropertyDetailsProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [date, setDate] = useState<DateRange | undefined>();
   const [guests, setGuests] = useState(1);
   const [isBooking, setIsBooking] = useState(false);
@@ -50,6 +47,7 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
   useEffect(() => {
     if (property) {
       fetchBookedDates();
+      loadReviews();
     }
   }, [property]);
 
@@ -68,8 +66,6 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
         let curr = parseISO(booking.check_in);
         const end = parseISO(booking.check_out);
 
-        // Add all days from check_in up to (but not including) check_out
-        // This assumes check_out day is available for new check-in
         while (curr < end) {
           range.push(new Date(curr));
           curr.setDate(curr.getDate() + 1);
@@ -80,38 +76,37 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
     }
   };
 
-  useEffect(() => {
-    const loadReviews = async () => {
-      if (!property) return;
-      const { data } = await supabase
-        .from('reviews')
-        .select('rating, content, created_at, user:profiles!reviews_user_id_fkey(full_name, avatar_url)')
-        .eq('property_id', property.id)
-        .eq('status', 'approved')
-        .order('created_at', { ascending: false });
-      setReviews(data || []);
+  const loadReviews = async () => {
+    if (!property) return;
+    const { data } = await supabase
+      .from('reviews')
+      .select('rating, content, created_at, user:profiles!reviews_user_id_fkey(full_name, avatar_url)')
+      .eq('property_id', property.id)
+      .eq('status', 'approved')
+      .order('created_at', { ascending: false });
+    setReviews(data || []);
 
-      if (user) {
-        const { data: bookingOk } = await supabase
-          .from('bookings')
-          .select('id')
-          .eq('property_id', property.id)
-          .eq('user_id', user.id)
-          .in('status', ['confirmed', 'completed'])
-          .limit(1);
-        const { data: existing } = await supabase
-          .from('reviews')
-          .select('id')
-          .eq('property_id', property.id)
-          .eq('user_id', user.id)
-          .limit(1);
-        setCanReview(!!bookingOk && bookingOk.length > 0 && !(existing && existing.length > 0));
-      } else {
-        setCanReview(false);
-      }
-    };
-    loadReviews();
-  }, [property, user]);
+    if (user) {
+      const { data: bookingOk } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('property_id', property.id)
+        .eq('user_id', user.id)
+        .in('status', ['confirmed', 'completed'])
+        .limit(1);
+
+      const { data: existing } = await supabase
+        .from('reviews')
+        .select('id')
+        .eq('property_id', property.id)
+        .eq('user_id', user.id)
+        .limit(1);
+
+      setCanReview(!!bookingOk && bookingOk.length > 0 && !(existing && existing.length > 0));
+    } else {
+      setCanReview(false);
+    }
+  };
 
   const submitReview = async () => {
     if (!user) {
@@ -133,13 +128,7 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
       setMyText("");
       setReviewPhotos([]);
       setMyRating(5);
-      const { data } = await supabase
-        .from('reviews')
-        .select('rating, content, created_at, user:profiles!reviews_user_id_fkey(full_name, avatar_url)')
-        .eq('property_id', property.id)
-        .eq('status', 'approved')
-        .order('created_at', { ascending: false });
-      setReviews(data || []);
+      loadReviews();
       setCanReview(false);
     } catch (e: any) {
       toast({ variant: 'destructive', title: 'Error', description: e.message || 'Could not submit review.' });
@@ -156,11 +145,11 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
   const serviceFee = property.service_fee || 0;
   const total = subtotal + cleaningFee + serviceFee;
 
-  const handleReserve = async () => {
+  const handleReserve = () => {
     if (!user) {
       toast({
         title: "Please login",
-        description: "You need to be logged in to make a booking.",
+        description: "You need to be logged in to book a property.",
         variant: "destructive",
       });
       return;
@@ -175,37 +164,18 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
       return;
     }
 
-    setIsBooking(true);
-
-    try {
-      const { error } = await supabase
-        .from('bookings')
-        .insert({
-          property_id: property.id,
-          user_id: user.id,
-          check_in: date.from.toISOString(),
-          check_out: date.to.toISOString(),
-          total_price: total,
-          status: 'pending'
-        });
-
-      if (error) throw error;
-
-      toast({
-        title: "Booking request sent!",
-        description: "Your host will confirm your stay shortly.",
-      });
-      onClose();
-    } catch (error) {
-      console.error(error);
-      toast({
-        title: "Booking failed",
-        description: "Something went wrong. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsBooking(false);
-    }
+    // Navigate to payment page with booking details
+    navigate('/book', {
+      state: {
+        property,
+        date,
+        guests,
+        total,
+        nights,
+        user
+      }
+    });
+    onClose();
   };
 
   return (
@@ -372,8 +342,8 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
               </div>
 
               {/* Right Column: Booking Widget */}
-              <div className="md:col-span-1">
-                <div className="sticky top-6 border border-gray-200 rounded-xl p-6 shadow-lg bg-white">
+              <div className="md:col-span-1 relative z-10">
+                <div className="sticky top-6 border border-gray-200 rounded-xl p-6 shadow-lg bg-white z-10">
                   <div className="flex justify-between items-end mb-4">
                     <div>
                       <span className="text-2xl font-bold">R{property.price}</span>
@@ -400,7 +370,7 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
                           </div>
                         </div>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="end">
+                      <PopoverContent className="w-auto p-0 z-[200]" align="end">
                         <Calendar
                           initialFocus
                           mode="range"
@@ -422,82 +392,13 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
                     </div>
                   </div>
 
-                  {user && date?.from && date?.to ? (
-                    <YocoPayment
-                      amountInCents={total * 100}
-                      currency="ZAR"
-                      name={property.title}
-                      description={`${nights} nights stay`}
-                      image={property.image}
-                      onSuccess={async (token) => {
-                        try {
-                          setIsBooking(true);
-                          // In a real app, send 'token' to backend to charge card.
-                          // Here we simulate success and create the booking.
-                          const { error } = await supabase
-                            .from('bookings')
-                            .insert({
-                              property_id: property.id,
-                              user_id: user.id,
-                              check_in: date.from!.toISOString(),
-                              check_out: date.to!.toISOString(),
-                              total_price: total,
-                              status: 'confirmed' // Assume payment success = confirmed
-                            });
-
-                          if (error) throw error;
-
-                          // Send confirmation email
-                          await sendEmail(
-                            user.email || 'guest@example.com',
-                            'Booking Confirmation - Ideal Stay',
-                            `
-                              <h1>Booking Confirmed!</h1>
-                              <p>Hi there,</p>
-                              <p>Your booking at <strong>${property.title}</strong> has been confirmed.</p>
-                              <p><strong>Check-in:</strong> ${format(date.from!, 'dd MMM yyyy')}</p>
-                              <p><strong>Check-out:</strong> ${format(date.to!, 'dd MMM yyyy')}</p>
-                              <p><strong>Total Paid:</strong> R${total}</p>
-                              <br/>
-                              <p>Enjoy your stay!</p>
-                              <p>The Ideal Stay Team</p>
-                            `
-                          );
-
-                          toast({
-                            title: "Booking Confirmed!",
-                            description: "Payment successful. Confirmation email sent.",
-                          });
-                          onClose();
-                        } catch (error: any) {
-                          console.error(error);
-                          toast({
-                            title: "Booking failed",
-                            description: error.message || "Could not save booking.",
-                            variant: "destructive",
-                          });
-                        } finally {
-                          setIsBooking(false);
-                        }
-                      }}
-                      onError={(errorMessage) => {
-                        toast({
-                          title: "Payment Failed",
-                          description: errorMessage,
-                          variant: "destructive",
-                        });
-                      }}
-                      className="w-full bg-gradient-to-r from-primary to-blue-400 hover:from-primary/90 hover:to-blue-400/90 text-white font-semibold py-6 text-lg mb-4"
-                    />
-                  ) : (
-                    <Button
-                      onClick={handleReserve}
-                      disabled={isBooking || !date?.from || !date?.to}
-                      className="w-full bg-gradient-to-r from-primary to-blue-400 hover:from-primary/90 hover:to-blue-400/90 text-white font-semibold py-6 text-lg mb-4"
-                    >
-                      {isBooking ? "Booking..." : "Reserve"}
-                    </Button>
-                  )}
+                  <Button
+                    onClick={handleReserve}
+                    disabled={isBooking || !date?.from || !date?.to}
+                    className="w-full bg-gradient-to-r from-primary to-blue-400 hover:from-primary/90 hover:to-blue-400/90 text-white font-semibold py-6 text-lg mb-4"
+                  >
+                    Reserve
+                  </Button>
 
                   <p className="text-center text-sm text-gray-500 mb-4">
                     {user && date?.from && date?.to
