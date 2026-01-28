@@ -75,20 +75,23 @@ export default function CreateListing() {
   const [plan, setPlan] = useState<'free' | 'standard' | 'premium'>('free');
   const [checkingLimit, setCheckingLimit] = useState(true);
   const [canCreate, setCanCreate] = useState(true);
+  const [verificationStatus, setVerificationStatus] = useState<'none' | 'pending' | 'verified' | 'rejected' | null>(null);
 
   useEffect(() => {
     async function checkLimits() {
       if (!user) return;
 
-      // 1. Get Plan from database
+      // 1. Get Plan and Verification from database
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('host_plan')
+        .select('host_plan, verification_status')
         .eq('id', user.id)
         .single();
 
       const currentPlan = (profileData?.host_plan as 'free' | 'standard' | 'premium') || 'free';
       setPlan(currentPlan);
+      const startStatus = profileData?.verification_status || 'none';
+      setVerificationStatus(startStatus);
 
       if (profileError) {
         console.error('Error fetching plan:', profileError);
@@ -115,6 +118,32 @@ export default function CreateListing() {
   }, [user]);
 
   if (checkingLimit) return <div className="flex justify-center p-20"><Loader2 className="animate-spin" /></div>;
+
+  if (verificationStatus !== 'verified' && verificationStatus !== null) {
+    return (
+      <div className="max-w-2xl mx-auto py-20 text-center space-y-6">
+        <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <Lock className="w-10 h-10 text-amber-600" />
+        </div>
+        <h1 className="text-3xl font-bold text-gray-900">Verification Required</h1>
+        <p className="text-gray-600 text-lg max-w-md mx-auto">
+          {verificationStatus === 'pending'
+            ? "Your profile is currently under review. You'll be able to publish listings once approved."
+            : "To ensure safety and trust on our platform, all hosts must complete identity verification before publishing listings."}
+        </p>
+        <div className="pt-6">
+          <Button onClick={() => navigate('/host/verification')} className="h-12 px-8 text-base bg-amber-600 hover:bg-amber-700">
+            {verificationStatus === 'pending' ? 'Check Status' : 'Start Verification'}
+          </Button>
+          <div className="mt-4">
+            <Link to="/host" className="text-sm text-gray-500 hover:text-gray-900 font-medium">
+              Return to Dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!canCreate) {
     return (
@@ -199,13 +228,14 @@ export default function CreateListing() {
         host_id: user.id,
         latitude,
         longitude,
+        approval_status: 'pending' // Listings require approval
       });
 
       if (error) throw error;
 
       toast({
-        title: "Success!",
-        description: "Your listing has been published.",
+        title: "Listing Submitted!",
+        description: "Your listing is pending admin approval and will be live once reviewed.",
       });
 
       navigate("/host");

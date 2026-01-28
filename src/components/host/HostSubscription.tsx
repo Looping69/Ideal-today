@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Check, Loader2, Sparkles, Smartphone, ShieldCheck, Video, BarChart4, Gift, Users, Share2 } from "lucide-react";
@@ -90,34 +91,43 @@ export default function HostSubscription() {
     const [loadingPlan, setLoadingPlan] = useState<PlanTier | null>(null);
     const [fetchingPlan, setFetchingPlan] = useState(true);
     const [currentPlan, setCurrentPlan] = useState<PlanTier>('free');
-    const [sdkLoaded, setSdkLoaded] = useState(false);
-    const YOCO_SDK_URL = 'https://js.yoco.com/sdk/v1/yoco-sdk-web.js';
-    const PUBLIC_KEY = import.meta.env.VITE_YOCO_PUBLIC_KEY || '';
+    const [searchParams] = useSearchParams();
 
+    // Check for Upgrade Status on Return
     useEffect(() => {
-        if (!PUBLIC_KEY) {
-            console.error("Yoco Public Key is missing! Check VITE_YOCO_PUBLIC_KEY in your .env file.");
-            toast({
-                variant: "destructive",
-                title: "Configuration Error",
-                description: "Payment system is not configured (Missing Public Key).",
-            });
-        }
-    }, [toast]);
+        const checkPaymentStatus = async () => {
+            const status = searchParams.get('status');
+            const pendingPlan = sessionStorage.getItem('pending_plan_upgrade') as PlanTier | null;
 
-    useEffect(() => {
-        // Load Yoco SDK
-        if (document.querySelector(`script[src="${YOCO_SDK_URL}"]`)) {
-            setSdkLoaded(true);
-            return;
-        }
+            if (status === 'success' && pendingPlan) {
+                // Clear immediately to prevent double processing
+                sessionStorage.removeItem('pending_plan_upgrade');
 
-        const script = document.createElement('script');
-        script.src = YOCO_SDK_URL;
-        script.async = true;
-        script.onload = () => setSdkLoaded(true);
-        document.body.appendChild(script);
-    }, []);
+                toast({
+                    title: "Payment Successful",
+                    description: "Finalizing your subscription upgrade...",
+                });
+
+                await performUpgrade(pendingPlan);
+            } else if (status === 'cancelled') {
+                sessionStorage.removeItem('pending_plan_upgrade');
+                toast({
+                    variant: "destructive",
+                    title: "Payment Cancelled",
+                    description: "You have not been charged.",
+                });
+            } else if (status === 'failed') {
+                sessionStorage.removeItem('pending_plan_upgrade');
+                toast({
+                    variant: "destructive",
+                    title: "Payment Failed",
+                    description: "The payment could not be completed.",
+                });
+            }
+        };
+
+        checkPaymentStatus();
+    }, [searchParams]);
 
     useEffect(() => {
         async function fetchPlan() {
@@ -142,6 +152,32 @@ export default function HostSubscription() {
         fetchPlan();
     }, [user]);
 
+    const performUpgrade = async (planId: PlanTier) => {
+        setLoadingPlan(planId);
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ host_plan: planId })
+                .eq('id', user.id);
+
+            if (error) throw error;
+
+            setCurrentPlan(planId);
+            toast({
+                title: "Plan Updated!",
+                description: `You are now on the ${planId.charAt(0).toUpperCase() + planId.slice(1)} plan.`,
+            });
+        } catch (err: any) {
+            toast({
+                variant: "destructive",
+                title: "Update Failed",
+                description: "Payment was successful but we couldn't update your profile. Please contact support.",
+            });
+        } finally {
+            setLoadingPlan(null);
+        }
+    };
+
     const handleUpgrade = async (planId: PlanTier) => {
         if (!user) return;
 
@@ -150,83 +186,57 @@ export default function HostSubscription() {
 
         const priceAmount = parseInt(plan.price.replace('R', ''), 10);
 
-        // Helper to perform the database update
-        const performUpgrade = async () => {
-            setLoadingPlan(planId);
-            try {
-                const { error } = await supabase
-                    .from('profiles')
-                    .update({ host_plan: planId })
-                    .eq('id', user.id);
-
-                if (error) throw error;
-
-                setCurrentPlan(planId);
-                toast({
-                    title: "Plan Updated!",
-                    description: `You are now on the ${planId.charAt(0).toUpperCase() + planId.slice(1)} plan.`,
-                });
-            } catch (err: any) {
-                toast({
-                    variant: "destructive",
-                    title: "Failed to update plan",
-                    description: err.message || "Please try again.",
-                });
-            } finally {
-                setLoadingPlan(null);
-            }
-        };
-
-        // If free plan, just update
+        // If free plan, just update directly
         if (priceAmount === 0) {
-            await performUpgrade();
+            await performUpgrade(planId);
             return;
         }
 
-        // For paid plans, init Yoco
-        if (!sdkLoaded || !window.YocoSDK) {
-            toast({
-                variant: "destructive",
-                title: "Not Ready",
-                description: "Payment system is connecting...",
-            });
-            return;
-        }
-
+        // For paid plans, create checkout session via Edge Function
         setLoadingPlan(planId);
 
         try {
-            const yoco = new window.YocoSDK({
-                publicKey: PUBLIC_KEY,
-            });
+            // Store plan intention
+            sessionStorage.setItem('pending_plan_upgrade', planId);
 
-            yoco.showPopup({
-                amountInCents: priceAmount * 100,
-                currency: 'ZAR',
-                name: `Upgrade to ${plan.name}`,
-                description: plan.description,
-                image: 'https://idealstay.co.za/logo.png', // Optional: add your logo
-                callback: (result: any) => {
-                    if (result.error) {
-                        setLoadingPlan(null);
-                        toast({
-                            variant: "destructive",
-                            title: "Payment Failed",
-                            description: result.error.message,
-                        });
-                    } else {
-                        // Payment successful
-                        performUpgrade();
-                    }
+            const { data, error } = await supabase.functions.invoke('create-checkout', {
+                body: {
+                    amount: priceAmount * 100, // Cents
+                    currency: 'ZAR',
+                    metadata: {
+                        userId: user.id,
+                        planId: planId
+                    },
+                    successUrl: window.location.href, // Return to this page
+                    cancelUrl: window.location.href,
+                    failUrl: window.location.href
                 }
             });
-        } catch (error) {
+
+            if (error) throw error;
+
+            if (data?.redirectUrl) {
+                // Redirect user to Yoco
+                window.location.href = data.redirectUrl;
+            } else {
+                throw new Error('No redirect URL returned from payment server');
+            }
+
+        } catch (error: any) {
             setLoadingPlan(null);
-            console.error("Payment error:", error);
+            sessionStorage.removeItem('pending_plan_upgrade');
+            console.error("Payment setup error:", error);
+
+            // Helpful error message if function fails (e.g. locally without serving)
+            let msg = error.message || "Could not start payment session.";
+            if (msg.includes('Failed to fetch')) {
+                msg = "Payment server is unreachable. If developing locally, ensure 'supabase start' is running.";
+            }
+
             toast({
                 variant: "destructive",
                 title: "Payment Error",
-                description: "Could not initialize payment window.",
+                description: msg,
             });
         }
     };

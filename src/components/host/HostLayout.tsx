@@ -13,13 +13,15 @@ import {
   Users,
   CheckSquare,
   BarChart3,
-  CreditCard
+  CreditCard,
+  AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { NotificationBell } from "@/components/ui/notification-bell";
+import { supabase } from "@/lib/supabase";
 
 export default function HostLayout() {
   const navigate = useNavigate();
@@ -27,6 +29,7 @@ export default function HostLayout() {
   const { user, signOut, loading } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const { toast } = useToast();
+  const [verificationStatus, setVerificationStatus] = useState<'none' | 'pending' | 'verified' | 'rejected'>('none');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -36,6 +39,15 @@ export default function HostLayout() {
         description: "Please sign in to access host features.",
       });
       navigate("/");
+    } else if (user) {
+      // Check verification status
+      const checkStatus = async () => {
+        const { data } = await supabase.from('profiles').select('verification_status').eq('id', user.id).single();
+        if (data) {
+          setVerificationStatus(data.verification_status || 'none');
+        }
+      };
+      checkStatus();
     }
   }, [loading, user]);
 
@@ -165,12 +177,24 @@ export default function HostLayout() {
 
             <NotificationBell />
 
-            <div className="flex items-center gap-3 pl-6 border-l border-gray-200">
+            <div
+              className="flex items-center gap-3 pl-6 border-l border-gray-200 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
+              onClick={() => navigate("/host/verification")}
+            >
               <div className="text-right hidden md:block">
                 <p className="text-sm font-semibold text-gray-900">{user?.user_metadata?.full_name || 'Host'}</p>
-                {user?.user_metadata?.is_superhost && <p className="text-xs text-gray-500">Superhost</p>}
+                {verificationStatus === 'verified' ? (
+                  <div className="flex items-center justify-end gap-1 text-xs text-green-600">
+                    <CheckSquare className="w-3 h-3" /> Verified
+                  </div>
+                ) : (
+                  <p className="text-xs text-amber-600">Unverified</p>
+                )}
               </div>
-              <div className="w-10 h-10 rounded-full bg-gray-100 p-0.5 ring-2 ring-gray-100 overflow-hidden">
+              <div className={cn(
+                "w-10 h-10 rounded-full p-0.5 ring-2 overflow-hidden",
+                verificationStatus === 'verified' ? "ring-green-100 bg-green-50" : "ring-amber-100 bg-amber-50"
+              )}>
                 <img
                   src={user?.user_metadata?.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=Host"}
                   alt="Host Profile"
@@ -180,6 +204,27 @@ export default function HostLayout() {
             </div>
           </div>
         </header>
+
+        {verificationStatus !== 'verified' && (
+          <div className="bg-amber-50 border-b border-amber-200 px-8 py-3 flex items-center justify-between animate-in slide-in-from-top-2">
+            <div className="flex items-center gap-2 text-amber-800">
+              <AlertCircle className="w-4 h-4" />
+              <span className="text-sm font-medium">
+                {verificationStatus === 'pending'
+                  ? 'Your profile verification is pending approval.'
+                  : 'Action Required: Please complete your host profile and verification to create listings.'}
+              </span>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 border-amber-200 text-amber-800 hover:bg-amber-100"
+              onClick={() => navigate("/host/verification")}
+            >
+              {verificationStatus === 'pending' ? 'View Status' : 'Verify Now'}
+            </Button>
+          </div>
+        )}
 
         <div className="p-8 max-w-7xl mx-auto">
           <Outlet />

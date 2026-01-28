@@ -5,6 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, MapPin, MoreHorizontal, Filter, Star, StarOff } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type Row = { id: string; title: string; location: string; price: number; image?: string; is_featured?: boolean };
 
@@ -175,9 +181,24 @@ export default function AdminListings() {
                       </Button>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-gray-500 hover:text-gray-900 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-gray-500 hover:text-gray-900 group-hover:opacity-100 transition-opacity">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => window.open(`/listings/${r.id}`, '_blank')}>
+                            View Listing
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => toast({ title: "Edit Listing", description: "This feature is coming soon." })}>
+                            Edit Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => toast({ title: "Delete Listing", description: "This feature is coming soon." })}>
+                            Delete Listing
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
                 ))

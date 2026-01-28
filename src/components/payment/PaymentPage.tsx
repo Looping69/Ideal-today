@@ -1,7 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Calendar, Users, MapPin, ShieldCheck, Star } from 'lucide-react';
-import YocoPayment from './YocoPayment';
+import { ArrowLeft, Calendar, Users, MapPin, ShieldCheck, Star, CreditCard, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
@@ -31,12 +30,12 @@ export default function PaymentPage() {
     const { property, date, guests, total, nights } = bookingData;
     const user = bookingData.user;
 
-    const handleSuccess = async (token: string) => {
+    const handlePayment = async () => {
         try {
             setIsProcessing(true);
 
-            // Create the booking in Supabase
-            const { error } = await supabase
+            // 1. Create the booking in Supabase with 'pending' status
+            const { data: booking, error: bookingError } = await supabase
                 .from('bookings')
                 .insert({
                     property_id: property.id,
@@ -44,28 +43,42 @@ export default function PaymentPage() {
                     check_in: date.from,
                     check_out: date.to,
                     total_price: total,
-                    status: 'confirmed'
-                });
+                    status: 'pending' // Initial status
+                })
+                .select()
+                .single();
 
-            if (error) throw error;
+            if (bookingError) throw bookingError;
 
-            // Send confirmation email (simulated for now, or via Edge Function)
-            // Note: In a real app the Edge Function call would go here
-
-            toast({
-                title: "Booking Confirmed!",
-                description: "Payment successful. You will receive a confirmation email shortly.",
-                duration: 5000,
+            // 2. Create Yoco Checkout Session via Edge Function
+            const { data: checkout, error: checkoutError } = await supabase.functions.invoke('create-checkout', {
+                body: {
+                    amount: total * 100, // Amount in cents
+                    currency: 'ZAR',
+                    metadata: {
+                        bookingId: booking.id,
+                        type: 'booking'
+                    },
+                    successUrl: `${window.location.origin}/book/success?bookingId=${booking.id}`,
+                    cancelUrl: `${window.location.origin}/book?canceled=true`,
+                    failUrl: `${window.location.origin}/book?failed=true`
+                }
             });
 
-            // Navigate to home or a success page
-            navigate('/', { replace: true });
+            if (checkoutError) throw checkoutError;
+
+            // 3. Redirect user to Yoco
+            if (checkout?.redirectUrl) {
+                window.location.href = checkout.redirectUrl;
+            } else {
+                throw new Error("No redirect URL provided by payment gateway");
+            }
 
         } catch (error: any) {
             console.error(error);
             toast({
-                title: "Booking failed",
-                description: error.message || "Could not save booking. Please contact support.",
+                title: "Payment Initialization Failed",
+                description: error.message || "Could not start payment. Please try again.",
                 variant: "destructive",
             });
             setIsProcessing(false);
@@ -145,16 +158,23 @@ export default function PaymentPage() {
                                 Select a payment method to complete your booking. Your payment is secure and encrypted.
                             </p>
 
-                            <YocoPayment
-                                amountInCents={total * 100}
-                                currency="ZAR"
-                                name={`Booking: ${property.title}`}
-                                description={`${nights} nights stay`}
-                                image={property.image}
-                                onSuccess={handleSuccess}
-                                onError={(msg) => toast({ variant: "destructive", title: "Wait", description: msg })}
+                            <Button
+                                onClick={handlePayment}
+                                disabled={isProcessing}
                                 className="w-full bg-gradient-to-r from-primary to-blue-400 hover:from-primary/90 text-white font-bold py-6 text-lg rounded-xl shadow-lg shadow-blue-500/20"
-                            />
+                            >
+                                {isProcessing ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Processing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <CreditCard className="mr-2 h-4 w-4" />
+                                        Pay R{total} with Yoco
+                                    </>
+                                )}
+                            </Button>
 
                             <div className="mt-4 flex justify-center gap-4 opacity-50 grayscale hover:grayscale-0 transition-all duration-300">
                                 {/* Trusted payment badges visualization */}

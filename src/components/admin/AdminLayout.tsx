@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from "@/components/ui/use-toast";
 import { NotificationBell } from "@/components/ui/notification-bell";
 import { supabase } from '@/lib/supabase';
-import { Users, Home as HomeIcon, MessageSquare, Star, Settings, ClipboardList, Gift, Share2, Bell } from 'lucide-react';
+import { Users, Home as HomeIcon, MessageSquare, Star, Settings, ClipboardList, Gift, Share2, Bell, Clock } from 'lucide-react';
 
 export default function AdminLayout() {
   const { user } = useAuth();
@@ -34,6 +34,7 @@ export default function AdminLayout() {
 
   const nav = [
     { to: '/admin', label: 'Overview', icon: HomeIcon },
+    { to: '/admin/pending', label: 'Pending Listings', icon: Clock },
     { to: '/admin/users', label: 'Users', icon: Users },
     { to: '/admin/listings', label: 'Listings', icon: ClipboardList },
     { to: '/admin/reviews', label: 'Reviews', icon: Star },
@@ -62,7 +63,7 @@ export default function AdminLayout() {
           <div className="mb-6 px-2">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Main Menu</p>
             <nav className="space-y-1">
-              {nav.slice(0, 5).map(({ to, label, icon: Icon }) => (
+              {nav.slice(0, 6).map(({ to, label, icon: Icon }) => (
                 <NavLink
                   key={to}
                   to={to}
@@ -79,7 +80,7 @@ export default function AdminLayout() {
           <div className="px-2">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Management</p>
             <nav className="space-y-1">
-              {nav.slice(5).map(({ to, label, icon: Icon }) => (
+              {nav.slice(6).map(({ to, label, icon: Icon }) => (
                 <NavLink
                   key={to}
                   to={to}

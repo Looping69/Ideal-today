@@ -33,15 +33,24 @@ export default function AdminUsers() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
+  const [filter, setFilter] = useState<'all' | 'pending'>('all');
   const pageSize = 20;
   const { sendNotification } = useNotifications();
   const { toast } = useToast();
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return rows;
+    let res = rows;
+
+    // 1. Apple View Filter
+    if (filter === 'pending') {
+      res = res.filter(r => r.verification_status === 'pending');
+    }
+
+    // 2. Apply Search
+    if (!search.trim()) return res;
     const q = search.toLowerCase();
-    return rows.filter(r => (r.email || '').toLowerCase().includes(q) || (r.full_name || '').toLowerCase().includes(q));
-  }, [rows, search]);
+    return res.filter(r => (r.email || '').toLowerCase().includes(q) || (r.full_name || '').toLowerCase().includes(q));
+  }, [rows, search, filter]);
 
   useEffect(() => {
     const load = async () => {
@@ -66,7 +75,7 @@ export default function AdminUsers() {
       setLoading(false);
     };
     load();
-  }, [page]);
+  }, [page, filter]);
 
   const toggleAdmin = async (id: string, next: boolean) => {
     await supabase.from('profiles').update({ is_admin: next }).eq('id', id);
@@ -79,25 +88,86 @@ export default function AdminUsers() {
   };
 
   const updateVerification = async (id: string, status: 'verified' | 'rejected') => {
-    await supabase.from('profiles').update({ verification_status: status }).eq('id', id);
-    setRows(rs => rs.map(r => (r.id === id ? { ...r, verification_status: status } : r)));
+    try {
+      // 1. Update Profile Status
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ verification_status: status })
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+
+      // 2. Notify the User
+      const title = status === 'verified' ? 'Verification Approved' : 'Verification Rejected';
+      const message = status === 'verified'
+        ? 'Congratulations! Your host verification has been approved. You now have full access to host features.'
+        : 'Your verification documents were rejected. Please review our guidelines and try again.';
+
+      await supabase.from('notifications').insert({
+        user_id: id,
+        title,
+        message,
+        type: status === 'verified' ? 'success' : 'error',
+        link: '/host/verification'
+      });
+
+      // 3. Update Local State
+      setRows(rs => rs.map(r => (r.id === id ? { ...r, verification_status: status } : r)));
+
+      toast({
+        title: "Status Updated",
+        description: `User ${status === 'verified' ? 'approved' : 'rejected'} and notified successfully.`,
+      });
+
+    } catch (error: any) {
+      console.error('Update failed:', error);
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: error.message || "Could not update verification status."
+      });
+    }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">User Management</h1>
-          <p className="text-gray-500 text-sm mt-1">Manage user access, roles, and verification.</p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">User Management</h1>
+            <p className="text-gray-500 text-sm mt-1">Manage user access, roles, and verification.</p>
+          </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              placeholder="Search users..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 w-full sm:w-72 bg-white border-gray-200 focus:border-primary focus:ring-primary/20 rounded-xl"
+            />
+          </div>
         </div>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input
-            placeholder="Search users..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 w-full sm:w-72 bg-white border-gray-200 focus:border-primary focus:ring-primary/20 rounded-xl"
-          />
+
+        <div className="flex gap-2 border-b border-gray-100">
+          <button
+            onClick={() => setFilter('all')}
+            className={`pb-3 px-1 text-sm font-medium transition-colors relative ${filter === 'all' ? 'text-primary' : 'text-gray-500 hover:text-gray-900'}`}
+          >
+            All Users
+            {filter === 'all' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />}
+          </button>
+          <button
+            onClick={() => setFilter('pending')}
+            className={`pb-3 px-1 text-sm font-medium transition-colors relative ${filter === 'pending' ? 'text-primary' : 'text-gray-500 hover:text-gray-900'}`}
+          >
+            Pending Verification
+            {filter === 'pending' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />}
+            {rows.filter(r => r.verification_status === 'pending').length > 0 && (
+              <span className="ml-2 bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5 rounded-full">
+                {rows.filter(r => r.verification_status === 'pending').length}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
@@ -141,8 +211,8 @@ export default function AdminUsers() {
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${r.host_plan === 'premium' ? 'bg-purple-50 text-purple-700 border-purple-100' :
-                          r.host_plan === 'standard' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                            'bg-gray-50 text-gray-600 border-gray-100'
+                        r.host_plan === 'standard' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                          'bg-gray-50 text-gray-600 border-gray-100'
                         }`}>
                         {r.host_plan === 'premium' ? '★ Premium' : r.host_plan === 'standard' ? '✓ Standard' : 'Free'}
                       </span>

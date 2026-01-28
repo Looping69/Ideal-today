@@ -37,8 +37,9 @@ function Home() {
         .from('properties')
         .select(`
           *,
-          host:profiles!properties_host_id_fkey(full_name, avatar_url, created_at, host_plan)
+        host:profiles!properties_host_id_fkey(full_name, avatar_url, created_at, host_plan)
         `)
+        .eq('approval_status', 'approved')
         .range(from, to);
 
       if (error) {

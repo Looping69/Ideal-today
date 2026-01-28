@@ -7,6 +7,7 @@ const WishlistsPage = lazy(() => import("./components/wishlists/WishlistsPage"))
 const HostLayout = lazy(() => import("./components/host/HostLayout"));
 const HostDashboard = lazy(() => import("./components/host/HostDashboard"));
 const CreateListing = lazy(() => import("./components/host/CreateListing"));
+const Diagnose = lazy(() => import("./components/Diagnose"));
 import { AuthProvider } from "./contexts/AuthContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { Toaster } from "./components/ui/toaster";
@@ -37,6 +38,7 @@ const AdminLayout = lazy(() => import("./components/admin/AdminLayout"));
 const AdminOverview = lazy(() => import("./components/admin/AdminOverview"));
 const AdminUsers = lazy(() => import("./components/admin/AdminUsers"));
 const AdminListings = lazy(() => import("./components/admin/AdminListings"));
+const AdminPendingListings = lazy(() => import("./components/admin/AdminPendingListings"));
 const AdminReviews = lazy(() => import("./components/admin/AdminReviews"));
 const AdminBookings = lazy(() => import("./components/admin/AdminBookings"));
 const AdminReferrals = lazy(() => import("./components/admin/AdminReferrals"));
@@ -45,6 +47,7 @@ const AdminSettings = lazy(() => import("./components/admin/AdminSettings"));
 const AdminNotifications = lazy(() => import("./components/admin/AdminNotifications"));
 
 const PaymentPage = lazy(() => import("./components/payment/PaymentPage"));
+const PaymentSuccess = lazy(() => import("./components/payment/PaymentSuccess"));
 
 import DevelopmentLanding from "./components/DevelopmentLanding";
 import { useState } from "react";
@@ -68,7 +71,9 @@ function App() {
           <>
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/diagnose" element={<Diagnose />} />
               <Route path="/book" element={<PaymentPage />} />
+              <Route path="/book/success" element={<PaymentSuccess />} />
               <Route path="/rewards" element={
                 <div className="min-h-screen bg-white flex flex-col">
                   <Header />
@@ -125,6 +130,7 @@ function App() {
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<AdminOverview />} />
                 <Route path="users" element={<AdminUsers />} />
+                <Route path="pending" element={<AdminPendingListings />} />
                 <Route path="listings" element={<AdminListings />} />
                 <Route path="reviews" element={<AdminReviews />} />
                 <Route path="bookings" element={<AdminBookings />} />

@@ -10,8 +10,8 @@ export default function Footer() {
           <div>
             <h3 className="font-bold text-gray-900 mb-6">Support</h3>
             <ul className="space-y-4 text-sm text-gray-600">
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Help Center</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">AirCover</a></li>
+              <li><a href="#" className="hover:text-gray-900 transition-colors">Safety Center</a></li>
+              <li><a href="#" className="hover:text-gray-900 transition-colors">Insurance</a></li>
               <li><a href="#" className="hover:text-gray-900 transition-colors">Anti-discrimination</a></li>
               <li><a href="#" className="hover:text-gray-900 transition-colors">Disability support</a></li>
               <li><a href="#" className="hover:text-gray-900 transition-colors">Cancellation options</a></li>
@@ -21,7 +21,7 @@ export default function Footer() {
             <h3 className="font-bold text-gray-900 mb-6">Hosting</h3>
             <ul className="space-y-4 text-sm text-gray-600">
               <li><a href="#" className="hover:text-gray-900 transition-colors">List your home</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">AirCover for Hosts</a></li>
+              <li><a href="#" className="hover:text-gray-900 transition-colors">Host Insurance</a></li>
               <li><a href="#" className="hover:text-gray-900 transition-colors">Hosting resources</a></li>
               <li><a href="#" className="hover:text-gray-900 transition-colors">Community forum</a></li>
               <li><a href="#" className="hover:text-gray-900 transition-colors">Hosting responsibly</a></li>
