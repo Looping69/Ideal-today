@@ -167,8 +167,8 @@ export default function RewardsDashboard() {
 
   const currentLevel = LEVELS.find(l => profile && profile.points >= l.min && profile.points < l.max) || LEVELS[0];
   const nextLevel = LEVELS[LEVELS.indexOf(currentLevel) + 1];
-  const progress = nextLevel 
-    ? ((profile?.points || 0) - currentLevel.min) / (nextLevel.min - currentLevel.min) * 100 
+  const progress = nextLevel
+    ? ((profile?.points || 0) - currentLevel.min) / (nextLevel.min - currentLevel.min) * 100
     : 100;
 
   return (
@@ -177,7 +177,7 @@ export default function RewardsDashboard() {
         {/* Header Section */}
         <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 mb-8 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full -mr-32 -mt-32 opacity-50" />
-          
+
           <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
             <div className="flex items-center gap-6">
               <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-400 to-red-500 flex items-center justify-center text-white text-4xl shadow-lg">
@@ -246,36 +246,36 @@ export default function RewardsDashboard() {
                 Active Challenges
               </h2>
               <div className="space-y-4">
-                <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-xl">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-xl shrink-0">
                     🌊
                   </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold">Coastal Explorer</h3>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-900">Coastal Explorer</h3>
                     <p className="text-sm text-gray-500">Book a stay in Cape Town or Durban</p>
                   </div>
-                  <div className="text-right">
-                    <span className="block font-bold text-primary">+500 pts</span>
+                  <div className="w-full sm:w-auto flex sm:flex-col items-center sm:items-end justify-between gap-2 mt-2 sm:mt-0">
+                    <span className="font-bold text-primary text-sm sm:text-base">+500 pts</span>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" className="mt-1 h-7 text-xs" onClick={() => navigate('/')}>View Properties</Button>
-                      <Button size="sm" className="mt-1 h-7 text-xs" onClick={claimCoastalExplorer}>Claim</Button>
+                      <Button size="sm" variant="outline" className="h-7 text-[10px] sm:text-xs" onClick={() => navigate('/')}>View Properties</Button>
+                      <Button size="sm" className="h-7 text-[10px] sm:text-xs" onClick={claimCoastalExplorer}>Claim</Button>
                     </div>
                   </div>
                 </div>
-                
-                <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-xl">
+
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-xl shrink-0">
                     📸
                   </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold">Photo Finisher</h3>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-900">Photo Finisher</h3>
                     <p className="text-sm text-gray-500">Upload a photo with your next review</p>
                   </div>
-                  <div className="text-right">
-                    <span className="block font-bold text-primary">+200 pts</span>
+                  <div className="w-full sm:w-auto flex sm:flex-col items-center sm:items-end justify-between gap-2 mt-2 sm:mt-0">
+                    <span className="font-bold text-primary text-sm sm:text-base">+200 pts</span>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" className="mt-1 h-7 text-xs" onClick={() => navigate('/')}>Go to Reviews</Button>
-                      <Button size="sm" className="mt-1 h-7 text-xs" onClick={claimPhotoFinisher}>Claim</Button>
+                      <Button size="sm" variant="outline" className="h-7 text-[10px] sm:text-xs" onClick={() => navigate('/')}>Go to Reviews</Button>
+                      <Button size="sm" className="h-7 text-[10px] sm:text-xs" onClick={claimPhotoFinisher}>Claim</Button>
                     </div>
                   </div>
                 </div>
@@ -299,7 +299,7 @@ export default function RewardsDashboard() {
                   <div className="space-y-2">
                     {referrals.map((r) => (
                       <div key={r.referee_id} className="flex justify-between text-sm border rounded-md px-3 py-2">
-                        <span>{r.referee_id.slice(0,8)}…</span>
+                        <span>{r.referee_id.slice(0, 8)}…</span>
                         <span className="capitalize">{r.status}</span>
                       </div>
                     ))}

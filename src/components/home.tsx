@@ -222,7 +222,7 @@ function Home() {
                 <PropertyMap
                   properties={filteredProperties}
                   onPropertyClick={handlePropertyClick}
-                  apiKey={import.meta.env.VITE_GOOGLE_MAPS_KEY}
+                  apiKey={import.meta.env.GOOGLE_MAPS_KEY}
                 />
               </div>
             ) : (

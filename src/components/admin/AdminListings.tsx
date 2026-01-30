@@ -3,8 +3,17 @@ import { supabase } from '@/lib/supabase';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, MapPin, MoreHorizontal, Filter, Star, StarOff } from 'lucide-react';
+import { Search, MapPin, MoreHorizontal, Filter, Star, StarOff, Pencil, Trash2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,6 +78,42 @@ export default function AdminListings() {
     });
   };
 
+  const [editingListing, setEditingListing] = useState<Row | null>(null);
+
+  const handleUpdateListing = async () => {
+    if (!editingListing) return;
+    try {
+      const { error } = await supabase
+        .from('properties')
+        .update({
+          title: editingListing.title,
+          location: editingListing.location,
+          price: editingListing.price
+        })
+        .eq('id', editingListing.id);
+
+      if (error) throw error;
+
+      setRows(prev => prev.map(r => r.id === editingListing.id ? editingListing : r));
+      setEditingListing(null);
+      toast({ title: "Listing Updated", description: "Changes saved successfully." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Update Failed", description: e.message });
+    }
+  };
+
+  const deleteListing = async (id: string) => {
+    if (!confirm("Are you sure? This will remove the listing permanently.")) return;
+    try {
+      const { error } = await supabase.from('properties').delete().eq('id', id);
+      if (error) throw error;
+      setRows(prev => prev.filter(r => r.id !== id));
+      toast({ title: "Deleted", description: "Listing removed." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Action Failed", description: e.message });
+    }
+  };
+
   const filtered = rows.filter(r =>
     r.title.toLowerCase().includes(search.toLowerCase()) ||
     r.location.toLowerCase().includes(search.toLowerCase())
@@ -97,9 +142,9 @@ export default function AdminListings() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm text-left">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto no-scrollbar">
+          <table className="min-w-[800px] w-full text-sm text-left">
             <thead className="bg-gray-50/50 border-b border-gray-100">
               <tr>
                 <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Property</th>
@@ -191,10 +236,10 @@ export default function AdminListings() {
                           <DropdownMenuItem onClick={() => window.open(`/listings/${r.id}`, '_blank')}>
                             View Listing
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => toast({ title: "Edit Listing", description: "This feature is coming soon." })}>
+                          <DropdownMenuItem onClick={() => setEditingListing(r)}>
                             Edit Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => toast({ title: "Delete Listing", description: "This feature is coming soon." })}>
+                          <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => deleteListing(r.id)}>
                             Delete Listing
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -207,6 +252,32 @@ export default function AdminListings() {
           </table>
         </div>
       </div>
+
+      <Dialog open={!!editingListing} onOpenChange={(o) => !o && setEditingListing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Listing Details</DialogTitle>
+            <DialogDescription>Administrative override for property information.</DialogDescription>
+          </DialogHeader>
+          {editingListing && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Property Title</Label>
+                <Input value={editingListing.title} onChange={(e) => setEditingListing({ ...editingListing, title: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Location</Label>
+                <Input value={editingListing.location} onChange={(e) => setEditingListing({ ...editingListing, location: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Price per Night (R)</Label>
+                <Input type="number" value={editingListing.price} onChange={(e) => setEditingListing({ ...editingListing, price: parseInt(e.target.value) })} />
+              </div>
+              <Button onClick={handleUpdateListing} className="w-full">Save Changes</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

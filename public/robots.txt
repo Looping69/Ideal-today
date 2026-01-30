@@ -1,3 +1,8 @@
 User-agent: *
 Allow: /
-Sitemap: https://idealstay.com/sitemap.xml
+Disallow: /admin
+Disallow: /host
+Disallow: /diagnose
+Disallow: /book
+
+Sitemap: https://idealtoday.com/sitemap.xml

@@ -1,6 +1,6 @@
 
 export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_KEY;
+    const apiKey = import.meta.env.GOOGLE_MAPS_KEY;
     if (!apiKey) {
         console.error("Google Maps API key is missing");
         return null;

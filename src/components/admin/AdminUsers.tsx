@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, ShieldCheck, User, Ban, MoreHorizontal, CheckCircle2, XCircle, FileText, Bell } from 'lucide-react';
+import { Search, ShieldCheck, User, Ban, MoreHorizontal, CheckCircle2, XCircle, FileText, Bell, Pencil } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useNotifications } from '@/contexts/NotificationContext';
@@ -78,13 +78,25 @@ export default function AdminUsers() {
   }, [page, filter]);
 
   const toggleAdmin = async (id: string, next: boolean) => {
-    await supabase.from('profiles').update({ is_admin: next }).eq('id', id);
-    setRows(rs => rs.map(r => (r.id === id ? { ...r, is_admin: next } : r)));
+    try {
+      const { error } = await supabase.from('profiles').update({ is_admin: next }).eq('id', id);
+      if (error) throw error;
+      setRows(rs => rs.map(r => (r.id === id ? { ...r, is_admin: next } : r)));
+      toast({ title: "Role Updated", description: `User is now ${next ? 'an admin' : 'a regular user'}.` });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Update Failed", description: e.message });
+    }
   };
 
   const toggleDeactivate = async (id: string, next: boolean) => {
-    await supabase.from('profiles').update({ deactivated: next }).eq('id', id);
-    setRows(rs => rs.map(r => (r.id === id ? { ...r, deactivated: next } : r)));
+    try {
+      const { error } = await supabase.from('profiles').update({ deactivated: next }).eq('id', id);
+      if (error) throw error;
+      setRows(rs => rs.map(r => (r.id === id ? { ...r, deactivated: next } : r)));
+      toast({ title: "Account Status Updated", description: `User account has been ${next ? 'deactivated' : 'activated'}.` });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Update Failed", description: e.message });
+    }
   };
 
   const updateVerification = async (id: string, status: 'verified' | 'rejected') => {
@@ -129,6 +141,61 @@ export default function AdminUsers() {
     }
   };
 
+  const [editingUser, setEditingUser] = useState<Row | null>(null);
+  const [broadcasting, setBroadcasting] = useState(false);
+  const [broadcastData, setBroadcastData] = useState({ title: '', message: '' });
+
+  const handleUpdateProfile = async () => {
+    if (!editingUser) return;
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: editingUser.full_name,
+          points: editingUser.points,
+          host_plan: editingUser.host_plan
+        })
+        .eq('id', editingUser.id);
+
+      if (error) throw error;
+
+      setRows(rs => rs.map(r => r.id === editingUser.id ? editingUser : r));
+      setEditingUser(null);
+      toast({ title: "Profile Updated", description: "Changes saved successfully." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Update Failed", description: e.message });
+    }
+  };
+
+  const handleBroadcast = async () => {
+    if (!broadcastData.title || !broadcastData.message) return;
+    setLoading(true);
+    try {
+      // This is a heavy operation, in production this should be a background job
+      const { data: users } = await supabase.from('profiles').select('id');
+      if (users) {
+        const notifications = users.map(u => ({
+          user_id: u.id,
+          title: broadcastData.title,
+          message: broadcastData.message,
+          type: 'info'
+        }));
+
+        // Batch insert in chunks of 100 to avoid issues
+        for (let i = 0; i < notifications.length; i += 100) {
+          await supabase.from('notifications').insert(notifications.slice(i, i + 100));
+        }
+      }
+      setBroadcasting(false);
+      setBroadcastData({ title: '', message: '' });
+      toast({ title: "Broadcast Sent", description: `Notification sent to ${users?.length || 0} users.` });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Broadcast Failed", description: e.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
@@ -137,14 +204,24 @@ export default function AdminUsers() {
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight">User Management</h1>
             <p className="text-gray-500 text-sm mt-1">Manage user access, roles, and verification.</p>
           </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="Search users..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 w-full sm:w-72 bg-white border-gray-200 focus:border-primary focus:ring-primary/20 rounded-xl"
-            />
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              className="rounded-xl border-dashed border-gray-300 hover:border-gray-900"
+              onClick={() => setBroadcasting(true)}
+            >
+              <Bell className="w-4 h-4 mr-2" />
+              Global Broadcast
+            </Button>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Search users..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 w-full sm:w-72 bg-white border-gray-200 focus:border-primary focus:ring-primary/20 rounded-xl"
+              />
+            </div>
           </div>
         </div>
 
@@ -171,9 +248,9 @@ export default function AdminUsers() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm text-left">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto no-scrollbar">
+          <table className="min-w-[800px] w-full text-sm text-left">
             <thead className="bg-gray-50/50 border-b border-gray-100">
               <tr>
                 <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">User</th>
@@ -271,7 +348,7 @@ export default function AdminUsers() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-2">
                         <Button
                           size="sm"
                           variant="ghost"
@@ -280,6 +357,15 @@ export default function AdminUsers() {
                           onClick={() => toggleAdmin(r.id, !r.is_admin)}
                         >
                           <ShieldCheck className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0 text-gray-500 hover:text-blue-600 hover:bg-blue-50"
+                          title="Edit Profile"
+                          onClick={() => setEditingUser(r)}
+                        >
+                          <Pencil className="w-4 h-4" />
                         </Button>
                         <Button
                           size="sm"
@@ -351,6 +437,79 @@ export default function AdminUsers() {
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Edit User Dialog */}
+      <Dialog open={!!editingUser} onOpenChange={(o) => !o && setEditingUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User Profile</DialogTitle>
+            <DialogDescription>Modify user details directly from the admin panel.</DialogDescription>
+          </DialogHeader>
+          {editingUser && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Full Name</label>
+                <Input
+                  value={editingUser.full_name}
+                  onChange={(e) => setEditingUser({ ...editingUser, full_name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Reward Points</label>
+                <Input
+                  type="number"
+                  value={editingUser.points}
+                  onChange={(e) => setEditingUser({ ...editingUser, points: parseInt(e.target.value) })}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Host Plan</label>
+                <select
+                  className="w-full rounded-md border border-gray-200 p-2 text-sm"
+                  value={editingUser.host_plan}
+                  onChange={(e) => setEditingUser({ ...editingUser, host_plan: e.target.value as any })}
+                >
+                  <option value="free">Free</option>
+                  <option value="standard">Standard</option>
+                  <option value="premium">Premium</option>
+                </select>
+              </div>
+              <Button onClick={handleUpdateProfile} className="w-full">Save Changes</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Global Broadcast Dialog */}
+      <Dialog open={broadcasting} onOpenChange={setBroadcasting}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>System-Wide Broadcast</DialogTitle>
+            <DialogDescription>This will send a notification to ALL users on the platform.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Announcement Title</label>
+              <Input
+                placeholder="Important: Maintenance tonight..."
+                value={broadcastData.title}
+                onChange={(e) => setBroadcastData({ ...broadcastData, title: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Message Content</label>
+              <Textarea
+                placeholder="We will be performing scheduled maintenance..."
+                value={broadcastData.message}
+                onChange={(e) => setBroadcastData({ ...broadcastData, message: e.target.value })}
+              />
+            </div>
+            <Button onClick={handleBroadcast} className="w-full bg-red-600 hover:bg-red-700" disabled={loading}>
+              {loading ? "Sending..." : "Send to All Users"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div >
   );
 }

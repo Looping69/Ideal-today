@@ -65,15 +65,23 @@ export default function HostLayout() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50/50 flex">
+    <div className="min-h-screen bg-gray-50/50 flex flex-col lg:flex-row">
+      {/* Overlay for mobile sidebar */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-[45] lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
         className={cn(
           "bg-white border-r border-gray-200 fixed inset-y-0 left-0 z-50 transition-all duration-300 flex flex-col shadow-sm",
-          isSidebarOpen ? "w-72" : "w-20"
+          isSidebarOpen ? "w-72 translate-x-0" : "w-20 -translate-x-full lg:translate-x-0"
         )}
       >
-        <div className="h-20 flex items-center px-6 border-b border-gray-100">
+        <div className="h-20 flex items-center px-6 border-b border-gray-100 relative">
           <div className="flex items-center gap-3 cursor-pointer group" onClick={() => navigate("/")}>
             <img
               src="/logo.png"
@@ -84,6 +92,15 @@ export default function HostLayout() {
               )}
             />
           </div>
+          {/* Close button for mobile */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden absolute right-2 top-1/2 -translate-y-1/2"
+            onClick={() => setIsSidebarOpen(false)}
+          >
+            <Menu className="w-5 h-5" />
+          </Button>
         </div>
 
         <div className="flex-1 py-8 px-4 space-y-2 overflow-y-auto no-scrollbar">
@@ -91,13 +108,13 @@ export default function HostLayout() {
             onClick={() => navigate("/host/create")}
             className={cn(
               "w-full mb-8 bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90 text-white shadow-lg shadow-primary/25 transition-all hover:scale-[1.02] h-12 rounded-xl",
-              !isSidebarOpen && "px-0 justify-center"
+              (!isSidebarOpen) && "lg:px-0 lg:justify-center"
             )}
           >
             {isSidebarOpen ? (
               <>
                 <PlusCircle className="w-5 h-5 mr-2.5" />
-                <span className="font-semibold">Create Listing</span>
+                <span className="font-semibold text-sm">Create Listing</span>
               </>
             ) : (
               <PlusCircle className="w-6 h-6" />
@@ -108,20 +125,23 @@ export default function HostLayout() {
             {sidebarItems.map((item) => (
               <button
                 key={item.path}
-                onClick={() => navigate(item.path)}
+                onClick={() => {
+                  navigate(item.path);
+                  if (window.innerWidth < 1024) setIsSidebarOpen(false);
+                }}
                 className={cn(
                   "w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-200 group relative overflow-hidden",
                   location.pathname === item.path
                     ? "bg-blue-50 text-primary font-semibold shadow-sm"
                     : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
-                  !isSidebarOpen && "justify-center px-0"
+                  !isSidebarOpen && "lg:justify-center lg:px-0"
                 )}
               >
                 <item.icon className={cn(
                   "w-5 h-5 shrink-0 transition-colors",
                   location.pathname === item.path ? "text-primary" : "text-gray-400 group-hover:text-gray-600"
                 )} />
-                {isSidebarOpen && <span>{item.label}</span>}
+                {(isSidebarOpen || window.innerWidth < 1024) && <span>{item.label}</span>}
                 {location.pathname === item.path && (
                   <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full" />
                 )}
@@ -135,7 +155,7 @@ export default function HostLayout() {
             onClick={() => signOut()}
             className={cn(
               "w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-white hover:text-red-600 hover:shadow-sm transition-all",
-              !isSidebarOpen && "justify-center px-0"
+              !isSidebarOpen && "lg:justify-center lg:px-0"
             )}
           >
             <LogOut className="w-5 h-5 shrink-0" />
@@ -148,10 +168,10 @@ export default function HostLayout() {
       <main
         className={cn(
           "flex-1 transition-all duration-300 min-h-screen",
-          isSidebarOpen ? "ml-72" : "ml-20"
+          isSidebarOpen ? "lg:ml-72" : "lg:ml-20"
         )}
       >
-        <header className="h-20 bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40 px-8 flex items-center justify-between shadow-sm">
+        <header className="h-20 bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40 px-4 md:px-8 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
@@ -161,7 +181,7 @@ export default function HostLayout() {
             >
               <Menu className="w-5 h-5" />
             </Button>
-            <h2 className="text-lg font-semibold text-gray-800 hidden md:block">
+            <h2 className="text-lg font-semibold text-gray-800 hidden sm:block">
               {sidebarItems.find(i => i.path === location.pathname)?.label || 'Dashboard'}
             </h2>
           </div>

@@ -13,6 +13,7 @@ export default defineConfig({
   plugins: [
     react(),
   ],
+  envPrefix: "",
   resolve: {
     preserveSymlinks: true,
     alias: {

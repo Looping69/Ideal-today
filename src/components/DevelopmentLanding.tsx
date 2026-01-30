@@ -35,7 +35,7 @@ export default function DevelopmentLanding({ onEnter }: DevelopmentLandingProps)
 
                     <div className="space-y-4">
                         <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-white bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">
-                            Ideal Stay
+                            Ideal Today
                         </h1>
                         <h2 className="text-xl md:text-2xl font-light text-slate-400 uppercase tracking-widest">
                             Under Development
@@ -64,7 +64,7 @@ export default function DevelopmentLanding({ onEnter }: DevelopmentLandingProps)
                     </div>
 
                     <div className="pt-12 text-sm text-slate-500">
-                        &copy; {new Date().getFullYear()} Ideal Stay. All rights reserved.
+                        &copy; {new Date().getFullYear()} Ideal Today. All rights reserved.
                     </div>
                 </motion.div>
             </div>

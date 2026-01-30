@@ -1,8 +1,8 @@
 export type AIMessage = { role: 'user' | 'assistant' | 'system'; content: string };
 
 export async function chat(messages: AIMessage[]): Promise<AIMessage> {
-  const endpoint = import.meta.env.VITE_AI_ENDPOINT as string | undefined;
-  const apiKey = import.meta.env.VITE_AI_KEY as string | undefined;
+  const endpoint = import.meta.env.AI_ENDPOINT as string | undefined;
+  const apiKey = import.meta.env.AI_KEY as string | undefined;
 
   if (!endpoint || !apiKey) {
     const last = messages[messages.length - 1]?.content || '';

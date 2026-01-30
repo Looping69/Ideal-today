@@ -230,7 +230,7 @@ export default function HostDashboard() {
       </div>
 
       {/* Today's Operations Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="border-none shadow-sm bg-blue-50/50 hover:bg-blue-50 transition-colors cursor-pointer group">
           <CardContent className="p-6 flex items-center justify-between">
             <div>

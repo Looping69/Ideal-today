@@ -65,7 +65,7 @@ export default function Header() {
             alt="IdealStay"
             className="h-12 w-auto object-contain transition-transform group-hover:scale-105"
           />
-          <span className="ml-2 text-xl font-bold text-primary tracking-tight hidden lg:block">Ideal Stay</span>
+          <span className="ml-2 text-xl font-bold text-primary tracking-tight hidden lg:block">Ideal Today</span>
         </div>
 
         {/* Mini Search Bar - Desktop Only, Scroll Only */}

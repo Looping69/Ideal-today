@@ -144,38 +144,42 @@ export default function AdminOverview() {
               <h2 className="text-xl font-bold text-gray-900">Recent Bookings</h2>
               <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80">View All</Button>
             </div>
-            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-              <div className="grid grid-cols-4 gap-4 p-5 border-b border-gray-100 bg-gray-50/50 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                <div className="col-span-2">Property & Guest</div>
-                <div>Dates</div>
-                <div className="text-right">Status</div>
-              </div>
-              <div className="divide-y divide-gray-100">
-                {recentBookings.map((booking) => (
-                  <div key={booking.id} className="grid grid-cols-4 gap-4 p-4 items-center hover:bg-gray-50/50 transition-colors">
-                    <div className="col-span-2 flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden shrink-0">
-                        <img src={booking.property?.image || "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&auto=format&fit=crop&q=60"} alt="" className="w-full h-full object-cover" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 truncate">{booking.property?.title}</p>
-                        <p className="text-xs text-gray-500 truncate">{booking.user?.full_name || booking.user?.email || 'Guest'}</p>
-                      </div>
-                    </div>
-                    <div className="text-xs text-gray-600 font-medium">
-                      {new Date(booking.check_in).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - {new Date(booking.check_out).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                    </div>
-                    <div className="text-right">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold capitalize ${booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
-                          booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-gray-100 text-gray-700'
-                        }`}>
-                        {booking.status}
-                      </span>
-                    </div>
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto no-scrollbar">
+                <div className="min-w-[600px]">
+                  <div className="grid grid-cols-4 gap-4 p-5 border-b border-gray-100 bg-gray-50/50 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <div className="col-span-2">Property & Guest</div>
+                    <div>Dates</div>
+                    <div className="text-right">Status</div>
                   </div>
-                ))}
-                {recentBookings.length === 0 && <div className="p-8 text-center text-gray-500">No recent bookings</div>}
+                  <div className="divide-y divide-gray-100">
+                    {recentBookings.map((booking) => (
+                      <div key={booking.id} className="grid grid-cols-4 gap-4 p-4 items-center hover:bg-gray-50/50 transition-colors">
+                        <div className="col-span-2 flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden shrink-0">
+                            <img src={booking.property?.image || "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&auto=format&fit=crop&q=60"} alt="" className="w-full h-full object-cover" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 truncate">{booking.property?.title}</p>
+                            <p className="text-xs text-gray-500 truncate">{booking.user?.full_name || booking.user?.email || 'Guest'}</p>
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-600 font-medium">
+                          {new Date(booking.check_in).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - {new Date(booking.check_out).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        </div>
+                        <div className="text-right">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold capitalize ${booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                            booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-gray-100 text-gray-700'
+                            }`}>
+                            {booking.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                    {recentBookings.length === 0 && <div className="p-8 text-center text-gray-500">No recent bookings</div>}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

@@ -8,11 +8,14 @@ const HostLayout = lazy(() => import("./components/host/HostLayout"));
 const HostDashboard = lazy(() => import("./components/host/HostDashboard"));
 const CreateListing = lazy(() => import("./components/host/CreateListing"));
 const Diagnose = lazy(() => import("./components/Diagnose"));
+const Health = lazy(() => import("./components/Health"));
+const NotFound = lazy(() => import("./components/ErrorPages/NotFound"));
 import { AuthProvider } from "./contexts/AuthContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { Toaster } from "./components/ui/toaster";
 import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
+import LoadingSpinner from "./components/ui/LoadingSpinner";
 import { Analytics } from "@vercel/analytics/react";
 
 const HostListings = lazy(() => import("./components/host/HostListings"));
@@ -43,6 +46,7 @@ const AdminReviews = lazy(() => import("./components/admin/AdminReviews"));
 const AdminBookings = lazy(() => import("./components/admin/AdminBookings"));
 const AdminReferrals = lazy(() => import("./components/admin/AdminReferrals"));
 const AdminRewards = lazy(() => import("./components/admin/AdminRewards"));
+const AdminFinancials = lazy(() => import("./components/admin/AdminFinancials"));
 const AdminSettings = lazy(() => import("./components/admin/AdminSettings"));
 const AdminNotifications = lazy(() => import("./components/admin/AdminNotifications"));
 
@@ -57,7 +61,9 @@ function App() {
     return sessionStorage.getItem("hasEnteredPreview") === "true";
   });
 
-  if (!hasEntered) {
+  // Only show development landing in dev mode
+  const isDev = import.meta.env.DEV;
+  if (isDev && !hasEntered) {
     return <DevelopmentLanding onEnter={() => {
       sessionStorage.setItem("hasEnteredPreview", "true");
       setHasEntered(true);
@@ -67,10 +73,11 @@ function App() {
   return (
     <AuthProvider>
       <NotificationProvider>
-        <Suspense fallback={<p>Loading...</p>}>
+        <Suspense fallback={<LoadingSpinner />}>
           <>
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/health" element={<Health />} />
               <Route path="/diagnose" element={<Diagnose />} />
               <Route path="/book" element={<PaymentPage />} />
               <Route path="/book/success" element={<PaymentSuccess />} />
@@ -136,6 +143,7 @@ function App() {
                 <Route path="bookings" element={<AdminBookings />} />
                 <Route path="referrals" element={<AdminReferrals />} />
                 <Route path="rewards" element={<AdminRewards />} />
+                <Route path="financials" element={<AdminFinancials />} />
                 <Route path="notifications" element={<AdminNotifications />} />
                 <Route path="settings" element={<AdminSettings />} />
               </Route>
@@ -156,6 +164,9 @@ function App() {
                 <Route path="settings" element={<HostSettings />} />
                 <Route path="subscription" element={<HostSubscription />} />
               </Route>
+
+              {/* 404 Catch-all */}
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </>
         </Suspense>

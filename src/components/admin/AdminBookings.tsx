@@ -3,7 +3,15 @@ import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
-import { Search, Filter, Calendar, MoreHorizontal, CheckCircle, XCircle, Clock, ArrowRight } from 'lucide-react';
+import { Search, Filter, Calendar, MoreHorizontal, CheckCircle, XCircle, Clock, ArrowRight, Pencil, Trash2, DollarSign } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from '@/components/ui/label';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,6 +70,43 @@ export default function AdminBookings() {
     }
   };
 
+  const [editingBooking, setEditingBooking] = useState<Row | null>(null);
+
+  const handleUpdateBooking = async () => {
+    if (!editingBooking) return;
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({
+          check_in: editingBooking.check_in,
+          check_out: editingBooking.check_out,
+          status: editingBooking.status
+          // Add total_price here once schema confirms column name, assuming it's total_price
+        })
+        .eq('id', editingBooking.id);
+
+      if (error) throw error;
+
+      setRows(prev => prev.map(r => r.id === editingBooking.id ? editingBooking : r));
+      setEditingBooking(null);
+      toast({ title: "Booking Updated", description: "Changes saved successfully." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Update Failed", description: e.message });
+    }
+  };
+
+  const deleteBooking = async (id: string) => {
+    if (!confirm("Permanently delete this booking record? This cannot be undone.")) return;
+    try {
+      const { error } = await supabase.from('bookings').delete().eq('id', id);
+      if (error) throw error;
+      setRows(prev => prev.filter(r => r.id !== id));
+      toast({ title: "Deleted", description: "Booking record removed." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Action Failed", description: e.message });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -91,8 +136,8 @@ export default function AdminBookings() {
             key={s}
             onClick={() => setTab(s as any)}
             className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${tab === s
-                ? 'bg-gray-900 text-white shadow-md shadow-gray-900/20'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+              ? 'bg-gray-900 text-white shadow-md shadow-gray-900/20'
+              : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
               }`}
           >
             {s.charAt(0).toUpperCase() + s.slice(1)}
@@ -100,9 +145,9 @@ export default function AdminBookings() {
         ))}
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm text-left">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto no-scrollbar">
+          <table className="min-w-[800px] w-full text-sm text-left">
             <thead className="bg-gray-50/50 border-b border-gray-100">
               <tr>
                 <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Property</th>
@@ -138,9 +183,9 @@ export default function AdminBookings() {
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${r.status === 'confirmed' ? 'bg-green-50 text-green-700 border-green-100' :
-                          r.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' :
-                            r.status === 'canceled' ? 'bg-red-50 text-red-700 border-red-100' :
-                              'bg-gray-50 text-gray-700 border-gray-100'
+                        r.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' :
+                          r.status === 'canceled' ? 'bg-red-50 text-red-700 border-red-100' :
+                            'bg-gray-50 text-gray-700 border-gray-100'
                         }`}>
                         {r.status === 'confirmed' && <CheckCircle className="w-3 h-3 mr-1.5" />}
                         {r.status === 'pending' && <Clock className="w-3 h-3 mr-1.5" />}
@@ -158,9 +203,19 @@ export default function AdminBookings() {
                         <DropdownMenuContent align="end" className="w-40">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
                           <DropdownMenuSeparator />
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => updateStatus(r.id, 'confirmed')}>Mark Confirmed</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => updateStatus(r.id, 'completed')}>Mark Completed</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setEditingBooking(r)}>
+                            <Pencil className="w-3.5 h-3.5 mr-2" />
+                            Edit Booking
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => updateStatus(r.id, 'canceled')} className="text-red-600">Cancel Booking</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => deleteBooking(r.id)} className="text-red-600">
+                            <Trash2 className="w-3.5 h-3.5 mr-2" />
+                            Delete Record
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>
@@ -185,6 +240,44 @@ export default function AdminBookings() {
           </div>
         </div>
       </div>
+
+      <Dialog open={!!editingBooking} onOpenChange={(o) => !o && setEditingBooking(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Administrative Booking Correction</DialogTitle>
+            <DialogDescription>Override booking details to resolve disputes.</DialogDescription>
+          </DialogHeader>
+          {editingBooking && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Check-in</Label>
+                  <Input type="date" value={editingBooking.check_in.split('T')[0]} onChange={(e) => setEditingBooking({ ...editingBooking, check_in: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Check-out</Label>
+                  <Input type="date" value={editingBooking.check_out.split('T')[0]} onChange={(e) => setEditingBooking({ ...editingBooking, check_out: e.target.value })} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Booking Status</Label>
+                <select
+                  className="w-full rounded-xl border border-gray-200 p-2 text-sm"
+                  value={editingBooking.status}
+                  onChange={(e) => setEditingBooking({ ...editingBooking, status: e.target.value })}
+                >
+                  <option value="pending">Pending</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="completed">Completed</option>
+                  <option value="canceled">Canceled</option>
+                  <option value="blocked">Blocked</option>
+                </select>
+              </div>
+              <Button onClick={handleUpdateBooking} className="w-full">Save Override</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

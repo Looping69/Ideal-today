@@ -1,4 +1,4 @@
-# Deployment Guide for Ideal Stay
+# Deployment Guide for Ideal Today
 
 Your application is production-ready! Here is how to deploy it to the world.
 

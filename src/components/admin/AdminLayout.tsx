@@ -4,7 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from "@/components/ui/use-toast";
 import { NotificationBell } from "@/components/ui/notification-bell";
 import { supabase } from '@/lib/supabase';
-import { Users, Home as HomeIcon, MessageSquare, Star, Settings, ClipboardList, Gift, Share2, Bell, Clock } from 'lucide-react';
+import { Users, Home as HomeIcon, MessageSquare, Star, Settings, ClipboardList, Gift, Share2, Bell, Clock, Wallet, Menu, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export default function AdminLayout() {
   const { user } = useAuth();
@@ -21,7 +22,7 @@ export default function AdminLayout() {
     check();
   }, [user]);
 
-  // Do not force navigation; nested routes handle rendering
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   if (!allowed) {
     return (
@@ -41,14 +42,26 @@ export default function AdminLayout() {
     { to: '/admin/bookings', label: 'Bookings', icon: MessageSquare },
     { to: '/admin/referrals', label: 'Referrals', icon: Share2 },
     { to: '/admin/rewards', label: 'Rewards', icon: Gift },
+    { to: '/admin/financials', label: 'Financials', icon: Wallet },
     { to: '/admin/notifications', label: 'Notifications', icon: Bell },
     { to: '/admin/settings', label: 'Settings', icon: Settings },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50/50 flex">
-      <aside className="w-72 border-r border-gray-200 fixed inset-y-0 left-0 z-50 bg-white shadow-sm flex flex-col hidden md:flex">
-        <div className="h-20 flex items-center px-6 border-b border-gray-100">
+    <div className="min-h-screen bg-gray-50/50 flex flex-col md:flex-row">
+      {/* Overlay for mobile sidebar */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-[45] md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      <aside className={cn(
+        "w-72 border-r border-gray-200 fixed inset-y-0 left-0 z-50 bg-white shadow-sm flex flex-col transition-transform duration-300 md:translate-x-0",
+        isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <div className="h-20 flex items-center px-6 border-b border-gray-100 justify-between">
           <div className="flex items-center gap-3 cursor-pointer group" onClick={() => navigate("/")}>
             <div className="w-10 h-10 bg-gradient-to-br from-gray-900 to-gray-700 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-gray-900/20 transition-transform group-hover:scale-105">
               <Settings className="w-6 h-6 text-white" />
@@ -57,6 +70,9 @@ export default function AdminLayout() {
               AdminPanel
             </span>
           </div>
+          <button className="md:hidden p-2 text-gray-500 hover:text-gray-900" onClick={() => setIsSidebarOpen(false)}>
+            <X className="w-6 h-6" />
+          </button>
         </div>
 
         <div className="flex-1 py-8 px-4 space-y-1 overflow-y-auto no-scrollbar">
@@ -68,6 +84,7 @@ export default function AdminLayout() {
                   key={to}
                   to={to}
                   end={to === '/admin'}
+                  onClick={() => { if (window.innerWidth < 768) setIsSidebarOpen(false); }}
                   className={({ isActive }) => `flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-200 group relative overflow-hidden ${isActive ? 'bg-gray-900 text-white shadow-md shadow-gray-900/20' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'} `}
                 >
                   <Icon className="w-5 h-5 shrink-0" />
@@ -84,6 +101,7 @@ export default function AdminLayout() {
                 <NavLink
                   key={to}
                   to={to}
+                  onClick={() => { if (window.innerWidth < 768) setIsSidebarOpen(false); }}
                   className={({ isActive }) => `flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-200 group relative overflow-hidden ${isActive ? 'bg-gray-900 text-white shadow-md shadow-gray-900/20' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'} `}
                 >
                   <Icon className="w-5 h-5 shrink-0" />
@@ -108,10 +126,18 @@ export default function AdminLayout() {
       </aside>
 
       <section className="flex-1 md:ml-72 min-h-screen flex flex-col">
-        <header className="h-20 bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40 px-8 flex items-center justify-between shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-800">
-            {nav.find(n => n.to === location.pathname)?.label || 'Dashboard'}
-          </h2>
+        <header className="h-20 bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40 px-4 md:px-8 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-4">
+            <button
+              className="md:hidden p-2 rounded-lg hover:bg-gray-100"
+              onClick={() => setIsSidebarOpen(true)}
+            >
+              <Menu className="w-6 h-6 text-gray-600" />
+            </button>
+            <h2 className="text-lg font-semibold text-gray-800 hidden sm:block">
+              {nav.find(n => n.to === location.pathname)?.label || 'Dashboard'}
+            </h2>
+          </div>
           <div className="flex items-center gap-4">
             <NotificationBell />
             <button
