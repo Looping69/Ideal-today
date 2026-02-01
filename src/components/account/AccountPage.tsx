@@ -95,12 +95,12 @@ export default function AccountPage() {
   };
 
   if (loading) {
-    return <div className="min-h-screen pt-24 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
+    return <div className="min-h-screen pt-32 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen pt-24 flex flex-col items-center justify-center p-4 text-center">
+      <div className="min-h-screen pt-32 flex flex-col items-center justify-center p-4 text-center">
         <h1 className="text-2xl font-bold mb-2">Please log in</h1>
         <p className="text-gray-600">You need to be signed in to access your account.</p>
       </div>
@@ -108,7 +108,7 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-10">
+    <div className="container mx-auto px-4 pt-32 pb-12">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <Card className="md:col-span-2">
           <CardHeader>

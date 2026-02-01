@@ -45,7 +45,7 @@ export default function WishlistsPage() {
   }, [user]);
 
   return (
-    <div className="min-h-screen pt-24 pb-12 container mx-auto px-4">
+    <div className="min-h-screen pt-32 pb-12 container mx-auto px-4">
       <h1 className="text-3xl font-bold mb-8">Wishlists</h1>
 
       {(!items || items.length === 0) ? (

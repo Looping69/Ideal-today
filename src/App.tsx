@@ -53,23 +53,7 @@ const AdminNotifications = lazy(() => import("./components/admin/AdminNotificati
 const PaymentPage = lazy(() => import("./components/payment/PaymentPage"));
 const PaymentSuccess = lazy(() => import("./components/payment/PaymentSuccess"));
 
-import DevelopmentLanding from "./components/DevelopmentLanding";
-import { useState } from "react";
-
 function App() {
-  const [hasEntered, setHasEntered] = useState(() => {
-    return sessionStorage.getItem("hasEnteredPreview") === "true";
-  });
-
-  // Only show development landing in dev mode
-  const isDev = import.meta.env.DEV;
-  if (isDev && !hasEntered) {
-    return <DevelopmentLanding onEnter={() => {
-      sessionStorage.setItem("hasEnteredPreview", "true");
-      setHasEntered(true);
-    }} />;
-  }
-
   return (
     <AuthProvider>
       <NotificationProvider>

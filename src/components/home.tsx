@@ -195,7 +195,7 @@ function Home() {
     <div className="min-h-screen bg-white flex flex-col">
       <Header />
 
-      <main className="flex-1 pt-24 pb-12">
+      <main className="flex-1 pt-32 pb-12">
         <div className="container mx-auto px-4">
           {/* Hero Search - Only visible on larger screens or when needed */}
           <div className={`hidden md:block ${chatActive ? 'pb-[300px] transition-all duration-500' : 'mt-4 mb-4'}`}>

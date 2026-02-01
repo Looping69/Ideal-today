@@ -92,16 +92,16 @@ export default function InboxPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pt-24 flex justify-center">
+      <div className="min-h-screen pt-32 flex justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen pt-24 pb-12 container mx-auto px-4">
+    <div className="min-h-screen pt-32 pb-12 container mx-auto px-4">
       <h1 className="text-3xl font-bold mb-6">Messages</h1>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[600px]">
         {/* Conversation List */}
         <div className={cn(

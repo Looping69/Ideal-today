@@ -69,38 +69,35 @@ export default function TripsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pt-24 flex justify-center">
+      <div className="min-h-screen pt-32 flex justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen pt-24 pb-12 container mx-auto px-4">
+    <div className="min-h-screen pt-32 pb-12 container mx-auto px-4">
       <h1 className="text-3xl font-bold mb-6">Trips</h1>
       <div className="border-b border-gray-200 mb-8">
         <div className="flex gap-8">
           <button
             onClick={() => setActiveTab("upcoming")}
-            className={`pb-4 border-b-2 font-semibold transition-colors ${
-              activeTab === "upcoming" ? "border-black text-black" : "border-transparent text-gray-500 hover:text-gray-800"
-            }`}
+            className={`pb-4 border-b-2 font-semibold transition-colors ${activeTab === "upcoming" ? "border-black text-black" : "border-transparent text-gray-500 hover:text-gray-800"
+              }`}
           >
             Upcoming
           </button>
           <button
             onClick={() => setActiveTab("past")}
-            className={`pb-4 border-b-2 font-semibold transition-colors ${
-              activeTab === "past" ? "border-black text-black" : "border-transparent text-gray-500 hover:text-gray-800"
-            }`}
+            className={`pb-4 border-b-2 font-semibold transition-colors ${activeTab === "past" ? "border-black text-black" : "border-transparent text-gray-500 hover:text-gray-800"
+              }`}
           >
             Past
           </button>
           <button
             onClick={() => setActiveTab("canceled")}
-            className={`pb-4 border-b-2 font-semibold transition-colors ${
-              activeTab === "canceled" ? "border-black text-black" : "border-transparent text-gray-500 hover:text-gray-800"
-            }`}
+            className={`pb-4 border-b-2 font-semibold transition-colors ${activeTab === "canceled" ? "border-black text-black" : "border-transparent text-gray-500 hover:text-gray-800"
+              }`}
           >
             Canceled
           </button>
@@ -144,7 +141,7 @@ export default function TripsPage() {
                   <MapPin className="w-4 h-4 mr-1" />
                   {booking.property.location}
                 </div>
-                
+
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center text-gray-600">
@@ -159,10 +156,10 @@ export default function TripsPage() {
                     </div>
                     <span className="font-semibold">R{booking.total_price}</span>
                   </div>
-                  
+
                   {booking.status === "confirmed" && (
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="w-full mt-4 gap-2"
                       onClick={() => navigate(`/inbox/${booking.id}`)}
                     >
