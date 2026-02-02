@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, MapPin, MoreHorizontal, Filter, Star, StarOff, Pencil, Trash2 } from 'lucide-react';
+import { Search, MapPin, MoreHorizontal, Filter, Star, StarOff, Pencil, Trash2, Video } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import {
   Dialog,
@@ -20,8 +20,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { CATEGORIES } from '@/constants/categories';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-type Row = { id: string; title: string; location: string; price: number; image?: string; is_featured?: boolean };
+type Row = { id: string; title: string; location: string; price: number; type: string; image?: string; is_featured?: boolean; video_url?: string | null };
 
 export default function AdminListings() {
   const [rows, setRows] = useState<Row[]>([]);
@@ -33,8 +35,8 @@ export default function AdminListings() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const { data } = await supabase.from('properties').select('id,title,location,price,image,is_featured').limit(50);
-      const list = ((data as any[]) || []).map(r => ({ id: r.id, title: r.title, location: r.location, price: r.price, image: r.image, is_featured: r.is_featured ?? false }));
+      const { data } = await supabase.from('properties').select('id,title,location,price,type,image,is_featured,video_url').limit(50);
+      const list = ((data as any[]) || []).map(r => ({ id: r.id, title: r.title, location: r.location, price: r.price, type: r.type || '', image: r.image, is_featured: r.is_featured ?? false, video_url: r.video_url }));
       setRows(list);
 
       const todayIso = new Date().toISOString();
@@ -88,7 +90,9 @@ export default function AdminListings() {
         .update({
           title: editingListing.title,
           location: editingListing.location,
-          price: editingListing.price
+          price: editingListing.price,
+          type: editingListing.type,
+          video_url: editingListing.video_url
         })
         .eq('id', editingListing.id);
 
@@ -175,6 +179,12 @@ export default function AdminListings() {
                               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
                                 <Star className="w-3 h-3 mr-0.5 fill-amber-500" />
                                 Featured
+                              </span>
+                            )}
+                            {r.video_url && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700" title="Has Video">
+                                <Video className="w-3 h-3 mr-0.5" />
+                                Video
                               </span>
                             )}
                           </div>
@@ -272,6 +282,42 @@ export default function AdminListings() {
               <div className="space-y-2">
                 <Label>Price per Night (R)</Label>
                 <Input type="number" value={editingListing.price} onChange={(e) => setEditingListing({ ...editingListing, price: parseInt(e.target.value) })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Property Type</Label>
+                <Select
+                  value={editingListing.type}
+                  onValueChange={(v) => setEditingListing({ ...editingListing, type: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map(cat => (
+                      <div key={cat.id}>
+                        <div className="px-2 py-1.5 text-xs font-bold text-gray-400 uppercase tracking-wider bg-gray-50/50">
+                          {cat.label}
+                        </div>
+                        {cat.subcategories.map(sub => (
+                          <SelectItem key={sub.id} value={sub.id}>
+                            {sub.label}
+                          </SelectItem>
+                        ))}
+                      </div>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Video URL (Optional)</Label>
+                <Input
+                  value={editingListing.video_url || ''}
+                  onChange={(e) => setEditingListing({ ...editingListing, video_url: e.target.value || null })}
+                  placeholder="https://..."
+                />
+                {editingListing.video_url && (
+                  <p className="text-[10px] text-gray-500">Note: Changing the URL here manually may break the player if the link is invalid.</p>
+                )}
               </div>
               <Button onClick={handleUpdateListing} className="w-full">Save Changes</Button>
             </div>

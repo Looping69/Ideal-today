@@ -1,6 +1,6 @@
 
-import { useState } from "react";
-import { Send, Sparkles, Calendar, Plus, Minus, MapPin, Search } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Send, Sparkles, Calendar, Plus, Minus, MapPin, Search, TrendingUp, Building, Home, Palmtree } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type Props = {
@@ -8,6 +8,16 @@ type Props = {
   onModeChange?: (mode: 'chat' | 'search') => void;
   onSendMessage?: (message: string) => void;
 };
+
+// Popular destinations shown when user focuses the input
+const POPULAR_DESTINATIONS = [
+  { label: "Cape Town", type: "city" as const, icon: Building },
+  { label: "Johannesburg", type: "city" as const, icon: Building },
+  { label: "Durban", type: "city" as const, icon: Palmtree },
+  { label: "Kruger National Park", type: "place" as const, icon: MapPin },
+  { label: "Garden Route", type: "place" as const, icon: Palmtree },
+  { label: "Western Cape", type: "province" as const, icon: MapPin },
+];
 
 export default function SearchFilterBar({ onChange, onModeChange, onSendMessage }: Props) {
   const [isFlipped, setIsFlipped] = useState(true);
@@ -18,10 +28,12 @@ export default function SearchFilterBar({ onChange, onModeChange, onSendMessage 
   const [checkOut, setCheckOut] = useState<Date | null>(null);
   const [guests, setGuests] = useState(1);
   const [location, setLocation] = useState("");
-  // Removed hardcoded PROVINCES, replaced with purely dynamic logic
-  const [suggestions, setSuggestions] = useState<{ label: string; type: "province" | "place" | "listing" }[]>([]);
+  const [suggestions, setSuggestions] = useState<{ label: string; type: "province" | "place" | "listing" | "city"; icon?: any }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [isLoading, setIsLoading] = useState(false);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFlip = () => {
     setIsFlipped(!isFlipped);
@@ -44,48 +56,75 @@ export default function SearchFilterBar({ onChange, onModeChange, onSendMessage 
     return days;
   };
 
-  let debounceTimer: any;
+  const handleLocationFocus = () => {
+    setShowSuggestions(true);
+    if (!location.trim()) {
+      // Show popular destinations when field is empty
+      setSuggestions(POPULAR_DESTINATIONS.map(d => ({ ...d })));
+    }
+  };
+
   const handleLocationChange = (v: string) => {
     setLocation(v);
     emit(v);
-    setShowSuggestions(v.trim().length > 0);
+    setShowSuggestions(true);
     setActiveIndex(-1);
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(async () => {
-      if (!v.trim()) {
-        setSuggestions([]);
-        return;
-      }
 
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    if (!v.trim()) {
+      setSuggestions(POPULAR_DESTINATIONS.map(d => ({ ...d })));
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    debounceRef.current = setTimeout(async () => {
       try {
         const { data } = await supabase
           .from("properties")
           .select("title, location, province")
           .or(`location.ilike.%${v}%,title.ilike.%${v}%,province.ilike.%${v}%`)
-          .limit(6);
+          .limit(8);
 
-        const places = new Set<string>();
-        const listings: { label: string; type: "listing" }[] = [];
+        const places = new Map<string, boolean>();
+        const listings: { label: string; type: "listing"; icon: any }[] = [];
         const provinces = new Set<string>();
 
         (data || []).forEach((p: any) => {
-          if (p.location && !places.has(p.location)) places.add(p.location);
-          if (p.title) listings.push({ label: p.title, type: "listing" });
-          if (p.province && p.province.toLowerCase().includes(v.toLowerCase())) provinces.add(p.province);
+          if (p.location && !places.has(p.location)) {
+            places.set(p.location, true);
+          }
+          if (p.title) {
+            listings.push({ label: p.title, type: "listing", icon: Home });
+          }
+          if (p.province && p.province.toLowerCase().includes(v.toLowerCase())) {
+            provinces.add(p.province);
+          }
         });
 
-        const placeItems = Array.from(places).slice(0, 5).map(l => ({ label: l, type: "place" as const }));
-        const provinceItems = Array.from(provinces).slice(0, 3).map(p => ({ label: p, type: "province" as const }));
+        const placeItems = Array.from(places.keys()).slice(0, 4).map(l => ({ label: l, type: "place" as const, icon: MapPin }));
+        const provinceItems = Array.from(provinces).slice(0, 2).map(p => ({ label: p, type: "province" as const, icon: MapPin }));
 
         const merged = [...provinceItems, ...placeItems, ...listings.slice(0, 3)];
-        setSuggestions(merged);
+
+        // If no results, show "no matches" state
+        if (merged.length === 0) {
+          setSuggestions([]);
+        } else {
+          setSuggestions(merged);
+        }
       } catch {
         setSuggestions([]);
+      } finally {
+        setIsLoading(false);
       }
-    }, 200);
+    }, 250);
   };
 
-  const pickSuggestion = (s: { label: string; type: "province" | "place" | "listing" }) => {
+  const pickSuggestion = (s: { label: string; type: "province" | "place" | "listing" | "city" }) => {
     setLocation(s.label);
     emit(s.label);
     setShowSuggestions(false);
@@ -106,6 +145,17 @@ export default function SearchFilterBar({ onChange, onModeChange, onSendMessage 
       setShowSuggestions(false);
     }
   };
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (inputRef.current && !inputRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const formatDate = (date: Date | null) => {
     if (!date) return "";
@@ -199,37 +249,71 @@ export default function SearchFilterBar({ onChange, onModeChange, onSendMessage 
                     <Sparkles className="w-4 h-4 text-gray-400" />
                   </button>
 
-                  <div className="relative flex-1 px-4 hover:bg-gray-50 rounded-full transition-colors cursor-pointer group">
+                  <div ref={inputRef} className="relative flex-1 px-4 hover:bg-gray-50 rounded-full transition-colors cursor-pointer group">
                     <div className="text-[10px] font-bold text-gray-800 uppercase tracking-wider mb-0.5">Where</div>
                     <input
                       type="text"
                       value={location}
                       onChange={(e) => handleLocationChange(e.target.value)}
+                      onFocus={handleLocationFocus}
                       onKeyDown={onLocationKeyDown}
                       placeholder="Search destinations"
                       className="w-full bg-transparent border-none text-gray-600 text-sm outline-none placeholder-gray-400 truncate"
                     />
-                    {showSuggestions && suggestions.length > 0 && (
-                      <div className="absolute top-full left-0 mt-4 bg-white rounded-2xl border border-gray-100 shadow-xl w-[350px] z-50 overflow-hidden py-2">
-                        <ul className="max-h-64 overflow-auto">
-                          {suggestions.map((s, idx) => (
-                            <li key={`${s.type}-${s.label}-${idx}`}>
-                              <button
-                                className={`w-full text-left px-4 py-3 text-sm flex items-center gap-3 hover:bg-gray-50 transition-colors ${activeIndex === idx ? "bg-gray-50" : ""}`}
-                                onMouseEnter={() => setActiveIndex(idx)}
-                                onClick={() => pickSuggestion(s)}
-                              >
-                                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-                                  <MapPin className="w-4 h-4 text-gray-500" />
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="font-medium text-gray-900">{s.label}</span>
-                                  <span className="text-xs text-gray-500 capitalize">{s.type}</span>
-                                </div>
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
+                    {showSuggestions && (
+                      <div className="absolute top-full left-0 mt-4 bg-white rounded-2xl border border-gray-100 shadow-xl w-[350px] z-50 overflow-hidden">
+                        {!location.trim() && (
+                          <div className="px-4 py-2 border-b border-gray-100">
+                            <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              <TrendingUp className="w-3 h-3" />
+                              Popular Destinations
+                            </div>
+                          </div>
+                        )}
+                        {isLoading ? (
+                          <div className="px-4 py-6 text-center">
+                            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                            <span className="text-sm text-gray-500">Searching...</span>
+                          </div>
+                        ) : suggestions.length > 0 ? (
+                          <ul className="max-h-72 overflow-auto py-2">
+                            {suggestions.map((s, idx) => {
+                              const IconComp = s.icon || MapPin;
+                              return (
+                                <li key={`${s.type}-${s.label}-${idx}`}>
+                                  <button
+                                    className={`w-full text-left px-4 py-3 text-sm flex items-center gap-3 hover:bg-gray-50 transition-colors ${activeIndex === idx ? "bg-blue-50" : ""}`}
+                                    onMouseEnter={() => setActiveIndex(idx)}
+                                    onClick={() => pickSuggestion(s)}
+                                  >
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${s.type === 'city' ? 'bg-blue-100' :
+                                      s.type === 'province' ? 'bg-green-100' :
+                                        s.type === 'listing' ? 'bg-purple-100' : 'bg-gray-100'
+                                      }`}>
+                                      <IconComp className={`w-5 h-5 ${s.type === 'city' ? 'text-blue-600' :
+                                        s.type === 'province' ? 'text-green-600' :
+                                          s.type === 'listing' ? 'text-purple-600' : 'text-gray-500'
+                                        }`} />
+                                    </div>
+                                    <div className="flex flex-col">
+                                      <span className="font-medium text-gray-900">{s.label}</span>
+                                      <span className={`text-xs capitalize ${s.type === 'city' ? 'text-blue-500' :
+                                        s.type === 'province' ? 'text-green-500' :
+                                          s.type === 'listing' ? 'text-purple-500' : 'text-gray-500'
+                                        }`}>{s.type === 'listing' ? 'Property' : s.type}</span>
+                                    </div>
+                                  </button>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        ) : location.trim() ? (
+                          <div className="px-4 py-6 text-center">
+                            <MapPin className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                            <span className="text-sm text-gray-500">No destinations found</span>
+                            <p className="text-xs text-gray-400 mt-1">Try a different search term</p>
+                          </div>
+                        ) : null}
                       </div>
                     )}
                   </div>

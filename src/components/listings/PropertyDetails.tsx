@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Star, MapPin, Wifi, Car, Utensils, Wind, Share, Heart, Calendar as CalendarIcon } from "lucide-react";
+import { Star, MapPin, Wifi, Car, Utensils, Wind, Share, Heart, Calendar as CalendarIcon, Play, Pause, Video } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import ImageUpload from "@/components/ui/image-upload";
@@ -43,6 +43,7 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
   const [myText, setMyText] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [reviewPhotos, setReviewPhotos] = useState<string[]>([]);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
 
   useEffect(() => {
     if (property) {
@@ -219,6 +220,25 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
                 </div>
               ))}
             </div>
+
+            {/* Video Section */}
+            {property.video_url && (
+              <div className="mb-8">
+                <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                  <Video className="w-5 h-5" />
+                  Property Video Tour
+                </h3>
+                <div className="relative rounded-xl overflow-hidden bg-black shadow-lg">
+                  <video
+                    src={property.video_url}
+                    className="w-full aspect-video object-contain"
+                    controls
+                    playsInline
+                    poster={property.image}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
               {/* Left Column: Details */}

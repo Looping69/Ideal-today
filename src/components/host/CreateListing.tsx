@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import ImageUpload from "@/components/ui/image-upload";
+import VideoUpload from "@/components/ui/video-upload";
 import {
   Home,
   Building2,
@@ -29,18 +30,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { geocodeAddress } from "@/lib/geocoding";
 
-const CATEGORIES = [
-  { id: "apartment", label: "Apartment", icon: Building2 },
-  { id: "house", label: "House", icon: Home },
-  { id: "guesthouse", label: "Guesthouse", icon: Warehouse },
-  { id: "beach", label: "Beachfront", icon: Waves },
-  { id: "safari", label: "Safari", icon: Trees },
-  { id: "winelands", label: "Winelands", emoji: "🍇" },
-  { id: "city", label: "City", icon: Building2 },
-  { id: "mountain", label: "Mountain", icon: Mountain },
-  { id: "pool", label: "Amazing Pool", emoji: "🏊" },
-  { id: "unique", label: "Unique", icon: Tent },
-] as const;
+import { CATEGORIES } from "@/constants/categories";
+import { CATEGORY_ICONS } from "@/components/icons/CategoryIcons";
 
 const AMENITIES = [
   "Wifi", "Kitchen", "Pool", "Hot tub", "Air conditioning",
@@ -58,8 +49,9 @@ export default function CreateListing() {
   const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [parentCategory, setParentCategory] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    category: "",
+    category: "", // This will store the specific subcategory ID
     location: "",
     province: "",
     guests: 2,
@@ -69,7 +61,8 @@ export default function CreateListing() {
     title: "",
     description: "",
     price: "",
-    images: [] as string[]
+    images: [] as string[],
+    video_url: null as string | null
   });
 
   const [plan, setPlan] = useState<'free' | 'standard' | 'premium'>('free');
@@ -225,6 +218,7 @@ export default function CreateListing() {
         bathrooms: formData.bathrooms,
         image: formData.images[0] || null,
         images: formData.images,
+        video_url: formData.video_url,
         host_id: user.id,
         latitude,
         longitude,
@@ -273,31 +267,70 @@ export default function CreateListing() {
           {step === 1 && (
             <div className="space-y-6">
               <div className="text-center max-w-lg mx-auto mb-10">
-                <h2 className="text-2xl font-bold mb-2">Which of these best describes your place?</h2>
-                <p className="text-gray-500">Select a category that matches your property type.</p>
+                <h2 className="text-2xl font-bold mb-2">
+                  {!parentCategory
+                    ? "Which of these best describes your place?"
+                    : `Now, let's be more specific about your ${CATEGORIES.find(c => c.id === parentCategory)?.label}`}
+                </h2>
+                <p className="text-gray-500">
+                  {!parentCategory
+                    ? "Select a main category to see specific property types."
+                    : "Choose the type that best fits your property."}
+                </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => updateData("category", cat.id)}
-                    className={cn(
-                      "flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all hover:border-primary/50 hover:bg-gray-50",
-                      formData.category === cat.id
-                        ? "border-primary bg-primary/5 text-primary"
-                        : "border-gray-200 text-gray-600"
-                    )}
-                  >
-                    {"icon" in cat && cat.icon ? (
-                      <cat.icon className="w-8 h-8 mb-3" />
-                    ) : (
-                      <span className="text-3xl mb-3">{(cat as any).emoji}</span>
-                    )}
-                    <span className="font-semibold">{cat.label}</span>
-                  </button>
-                ))}
-              </div>
+              {!parentCategory ? (
+                <div className="grid grid-cols-2 gap-4">
+                  {CATEGORIES.map((cat) => {
+                    const IconComponent = CATEGORY_ICONS[cat.id];
+                    return (
+                      <button
+                        key={cat.id}
+                        onClick={() => setParentCategory(cat.id)}
+                        className={cn(
+                          "flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all hover:border-primary/50 hover:bg-gray-50 group",
+                          "border-gray-200 text-gray-600"
+                        )}
+                      >
+                        {IconComponent ? (
+                          <IconComponent className="w-12 h-12 mb-3 transition-transform group-hover:scale-110" />
+                        ) : (
+                          <span className="text-4xl mb-3">{cat.icon}</span>
+                        )}
+                        <span className="font-semibold">{cat.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    {CATEGORIES.find(c => c.id === parentCategory)?.subcategories.map((sub) => (
+                      <button
+                        key={sub.id}
+                        onClick={() => updateData("category", sub.id)}
+                        className={cn(
+                          "flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all hover:border-primary/50 hover:bg-gray-50",
+                          formData.category === sub.id
+                            ? "border-primary bg-primary/5 text-primary"
+                            : "border-gray-200 text-gray-600"
+                        )}
+                      >
+                        <span className="font-semibold text-center">{sub.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex justify-center mt-4">
+                    <Button
+                      variant="ghost"
+                      onClick={() => { setParentCategory(null); updateData("category", ""); }}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      Change main category
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -471,31 +504,53 @@ export default function CreateListing() {
                   </div>
 
                   {/* Video Upload - Locked for Free Plan */}
-                  <div className="space-y-2 pt-4 border-t border-gray-100">
+                  <div className="space-y-3 pt-6 border-t border-gray-100">
                     <div className="flex items-center justify-between">
-                      <Label>Showcase Video</Label>
+                      <div>
+                        <Label className="text-base">Showcase Video</Label>
+                        <p className="text-sm text-gray-500 mt-0.5">Add a video tour to attract more guests</p>
+                      </div>
                       {plan === 'free' && (
-                        <div className="flex items-center text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
-                          <Lock className="w-3 h-3 mr-1" /> Standard Plan
+                        <div className="flex items-center text-xs font-semibold text-amber-600 bg-amber-50 px-2.5 py-1.5 rounded-full border border-amber-200">
+                          <Lock className="w-3 h-3 mr-1.5" />
+                          Standard Plan
+                        </div>
+                      )}
+                      {plan !== 'free' && formData.video_url && (
+                        <div className="flex items-center text-xs font-semibold text-green-600 bg-green-50 px-2.5 py-1.5 rounded-full border border-green-200">
+                          <Video className="w-3 h-3 mr-1.5" />
+                          Video Added
                         </div>
                       )}
                     </div>
-                    <div className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center ${plan === 'free' ? 'bg-gray-50 border-gray-200 opacity-60 cursor-not-allowed' : 'border-gray-200 hover:bg-gray-50 cursor-pointer'}`}>
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-3 ${plan === 'free' ? 'bg-gray-200' : 'bg-blue-100'}`}>
-                        <Video className={`w-5 h-5 ${plan === 'free' ? 'text-gray-400' : 'text-blue-600'}`} />
-                      </div>
-                      {plan === 'free' ? (
-                        <>
+
+                    {plan === 'free' ? (
+                      <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 bg-gray-50/50">
+                        <div className="flex flex-col items-center justify-center text-center">
+                          <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center mb-3">
+                            <Video className="w-6 h-6 text-gray-400" />
+                          </div>
                           <p className="text-sm font-medium text-gray-500">Video upload is locked</p>
-                          <p className="text-xs text-gray-400 mt-1">Upgrade to Standard to add a video tour.</p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-sm font-medium text-gray-700">Click to upload video</p>
-                          <p className="text-xs text-gray-500 mt-1">MP4 or MOV up to 60 seconds</p>
-                        </>
-                      )}
-                    </div>
+                          <p className="text-xs text-gray-400 mt-1 mb-4">Upgrade to Standard or Premium to add a video tour</p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="text-primary border-primary hover:bg-primary/5"
+                            onClick={() => navigate('/host/subscription')}
+                          >
+                            Upgrade Plan
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <VideoUpload
+                        value={formData.video_url}
+                        onChange={(url) => updateData("video_url", url)}
+                        bucket="property-videos"
+                        maxSizeMB={100}
+                      />
+                    )}
                   </div>
 
                 </div>

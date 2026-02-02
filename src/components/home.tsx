@@ -11,6 +11,7 @@ import { Property } from "@/types/property";
 import { Map, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
+import { CATEGORIES } from "@/constants/categories";
 
 function Home() {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
@@ -122,25 +123,44 @@ function Home() {
     setIsDetailsOpen(true);
   };
 
-  const handleFilterChange = (category: string) => {
-    if (category === "all") {
+  const handleFilterChange = (categoryId: string) => {
+    if (categoryId === "all") {
       setFilteredProperties(properties);
     } else {
+      // Find if it's a parent category
+      const parentCategory = CATEGORIES.find(c => c.id === categoryId);
+      const subCategoryIds = parentCategory ? parentCategory.subcategories.map(s => s.id) : [categoryId];
+
       const filtered = properties.filter(p => {
-        // 1. Direct category match (DB tags from 'categories' column)
-        if (p.categories?.includes(category)) return true;
+        // 1. Check if property has any of the target category IDs (parent or specific sub)
+        const matchesCategory = p.categories?.some(cat =>
+          subCategoryIds.includes(cat) || (parentCategory && cat === categoryId)
+        );
+        if (matchesCategory) return true;
 
-        // 2. Type match (e.g. 'apartment' matches 'Apartment')
-        if (p.type.toLowerCase().includes(category.toLowerCase())) return true;
+        // 2. Type match (check against label or ID)
+        const matchesType = subCategoryIds.some(id =>
+          p.type.toLowerCase().includes(id.replace(/-/g, ' ').toLowerCase()) ||
+          (parentCategory && p.type.toLowerCase().includes(parentCategory.label.toLowerCase()))
+        );
+        if (matchesType) return true;
 
-        // 3. Province match
-        if (p.province && p.province.toLowerCase().includes(category.replace(/-/g, ' ').toLowerCase())) return true;
+        // 3. Label match from CATEGORIES (for more accurate filtering)
+        const targetLabels = parentCategory
+          ? [parentCategory.label, ...parentCategory.subcategories.map(s => s.label)]
+          : [CATEGORIES.flatMap(c => c.subcategories).find(s => s.id === categoryId)?.label].filter(Boolean) as string[];
 
-        // 4. Amenity match
-        if (p.amenities.some(a => a.toLowerCase().includes(category.toLowerCase()))) return true;
+        const matchesLabel = targetLabels.some(label =>
+          p.categories?.includes(label) ||
+          p.type.toLowerCase().includes(label.toLowerCase()) ||
+          p.description.toLowerCase().includes(label.toLowerCase())
+        );
+        if (matchesLabel) return true;
 
-        // 5. Fallback: Search in location string (generic)
-        if (p.location.toLowerCase().includes(category.replace(/-/g, ' ').toLowerCase())) return true;
+        // 4. Fallback search (existing logic preserved)
+        if (p.province && p.province.toLowerCase().includes(categoryId.replace(/-/g, ' ').toLowerCase())) return true;
+        if (p.amenities.some(a => a.toLowerCase().includes(categoryId.toLowerCase()))) return true;
+        if (p.location.toLowerCase().includes(categoryId.replace(/-/g, ' ').toLowerCase())) return true;
 
         return false;
       });

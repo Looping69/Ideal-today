@@ -8,6 +8,7 @@ export interface Property {
     reviews: number;
     image: string;
     images: string[];
+    video_url?: string; // Optional video for the property listing
     type: string; // Changed from union to string to be more flexible with DB data
     amenities: string[];
     guests: number;

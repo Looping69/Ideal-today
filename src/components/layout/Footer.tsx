@@ -4,51 +4,8 @@ import { Link } from "react-router-dom";
 
 export default function Footer() {
   return (
-    <footer className="bg-gray-50 border-t border-gray-200 pt-16 pb-12 relative z-40">
+    <footer className="bg-gray-50 border-t border-gray-200 py-8 relative z-40">
       <div className="container mx-auto px-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
-          <div>
-            <h3 className="font-bold text-gray-900 mb-6">Support</h3>
-            <ul className="space-y-4 text-sm text-gray-600">
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Safety Center</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Insurance</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Anti-discrimination</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Disability support</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Cancellation options</a></li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="font-bold text-gray-900 mb-6">Hosting</h3>
-            <ul className="space-y-4 text-sm text-gray-600">
-              <li><a href="#" className="hover:text-gray-900 transition-colors">List your home</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Host Insurance</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Hosting resources</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Community forum</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Hosting responsibly</a></li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="font-bold text-gray-900 mb-6">IdealStay</h3>
-            <ul className="space-y-4 text-sm text-gray-600">
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Newsroom</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">New features</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Careers</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Investors</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Gift cards</a></li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="font-bold text-gray-900 mb-6">South Africa</h3>
-            <ul className="space-y-4 text-sm text-gray-600">
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Cape Town</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Johannesburg</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Durban</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Garden Route</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Kruger Park</a></li>
-            </ul>
-          </div>
-        </div>
-
         <div className="border-t border-gray-200 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
             <span>© 2024 IdealStay, Inc.</span>

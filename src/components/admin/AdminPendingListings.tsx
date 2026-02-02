@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, CheckCircle, XCircle, MapPin, Home, User, Eye, AlertCircle } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, MapPin, Home, User, Eye, AlertCircle, Video } from "lucide-react";
 import {
     Table,
     TableBody,
@@ -28,6 +28,7 @@ interface PendingProperty {
     location: string;
     price: number;
     image: string;
+    video_url?: string;
     type: string;
     bedrooms: number;
     bathrooms: number;
@@ -189,9 +190,17 @@ export default function AdminPendingListings() {
                                             </div>
                                             <div>
                                                 <div className="font-medium truncate" title={listing.title}>{listing.title}</div>
-                                                <div className="text-sm text-gray-500 flex items-center gap-1">
-                                                    <MapPin className="w-3 h-3" />
-                                                    {listing.location}
+                                                <div className="text-sm text-gray-500 flex items-center gap-2 mt-1">
+                                                    <span className="flex items-center gap-1">
+                                                        <MapPin className="w-3 h-3" />
+                                                        {listing.location}
+                                                    </span>
+                                                    {listing.video_url && (
+                                                        <span className="flex items-center gap-1 bg-blue-50 text-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded border border-blue-100 uppercase tracking-tight">
+                                                            <Video className="w-2.5 h-2.5" />
+                                                            Video
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -296,6 +305,26 @@ export default function AdminPendingListings() {
                                     <div className="h-64 w-full rounded-lg overflow-hidden bg-gray-100">
                                         <img src={l.image} className="w-full h-full object-cover" />
                                     </div>
+                                    {l.video_url && (
+                                        <div className="space-y-3">
+                                            <h4 className="font-semibold flex items-center gap-2">
+                                                <Video className="w-4 h-4 text-blue-600" />
+                                                Video Discovery Tour
+                                            </h4>
+                                            <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-gray-200">
+                                                <video
+                                                    src={l.video_url}
+                                                    className="w-full h-full"
+                                                    controls
+                                                    preload="metadata"
+                                                />
+                                            </div>
+                                            <p className="text-xs text-gray-500 bg-blue-50 p-2 rounded border border-blue-100 flex items-start gap-2">
+                                                <AlertCircle className="w-3.5 h-3.5 text-blue-500 mt-0.5" />
+                                                Review the video for quality, content accuracy, and compliance with platform standards.
+                                            </p>
+                                        </div>
+                                    )}
                                     <div className="grid grid-cols-3 gap-4 text-center">
                                         <div className="p-4 bg-gray-50 rounded-lg">
                                             <div className="font-bold text-xl">{l.bedrooms}</div>
