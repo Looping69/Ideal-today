@@ -7,8 +7,8 @@ export default function PreLaunchBanner() {
                 <Rocket className="w-4 h-4 fill-white text-white animate-pulse" />
                 <span>
                     <span className="opacity-90">Pre-Launch Preview:</span>{" "}
-                    <span className="font-bold">Bookings are live!</span>{" "}
-                    <span className="opacity-75 hidden sm:inline">- Some features are still being polished.</span>
+                    <span className="font-bold">Bookings are not yet live</span>{" "}
+                    <span className="opacity-75 hidden sm:inline">- We're putting on the finishing touches!</span>
                 </span>
             </div>
         </div>
