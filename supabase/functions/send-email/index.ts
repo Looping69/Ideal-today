@@ -13,11 +13,11 @@ const corsHeaders = {
 // Email templates for different auth actions
 const emailTemplates = {
     signup: (email: string, token: string, siteUrl: string) => ({
-        subject: "Welcome to Ideal Today! Confirm your email",
+        subject: "Welcome to Ideal Stay! Confirm your email",
         html: `
             <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
                 <div style="text-align: center; margin-bottom: 40px;">
-                    <h1 style="color: #1a1a1a; margin: 0; font-size: 28px;">Welcome to Ideal Today!</h1>
+                    <h1 style="color: #1a1a1a; margin: 0; font-size: 28px;">Welcome to Ideal Stay!</h1>
                 </div>
                 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
                     <p style="color: white; font-size: 18px; margin: 0 0 20px 0;">You're just one click away from amazing stays.</p>
@@ -33,7 +33,7 @@ const emailTemplates = {
         `,
     }),
     recovery: (email: string, token: string, siteUrl: string) => ({
-        subject: "Reset your Ideal Today password",
+        subject: "Reset your Ideal Stay password",
         html: `
             <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
                 <h1 style="color: #1a1a1a; text-align: center; margin-bottom: 30px;">Password Reset</h1>
@@ -53,10 +53,10 @@ const emailTemplates = {
         `,
     }),
     magic_link: (email: string, token: string, siteUrl: string) => ({
-        subject: "Your Ideal Today login link",
+        subject: "Your Ideal Stay login link",
         html: `
             <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-                <h1 style="color: #1a1a1a; text-align: center; margin-bottom: 30px;">Login to Ideal Today</h1>
+                <h1 style="color: #1a1a1a; text-align: center; margin-bottom: 30px;">Login to Ideal Stay</h1>
                 <div style="text-align: center; margin-bottom: 30px;">
                     <a href="${siteUrl}/auth/confirm?token_hash=${token}&type=magiclink" 
                        style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
@@ -70,7 +70,7 @@ const emailTemplates = {
         `,
     }),
     email_change: (email: string, token: string, siteUrl: string) => ({
-        subject: "Confirm your new email for Ideal Today",
+        subject: "Confirm your new email for Ideal Stay",
         html: `
             <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
                 <h1 style="color: #1a1a1a; text-align: center; margin-bottom: 30px;">Email Change Confirmation</h1>
@@ -137,7 +137,7 @@ Deno.serve(async (req: Request) => {
                 Authorization: `Bearer ${RESEND_API_KEY}`,
             },
             body: JSON.stringify({
-                from: Deno.env.get("SENDER_EMAIL") || "Ideal Today <onboarding@resend.dev>",
+                from: Deno.env.get("SENDER_EMAIL") || "Ideal Stay <onboarding@resend.dev>",
                 to: [to],
                 subject: subject,
                 html: html,
