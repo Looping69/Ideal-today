@@ -172,7 +172,7 @@ export default function RewardsDashboard() {
     : 100;
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-32 pb-12">
+    <div className="min-h-screen bg-gray-50 pt-20 pb-12">
       <div className="container mx-auto px-4">
         {/* Header Section */}
         <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 mb-8 relative overflow-hidden">

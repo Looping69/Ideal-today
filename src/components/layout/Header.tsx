@@ -59,9 +59,9 @@ export default function Header() {
 
   return (
     <header className="fixed top-0 w-full z-[100] flex flex-col transition-all duration-300">
-      <PreLaunchBanner />
+      <PreLaunchBanner isScrolled={isScrolled} />
       <div className="bg-white/80 backdrop-blur-md border-b border-gray-100 w-full">
-        <div className="container mx-auto px-6 h-20 flex items-center justify-between relative">
+        <div className="container mx-auto px-6 h-16 flex items-center justify-between relative">
           {/* Logo */}
           <div className="flex items-center cursor-pointer group shrink-0 z-20" onClick={() => navigate("/")}>
             <img
@@ -69,7 +69,7 @@ export default function Header() {
               alt="IdealStay"
               className="h-12 w-auto object-contain transition-transform group-hover:scale-105"
             />
-            <span className="ml-2 text-xl font-bold text-primary tracking-tight hidden lg:block">Ideal Today</span>
+            <span className="ml-2 text-xl font-bold text-primary tracking-tight hidden lg:block">Ideal Stay</span>
           </div>
 
           {/* Mini Search Bar - Desktop Only, Scroll Only */}

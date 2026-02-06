@@ -69,14 +69,14 @@ export default function TripsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pt-32 flex justify-center">
+      <div className="min-h-screen pt-20 flex justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen pt-32 pb-12 container mx-auto px-4">
+    <div className="min-h-screen pt-20 pb-12 container mx-auto px-4">
       <h1 className="text-3xl font-bold mb-6">Trips</h1>
       <div className="border-b border-gray-200 mb-8">
         <div className="flex gap-8">
