@@ -2,14 +2,14 @@ export const SETUP_SQL = `
 -- Create admin_settings table
 create table if not exists public.admin_settings (
   id int primary key default 1 check (id = 1),
-  site_name text default 'Ideal Today',
+  site_name text default 'Ideal Stay',
   support_email text default 'support@idealstay.com',
-  meta_description text default 'Find your perfect holiday getaway with Ideal Today.',
+  meta_description text default 'Find your perfect holiday getaway with Ideal Stay.',
   require_email_verification boolean default true,
   enable_2fa boolean default true,
   maintenance_mode boolean default false,
   service_fee_percent numeric default 10.0,
-  welcome_email_template text default 'Welcome to Ideal Today! We are glad to have you.',
+  welcome_email_template text default 'Welcome to Ideal Stay! We are glad to have you.',
   booking_confirmation_template text default 'Your booking has been confirmed. Enjoy your stay!',
   updated_at timestamp with time zone default timezone('utc'::text, now())
 );
