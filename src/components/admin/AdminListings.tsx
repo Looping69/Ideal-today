@@ -22,53 +22,104 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { CATEGORIES } from '@/constants/categories';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
-type Row = { id: string; title: string; location: string; price: number; type: string; image?: string; is_featured?: boolean; video_url?: string | null };
+type Row = { id: string; title: string; location: string; price: number; type: string; image?: string; is_featured?: boolean; video_url?: string | null; approval_status: string };
 
 export default function AdminListings() {
   const [rows, setRows] = useState<Row[]>([]);
   const [bookedIds, setBookedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const pageSize = 50;
   const { toast } = useToast();
 
   useEffect(() => {
     const load = async () => {
-      setLoading(true);
-      const { data } = await supabase.from('properties').select('id,title,location,price,type,image,is_featured,video_url').limit(50);
-      const list = ((data as any[]) || []).map(r => ({ id: r.id, title: r.title, location: r.location, price: r.price, type: r.type || '', image: r.image, is_featured: r.is_featured ?? false, video_url: r.video_url }));
-      setRows(list);
+      try {
+        setLoading(true);
+        console.log('Fetching properties for page:', page);
+        const { data, error } = await supabase
+          .from('properties')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(page * pageSize, page * pageSize + pageSize - 1);
 
-      const todayIso = new Date().toISOString();
-      const { data: bookings } = await supabase
-        .from('bookings')
-        .select('property_id, check_in, check_out, status')
-        .lte('check_in', todayIso)
-        .gt('check_out', todayIso)
-        .not('status', 'in', '("canceled","blocked")');
+        if (error) {
+          console.error('Error fetching properties:', error);
+          toast({
+            variant: 'destructive',
+            title: 'Fetch Failed',
+            description: error.message
+          });
+          setLoading(false);
+          return;
+        }
 
-      const ids = new Set<string>();
-      (bookings || []).forEach((b: any) => {
-        ids.add(b.property_id);
-      });
-      setBookedIds(ids);
-      setLoading(false);
+        console.log('Properties data received:', data?.length || 0, 'rows');
+
+        const list = ((data as any[]) || []).map(r => ({
+          id: r.id,
+          title: r.title || 'Untitled',
+          location: r.location || 'Unknown Location',
+          price: r.price || 0,
+          type: r.type || '',
+          image: r.image,
+          is_featured: r.is_featured ?? false,
+          video_url: r.video_url,
+          approval_status: r.approval_status || 'approved'
+        }));
+        setRows(list);
+
+        const todayIso = new Date().toISOString();
+        const { data: bookings, error: bError } = await supabase
+          .from('bookings')
+          .select('property_id, check_in, check_out, status')
+          .lte('check_in', todayIso)
+          .gt('check_out', todayIso)
+          .not('status', 'in', '("canceled","blocked")');
+
+        if (bError) {
+          console.error('Error fetching bookings status:', bError);
+        }
+
+        const ids = new Set<string>();
+        (bookings || []).forEach((b: any) => {
+          ids.add(b.property_id);
+        });
+        setBookedIds(ids);
+      } catch (err: any) {
+        console.error('Unexpected error in AdminListings load:', err);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
-  }, []);
+  }, [page]);
 
   const toggleFeatured = async (id: string, currentStatus: boolean) => {
     const newStatus = !currentStatus;
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('properties')
       .update({ is_featured: newStatus })
-      .eq('id', id);
+      .eq('id', id)
+      .select();
 
     if (error) {
       toast({
         variant: 'destructive',
         title: 'Error',
         description: 'Failed to update featured status.',
+      });
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Update failed',
+        description: 'No rows affected. Access denied by database policy.',
       });
       return;
     }
@@ -109,8 +160,9 @@ export default function AdminListings() {
   const deleteListing = async (id: string) => {
     if (!confirm("Are you sure? This will remove the listing permanently.")) return;
     try {
-      const { error } = await supabase.from('properties').delete().eq('id', id);
+      const { data, error } = await supabase.from('properties').delete().eq('id', id).select();
       if (error) throw error;
+      if (!data || data.length === 0) throw new Error("Deletion failed: No rows affected. Access denied by database policy.");
       setRows(prev => prev.filter(r => r.id !== id));
       toast({ title: "Deleted", description: "Listing removed." });
     } catch (e: any) {
@@ -119,8 +171,8 @@ export default function AdminListings() {
   };
 
   const filtered = rows.filter(r =>
-    r.title.toLowerCase().includes(search.toLowerCase()) ||
-    r.location.toLowerCase().includes(search.toLowerCase())
+    (r.title || '').toLowerCase().includes(search.toLowerCase()) ||
+    (r.location || '').toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -203,17 +255,25 @@ export default function AdminListings() {
                       <span className="text-xs text-gray-400 font-normal ml-1">/night</span>
                     </td>
                     <td className="px-6 py-4">
-                      {bookedIds.has(r.id) ? (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-100">
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 mr-1.5" />
-                          Booked
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-100">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5" />
-                          Available
-                        </span>
-                      )}
+                      <div className="flex flex-col gap-1.5">
+                        {bookedIds.has(r.id) ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-100">
+                            Booked
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-700 border border-green-100">
+                            Available
+                          </span>
+                        )}
+                        <Badge variant="outline" className={cn(
+                          "w-fit text-[10px] uppercase font-bold px-2 py-0",
+                          r.approval_status === 'approved' ? "border-green-200 text-green-700 bg-green-50/50" :
+                            r.approval_status === 'pending' ? "border-amber-200 text-amber-700 bg-amber-50/50" :
+                              "border-red-200 text-red-700 bg-red-50/50"
+                        )}>
+                          {r.approval_status}
+                        </Badge>
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <Button
@@ -260,6 +320,32 @@ export default function AdminListings() {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/30 flex items-center justify-between">
+          <span className="text-sm text-gray-500">
+            Showing {rows.length > 0 ? page * pageSize + 1 : 0} to {page * pageSize + rows.length} listings
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page === 0}
+              onClick={() => setPage(p => Math.max(0, p - 1))}
+              className="h-8 rounded-lg"
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={rows.length < pageSize}
+              onClick={() => setPage(p => p + 1)}
+              className="h-8 rounded-lg"
+            >
+              Next
+            </Button>
+          </div>
         </div>
       </div>
 

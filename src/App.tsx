@@ -16,6 +16,7 @@ import { Toaster } from "./components/ui/toaster";
 import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
 import LoadingSpinner from "./components/ui/LoadingSpinner";
+import ReferralTracker from "./components/ReferralTracker";
 import { Analytics } from "@vercel/analytics/react";
 
 const HostListings = lazy(() => import("./components/host/HostListings"));
@@ -28,6 +29,7 @@ const HostVerification = lazy(() => import("./components/host/HostVerification")
 const HostSubscription = lazy(() => import("./components/host/HostSubscription"));
 
 const HostCalendar = lazy(() => import("./components/host/HostCalendar"));
+const HostReferrals = lazy(() => import("./components/host/HostReferrals"));
 const InboxPage = lazy(() => import("./components/inbox/InboxPage"));
 const HostInbox = lazy(() => import("./components/host/HostInbox"));
 const AccountPage = lazy(() => import("./components/account/AccountPage"));
@@ -57,6 +59,7 @@ function App() {
   return (
     <AuthProvider>
       <NotificationProvider>
+        <ReferralTracker />
         <Suspense fallback={<LoadingSpinner />}>
           <>
             <Routes>
@@ -145,6 +148,7 @@ function App() {
                 <Route path="inbox" element={<HostInbox />} />
                 <Route path="inbox/:bookingId" element={<HostInbox />} />
                 <Route path="verification" element={<HostVerification />} />
+                <Route path="referrals" element={<HostReferrals />} />
                 <Route path="settings" element={<HostSettings />} />
                 <Route path="subscription" element={<HostSubscription />} />
               </Route>

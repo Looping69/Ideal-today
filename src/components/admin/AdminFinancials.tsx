@@ -52,7 +52,7 @@ export default function AdminFinancials() {
           total_price,
           status,
           user:profiles(email),
-          property:properties(title, service_fee_percent)
+          property:properties(title, service_fee)
         `)
                 .order('created_at', { ascending: false });
 
@@ -61,7 +61,7 @@ export default function AdminFinancials() {
             const formatted: Transaction[] = (bookings || []).map((b: any) => {
                 const total = b.total_price || 0;
                 // Fallback to 10% if property doesn't have a specific fee set
-                const feePercent = b.property?.service_fee_percent || 10;
+                const feePercent = b.property?.service_fee || 10;
                 return {
                     id: `TX-${b.id.slice(0, 8).toUpperCase()}`,
                     booking_id: b.id,
@@ -262,8 +262,8 @@ export default function AdminFinancials() {
                                     </td>
                                     <td className="px-6 py-5">
                                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${t.status === 'completed' || t.status === 'confirmed' ? 'bg-green-100 text-green-700' :
-                                                t.status === 'pending' ? 'bg-orange-100 text-orange-700' :
-                                                    'bg-gray-100 text-gray-700'
+                                            t.status === 'pending' ? 'bg-orange-100 text-orange-700' :
+                                                'bg-gray-100 text-gray-700'
                                             }`}>
                                             {t.status}
                                         </span>

@@ -22,6 +22,8 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
+import SEO from "../SEO";
+import PropertyMap from "./PropertyMap";
 
 interface PropertyDetailsProps {
   property: Property | null;
@@ -140,6 +142,25 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
 
   if (!property) return null;
 
+  const propertySchema = {
+    "@context": "https://schema.org",
+    "@type": "LodgingBusiness",
+    "name": property.title,
+    "description": property.description,
+    "image": property.image,
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": property.location,
+      "addressCountry": "ZA"
+    },
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": property.rating,
+      "reviewCount": property.reviews
+    },
+    "priceRange": `R${property.price}`
+  };
+
   const nights = date?.from && date?.to ? differenceInDays(date.to, date.from) : 0;
   const subtotal = property.price * nights;
   const cleaningFee = property.cleaning_fee || 0;
@@ -182,6 +203,13 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl w-[95vw] h-[95vh] p-0 overflow-hidden flex flex-col">
+        <SEO
+          title={property.title}
+          description={`Book ${property.title} in ${property.location}. ${property.description.substring(0, 150)}...`}
+          keywords={`${property.type}, holiday accommodation ${property.location}, ${property.title} rental`}
+          ogImage={property.image}
+          schema={propertySchema}
+        />
         <ScrollArea className="flex-1">
           <div className="p-6">
             {/* Header */}
@@ -194,7 +222,9 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
                   <span>·</span>
                   <span className="underline cursor-pointer">{property.reviews} reviews</span>
                   <span>·</span>
-                  <span className="font-medium underline cursor-pointer">{property.location}</span>
+                  <span className="font-medium underline cursor-pointer">
+                    {property.area ? `${property.area}, ` : ""}{property.location}
+                  </span>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -249,7 +279,10 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
                       {property.type} hosted by {property.host.name}
                     </h2>
                     <p className="text-gray-600">
-                      {property.guests} guests · {property.bedrooms} bedrooms · {property.bathrooms} bathrooms
+                      {property.adults ? `${property.adults} adults` : `${property.guests} guests`}
+                      {property.children ? `, ${property.children} children` : ""}
+                      {" · "}
+                      {property.bedrooms} bedrooms · {property.bathrooms} bathrooms
                     </p>
                   </div>
                   <Avatar className="w-14 h-14">
@@ -288,6 +321,36 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
 
                 <Separator />
 
+                {(property.is_self_catering || property.has_restaurant) && (
+                  <>
+                    <div className="space-y-4">
+                      <h3 className="text-xl font-semibold">Catering</h3>
+                      <div className="flex flex-wrap gap-4">
+                        {property.is_self_catering && (
+                          <div className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-full border border-green-100 text-sm font-medium">
+                            <Utensils className="w-4 h-4" />
+                            Self-Catering Available
+                          </div>
+                        )}
+                        {property.has_restaurant && (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full border border-blue-100 text-sm font-medium">
+                              <Utensils className="w-4 h-4" />
+                              Onsite Restaurant
+                            </div>
+                            {property.restaurant_offers && property.restaurant_offers.length > 0 && (
+                              <p className="text-sm text-gray-500 ml-4">
+                                Offers: {property.restaurant_offers.join(", ")}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <Separator />
+                  </>
+                )}
+
                 <div>
                   <h3 className="text-xl font-semibold mb-4">What this place offers</h3>
                   <div className="grid grid-cols-2 gap-4">
@@ -298,6 +361,39 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
                       </div>
                     ))}
                   </div>
+                </div>
+
+                {property.facilities && property.facilities.length > 0 && (
+                  <>
+                    <Separator />
+                    <div>
+                      <h3 className="text-xl font-semibold mb-4">Onsite Facilities</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        {property.facilities.map((fac, idx) => (
+                          <div key={idx} className="flex items-center gap-3 text-gray-700">
+                            <span className="text-xl">✓</span>
+                            <span>{fac === "Other" ? property.other_facility : fac}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <Separator />
+
+                <div>
+                  <h3 className="text-xl font-semibold mb-4">Location</h3>
+                  <div className="h-[300px] rounded-xl overflow-hidden border border-gray-200">
+                    <PropertyMap
+                      properties={[property]}
+                      onPropertyClick={() => { }}
+                    />
+                  </div>
+                  <p className="mt-2 text-sm text-gray-500 flex items-center gap-2">
+                    <MapPin className="w-4 h-4" />
+                    {property.area ? `${property.area}, ` : ""}{property.location}
+                  </p>
                 </div>
 
                 <Separator />
@@ -313,7 +409,7 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
                           <div className="flex items-center gap-3 mb-2">
                             <Avatar className="w-8 h-8">
                               <AvatarImage src={r.user?.avatar_url} />
-                              <AvatarFallback>{(r.user?.full_name || 'U')[0]}</AvatarFallback>
+                              <AvatarFallback>{(r.user?.full_name || 'G')[0]}</AvatarFallback>
                             </Avatar>
                             <div>
                               <div className="font-medium text-sm">{r.user?.full_name || 'Guest'}</div>
@@ -366,8 +462,23 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
                 <div className="sticky top-6 border border-gray-200 rounded-xl p-6 shadow-lg bg-white z-10">
                   <div className="flex justify-between items-end mb-4">
                     <div>
-                      <span className="text-2xl font-bold">R{property.price}</span>
-                      <span className="text-gray-600"> / night</span>
+                      {property.discount && property.discount > 0 ? (
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-400 line-through text-lg">R{property.price}</span>
+                            <span className="bg-red-100 text-red-600 text-xs font-bold px-2 py-1 rounded">-{property.discount}% OFF</span>
+                          </div>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-2xl font-bold">R{Math.round(property.price * (1 - (property.discount / 100)))}</span>
+                            <span className="text-gray-600"> / night</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <span className="text-2xl font-bold">R{property.price}</span>
+                          <span className="text-gray-600"> / night</span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-1 text-sm">
                       <Star className="w-4 h-4 fill-black" />
@@ -430,8 +541,8 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
                     <>
                       <div className="space-y-3 text-gray-600">
                         <div className="flex justify-between">
-                          <span className="underline">R{property.price} x {nights} nights</span>
-                          <span>R{subtotal}</span>
+                          <span className="underline">R{property.discount ? Math.round(property.price * (1 - (property.discount / 100))) : property.price} x {nights} nights</span>
+                          <span>R{(property.discount ? Math.round(property.price * (1 - (property.discount / 100))) : property.price) * nights}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="underline">Cleaning fee</span>
@@ -447,7 +558,7 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
 
                       <div className="flex justify-between font-bold text-lg">
                         <span>Total</span>
-                        <span>R{total}</span>
+                        <span>R{((property.discount ? Math.round(property.price * (1 - (property.discount / 100))) : property.price) * nights) + cleaningFee + serviceFee}</span>
                       </div>
                     </>
                   )}
@@ -480,12 +591,14 @@ function KeyIcon({ className }: { className?: string }) {
 
 function getAmenityIcon(amenity: string) {
   const className = "w-5 h-5 text-gray-500";
-  switch (amenity.toLowerCase()) {
-    case "wifi": return <Wifi className={className} />;
-    case "pool": return <span className={className}>🏊</span>;
-    case "kitchen": return <Utensils className={className} />;
-    case "air conditioning": return <Wind className={className} />;
-    case "parking": return <Car className={className} />;
-    default: return <Star className={className} />;
-  }
+  const a = amenity.toLowerCase();
+  if (a.includes("wifi")) return <Wifi className={className} />;
+  if (a.includes("pool")) return <span className={className}>🏊</span>;
+  if (a.includes("kitchen")) return <Utensils className={className} />;
+  if (a.includes("air conditioning")) return <Wind className={className} />;
+  if (a.includes("parking")) return <Car className={className} />;
+  if (a.includes("gym")) return <span className={className}>🏋️</span>;
+  if (a.includes("tv")) return <span className={className}>📺</span>;
+  if (a.includes("bbq")) return <span className={className}>🔥</span>;
+  return <Star className={className} />;
 }
