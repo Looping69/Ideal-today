@@ -402,13 +402,22 @@ export default function AdminListings() {
                   placeholder="https://..."
                 />
                 {editingListing.video_url && (
-                  <p className="text-[10px] text-gray-500">Note: Changing the URL here manually may break the player if the link is invalid.</p>
+                  <div className="space-y-2">
+                    <Label>Video Preview</Label>
+                    <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-gray-200">
+                      <video
+                        src={editingListing.video_url}
+                        className="w-full h-full"
+                        controls
+                        preload="metadata"
+                      />
+                    </div>
+                  </div>
                 )}
+                <Button onClick={handleUpdateListing} className="w-full">Save Changes</Button>
               </div>
-              <Button onClick={handleUpdateListing} className="w-full">Save Changes</Button>
-            </div>
           )}
-        </DialogContent>
+            </DialogContent>
       </Dialog>
     </div>
   );

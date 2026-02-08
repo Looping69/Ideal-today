@@ -22,7 +22,8 @@ import {
   Pencil,
   Trash2,
   Eye,
-  Loader2
+  Loader2,
+  Video
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
@@ -222,7 +223,15 @@ export default function HostListings() {
                         />
                       </div>
                       <div>
-                        <div className="font-medium text-gray-900">{listing.title}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="font-medium text-gray-900">{listing.title}</div>
+                          {listing.video_url && (
+                            <Badge variant="outline" className="text-[10px] uppercase font-bold px-1.5 py-0 border-blue-200 text-blue-700 bg-blue-50/50 flex items-center gap-1">
+                              <Video className="w-2.5 h-2.5" />
+                              Tour
+                            </Badge>
+                          )}
+                        </div>
                         <div className="text-sm text-gray-500">{listing.location}</div>
                       </div>
                     </div>
