@@ -4,6 +4,8 @@ import { supabase } from "@/lib/supabase";
 import { Loader2, Upload, X, Video, Play, Pause } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+
 
 interface VideoUploadProps {
     value: string | null;
@@ -17,9 +19,10 @@ export default function VideoUpload({
     value,
     onChange,
     bucket = "property-videos",
-    maxSizeMB = 50,
+    maxSizeMB = 100,
     className,
 }: VideoUploadProps) {
+    const { user } = useAuth();
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -57,9 +60,11 @@ export default function VideoUpload({
         setUploadProgress(0);
 
         try {
+            if (!user) throw new Error("User not authenticated");
+
             const fileExt = file.name.split(".").pop();
             const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-            const filePath = `${fileName}`;
+            const filePath = `${user.id}/${fileName}`;
 
             // Simulate progress (Supabase doesn't provide upload progress)
             const progressInterval = setInterval(() => {
@@ -109,9 +114,13 @@ export default function VideoUpload({
             try {
                 const url = new URL(value);
                 const pathParts = url.pathname.split("/");
+                // Format: /storage/v1/object/public/bucket-name/userid/filename
+                // Index from end: filename is last, userid is second to last
                 const fileName = pathParts[pathParts.length - 1];
+                const userId = pathParts[pathParts.length - 2];
+                const fullPath = `${userId}/${fileName}`;
 
-                await supabase.storage.from(bucket).remove([fileName]);
+                await supabase.storage.from(bucket).remove([fullPath]);
             } catch (e) {
                 console.error("Error removing video:", e);
             }

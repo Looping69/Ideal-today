@@ -18,8 +18,6 @@ export default function HostSettings() {
     full_name: "",
     avatar_url: "",
   });
-  const [hostReferralCode, setHostReferralCode] = useState<string | null>(null);
-  const [hostRefs, setHostRefs] = useState<any[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -32,7 +30,7 @@ export default function HostSettings() {
       setLoading(true);
       const { data, error } = await supabase
         .from("profiles")
-        .select("full_name, avatar_url, host_referral_code")
+        .select("full_name, avatar_url")
         .eq("id", user?.id)
         .single();
 
@@ -43,13 +41,6 @@ export default function HostSettings() {
           full_name: data.full_name || "",
           avatar_url: data.avatar_url || "",
         });
-        setHostReferralCode(data.host_referral_code || null);
-        const { data: refs } = await supabase
-          .from('host_referrals')
-          .select('referee_id, status, created_at, rewarded_at')
-          .eq('referrer_id', user?.id)
-          .order('created_at', { ascending: false });
-        setHostRefs(refs || []);
       }
     } catch (error) {
       console.error("Error loading user data!", error);
@@ -156,42 +147,6 @@ export default function HostSettings() {
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save Changes
           </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Host Referrals</CardTitle>
-          <CardDescription>
-            Invite hosts to join and earn points when they publish their first listing.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {hostReferralCode ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Input readOnly value={`${window.location.origin}?host_ref=${hostReferralCode}`} />
-                <Button onClick={() => navigator.clipboard.writeText(`${window.location.origin}?host_ref=${hostReferralCode}`)}>Copy</Button>
-              </div>
-              <div>
-                <Label>Your invited hosts</Label>
-                {hostRefs.length === 0 ? (
-                  <p className="text-sm text-gray-500">No host referrals yet.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {hostRefs.map((r) => (
-                      <div key={r.referee_id} className="flex justify-between text-sm border rounded-md px-3 py-2">
-                        <span>{r.referee_id.slice(0,8)}…</span>
-                        <span className="capitalize">{r.status}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-gray-500">Your host referral code will be generated on signup.</p>
-          )}
         </CardContent>
       </Card>
     </div>

@@ -14,7 +14,8 @@ import {
   CheckSquare,
   BarChart3,
   CreditCard,
-  AlertCircle
+  AlertCircle,
+  Trophy
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,14 @@ export default function HostLayout() {
   const { toast } = useToast();
   const [verificationStatus, setVerificationStatus] = useState<'none' | 'pending' | 'verified' | 'rejected'>('none');
 
+  const checkStatus = async () => {
+    if (!user) return;
+    const { data } = await supabase.from('profiles').select('verification_status').eq('id', user.id).single();
+    if (data) {
+      setVerificationStatus(data.verification_status || 'none');
+    }
+  };
+
   useEffect(() => {
     if (!loading && !user) {
       toast({
@@ -40,16 +49,9 @@ export default function HostLayout() {
       });
       navigate("/");
     } else if (user) {
-      // Check verification status
-      const checkStatus = async () => {
-        const { data } = await supabase.from('profiles').select('verification_status').eq('id', user.id).single();
-        if (data) {
-          setVerificationStatus(data.verification_status || 'none');
-        }
-      };
       checkStatus();
     }
-  }, [loading, user]);
+  }, [loading, user, location.pathname]);
 
   const sidebarItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/host" },
@@ -61,6 +63,7 @@ export default function HostLayout() {
     { icon: Users, label: "Guests", path: "/host/guests" },
     { icon: CreditCard, label: "Plan & Billing", path: "/host/subscription" },
     { icon: BarChart3, label: "Reports", path: "/host/reports" },
+    { icon: Trophy, label: "Referrals", path: "/host/referrals" },
     { icon: Settings, label: "Settings", path: "/host/settings" },
   ];
 
@@ -182,7 +185,7 @@ export default function HostLayout() {
               <Menu className="w-5 h-5" />
             </Button>
             <h2 className="text-lg font-semibold text-gray-800 hidden sm:block">
-              {sidebarItems.find(i => i.path === location.pathname)?.label || 'Dashboard'}
+              {sidebarItems.find(i => i.path === location.pathname)?.label || (location.pathname === '/host/verification' ? 'Host Verification' : 'Dashboard')}
             </h2>
           </div>
 
@@ -225,7 +228,7 @@ export default function HostLayout() {
           </div>
         </header>
 
-        {verificationStatus !== 'verified' && (
+        {verificationStatus !== 'verified' && location.pathname !== '/host/verification' && (
           <div className="bg-amber-50 border-b border-amber-200 px-8 py-3 flex items-center justify-between animate-in slide-in-from-top-2">
             <div className="flex items-center gap-2 text-amber-800">
               <AlertCircle className="w-4 h-4" />

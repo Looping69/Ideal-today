@@ -79,8 +79,9 @@ export default function AdminUsers() {
 
   const toggleAdmin = async (id: string, next: boolean) => {
     try {
-      const { error } = await supabase.from('profiles').update({ is_admin: next }).eq('id', id);
+      const { data, error } = await supabase.from('profiles').update({ is_admin: next }).eq('id', id).select();
       if (error) throw error;
+      if (!data || data.length === 0) throw new Error("Update failed: No rows affected. Access denied by database policy.");
       setRows(rs => rs.map(r => (r.id === id ? { ...r, is_admin: next } : r)));
       toast({ title: "Role Updated", description: `User is now ${next ? 'an admin' : 'a regular user'}.` });
     } catch (e: any) {
@@ -90,8 +91,9 @@ export default function AdminUsers() {
 
   const toggleDeactivate = async (id: string, next: boolean) => {
     try {
-      const { error } = await supabase.from('profiles').update({ deactivated: next }).eq('id', id);
+      const { data, error } = await supabase.from('profiles').update({ deactivated: next }).eq('id', id).select();
       if (error) throw error;
+      if (!data || data.length === 0) throw new Error("Update failed: No rows affected. Access denied by database policy.");
       setRows(rs => rs.map(r => (r.id === id ? { ...r, deactivated: next } : r)));
       toast({ title: "Account Status Updated", description: `User account has been ${next ? 'deactivated' : 'activated'}.` });
     } catch (e: any) {
@@ -102,12 +104,14 @@ export default function AdminUsers() {
   const updateVerification = async (id: string, status: 'verified' | 'rejected') => {
     try {
       // 1. Update Profile Status
-      const { error: updateError } = await supabase
+      const { data, error: updateError } = await supabase
         .from('profiles')
         .update({ verification_status: status })
-        .eq('id', id);
+        .eq('id', id)
+        .select();
 
       if (updateError) throw updateError;
+      if (!data || data.length === 0) throw new Error("Update failed: No rows affected. Access denied by database policy.");
 
       // 2. Notify the User
       const title = status === 'verified' ? 'Verification Approved' : 'Verification Rejected';

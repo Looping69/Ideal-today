@@ -44,8 +44,9 @@ export default function AuthForm({ view, onSuccess, onViewChange }: AuthFormProp
     setIsLoading(true);
     try {
       if (view === "signup") {
-        const ref = new URLSearchParams(window.location.search).get('ref') || undefined;
-        const hostRef = new URLSearchParams(window.location.search).get('host_ref') || undefined;
+        const urlParams = new URLSearchParams(window.location.search);
+        const ref = urlParams.get('ref') || sessionStorage.getItem('referral_code') || undefined;
+        const hostRef = urlParams.get('host_ref') || sessionStorage.getItem('host_referral_code') || undefined;
         const siteUrl = (import.meta.env.SITE_URL as string | undefined) || undefined;
         const computedRedirect = (siteUrl && siteUrl.length > 0 ? siteUrl : window.location.origin).replace('127.0.0.1', 'localhost');
         const { data, error } = await supabase.auth.signUp({

@@ -1,11 +1,12 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Property } from "@/types/property";
 import { Star, Heart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
+import { cn } from "@/lib/utils";
 
 interface PropertyCardProps {
   property: Property;
@@ -16,6 +17,17 @@ export default function PropertyCard({ property, onClick }: PropertyCardProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [saved, setSaved] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (isHovered && videoRef.current) {
+      videoRef.current.play().catch(err => console.log("Video auto-play blocked or failed", err));
+    } else if (!isHovered && videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+  }, [isHovered]);
 
   useEffect(() => {
     const checkSaved = async () => {
@@ -64,13 +76,32 @@ export default function PropertyCard({ property, onClick }: PropertyCardProps) {
     <div
       className="group cursor-pointer flex flex-col gap-3"
       onClick={() => onClick(property)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <div className="relative aspect-[20/19] overflow-hidden rounded-xl bg-gray-200 isolate">
         <img
           src={property.image}
           alt={property.title}
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className={cn(
+            "h-full w-full object-cover transition-all duration-500 group-hover:scale-105",
+            isHovered && property.video_url ? "opacity-0 scale-110" : "opacity-100"
+          )}
         />
+
+        {property.video_url && (
+          <video
+            ref={videoRef}
+            src={property.video_url}
+            muted
+            loop
+            playsInline
+            className={cn(
+              "absolute inset-0 h-full w-full object-cover transition-opacity duration-500",
+              isHovered ? "opacity-100 scale-100" : "opacity-0 scale-105"
+            )}
+          />
+        )}
 
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />

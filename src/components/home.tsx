@@ -12,8 +12,39 @@ import { Map, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { CATEGORIES } from "@/constants/categories";
+import FeaturedCarousel from "./listings/FeaturedCarousel";
+import SEO from "./SEO";
 
 function Home() {
+  const homeSchema = {
+    "@context": "https://schema.org",
+    "@type": "LodgingBusiness",
+    "name": "IdealStay",
+    "description": "Premium holiday accommodation and vacation rentals in South Africa.",
+    "url": "https://idealstay.co.za",
+    "logo": "https://idealstay.co.za/logo.png",
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "Cape Town",
+      "addressRegion": "Western Cape",
+      "addressCountry": "ZA"
+    },
+    "potentialAction": {
+      "@type": "ReserveAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "https://idealstay.co.za",
+        "actionPlatform": [
+          "http://schema.org/DesktopWebPlatform",
+          "http://schema.org/MobileWebPlatform"
+        ]
+      },
+      "result": {
+        "@type": "LodgingReservation",
+        "name": "Holiday Stay Reservation"
+      }
+    }
+  };
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
@@ -59,6 +90,7 @@ function Home() {
           reviews: p.reviews_count || 0,
           image: p.image || p.images?.[0] || 'https://images.unsplash.com/photo-1600596542815-27b88e54e621?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
           images: p.images || [],
+          video_url: p.video_url,
           type: p.type,
           amenities: p.amenities || [],
           guests: p.guests,
@@ -77,6 +109,15 @@ function Home() {
           cleaning_fee: p.cleaning_fee || 0,
           service_fee: p.service_fee || 0,
           categories: p.categories || [],
+          area: p.area,
+          adults: p.adults,
+          children: p.children,
+          is_self_catering: p.is_self_catering,
+          has_restaurant: p.has_restaurant,
+          restaurant_offers: p.restaurant_offers || [],
+          facilities: p.facilities || [],
+          other_facility: p.other_facility,
+          discount: p.discount || 0,
           isFeatured: p.is_featured === true,
           isVerifiedHost: p.host?.host_plan && p.host.host_plan !== 'free'
         }));
@@ -213,6 +254,12 @@ function Home() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col overflow-x-hidden">
+      <SEO
+        title="Find Perfect Holiday Accommodation"
+        description="Browse thousands of verified holiday rentals, self-catering apartments, and luxury villas across South Africa. Best price guaranteed on IdealStay."
+        keywords="holiday accommodation, self catering, vacation rentals, stays south africa, cape town stays"
+        schema={homeSchema}
+      />
       <Header />
 
       <main className="flex-1 pt-20 pb-12">
@@ -247,63 +294,49 @@ function Home() {
               </div>
             ) : (
               <>
-                {/* Featured Listings Section */}
-                {filteredProperties.filter(p => p.isFeatured).length > 0 && (
-                  <div className="mb-12">
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
-                        <span className="text-white text-lg">★</span>
-                      </div>
-                      <div>
-                        <h2 className="text-xl font-bold text-gray-900">Featured Listings</h2>
-                        <p className="text-sm text-gray-500">Top-rated stays from verified hosts</p>
-                      </div>
-                    </div>
-                    <div className="relative">
-                      <div className="flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide">
-                        {filteredProperties
-                          .filter(p => p.isFeatured)
-                          .slice(0, 6)
-                          .map((property) => (
-                            <div key={property.id} className="min-w-[300px] max-w-[300px] snap-start">
-                              <PropertyCard property={property} onClick={handlePropertyClick} />
-                            </div>
-                          ))}
-                      </div>
-                      {/* Gradient fade on edges */}
-                      <div className="absolute right-0 top-0 bottom-4 w-16 bg-gradient-to-l from-white to-transparent pointer-events-none" />
-                    </div>
-                  </div>
-                )}
-
-                {/* All Listings Section */}
-                <div>
-                  {filteredProperties.filter(p => p.isFeatured).length > 0 && (
-                    <h2 className="text-xl font-bold text-gray-900 mb-6">All Listings</h2>
-                  )}
-                  <PropertyGrid
-                    properties={filteredProperties.filter(p => !p.isFeatured || filteredProperties.filter(fp => fp.isFeatured).length === 0 ? true : !p.isFeatured)}
-                    onPropertyClick={handlePropertyClick}
-                    compact={true}
-                  />
-                </div>
-
-                {/* Load More Button */}
-                {hasMore && !loading && (
-                  <div className="mt-12 flex justify-center">
-                    <Button
-                      onClick={loadMore}
-                      variant="outline"
-                      size="lg"
-                      className="min-w-[200px]"
-                    >
-                      {loading ? 'Loading...' : 'Load More'}
-                    </Button>
-                  </div>
-                )}
+                {/* Featured Listings Section - Moved outside container for full width */}
               </>
             )}
           </div>
+        </div>
+
+        {!loading && !showMap && filteredProperties.filter(p => p.isFeatured).length > 0 && (
+          <FeaturedCarousel
+            properties={filteredProperties.filter(p => p.isFeatured).slice(0, 10)}
+            onPropertyClick={handlePropertyClick}
+          />
+        )}
+
+        <div className="container mx-auto px-4">
+          {!loading && !showMap && (
+            <>
+              {/* All Listings Section */}
+              <div className="mt-8">
+                {filteredProperties.filter(p => p.isFeatured).length > 0 && (
+                  <h2 className="text-xl font-bold text-gray-900 mb-6 font-primary tracking-tight">All Stays</h2>
+                )}
+                <PropertyGrid
+                  properties={filteredProperties.filter(p => !p.isFeatured || filteredProperties.filter(fp => fp.isFeatured).length === 0 ? true : !p.isFeatured)}
+                  onPropertyClick={handlePropertyClick}
+                  compact={true}
+                />
+              </div>
+
+              {/* Load More Button */}
+              {hasMore && (
+                <div className="mt-12 flex justify-center pb-20">
+                  <Button
+                    onClick={loadMore}
+                    variant="outline"
+                    size="lg"
+                    className="min-w-[200px] rounded-xl hover:bg-gray-50 border-gray-200 font-semibold"
+                  >
+                    {loading ? 'Discovering more...' : 'Discover more stays'}
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </main>
 

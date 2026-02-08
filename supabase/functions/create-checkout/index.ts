@@ -1,9 +1,8 @@
 
-
 export { }
 
 const corsHeaders = {
-    'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || 'https://idealtoday.com',
+    'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
@@ -18,27 +17,35 @@ Deno.serve(async (req: Request) => {
     }
 
     try {
-        const { amount, currency = 'ZAR', metadata, successUrl, cancelUrl, failUrl } = await req.json()
+        const body = await req.json()
+        const { amount, currency = 'ZAR', metadata, successUrl, cancelUrl } = body
 
         // Retrieve the secret key from environment variables
         const secretKey = Deno.env.get('YOCO_SECRET_KEY')
         if (!secretKey) {
             console.error('YOCO_SECRET_KEY is not set')
-            throw new Error('Server misconfiguration: Missing Payment Key')
+            return new Response(JSON.stringify({
+                error: 'Server misconfiguration: Payment Key missing',
+                details: 'The YOCO_SECRET_KEY environment variable is not defined in Supabase secrets.'
+            }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 500,
+            })
         }
 
+        // According to Yoco Online API documentation, fields are camelCase
         const payload = {
             amount,
             currency,
             metadata,
-            success_url: successUrl,
-            cancel_url: cancelUrl,
-            failure_url: failUrl
+            successUrl: successUrl,
+            cancelUrl: cancelUrl
         }
 
-        console.log('Creating checkout with:', payload)
+        console.log('Creating Yoco checkout with:', JSON.stringify(payload))
 
-        const response = await fetch('https://payments.yoco.com/api/checkouts', {
+        // Using the documented V1 checkout endpoint
+        const response = await fetch('https://online.yoco.com/v1/checkouts', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${secretKey}`,
@@ -51,7 +58,14 @@ Deno.serve(async (req: Request) => {
 
         if (!response.ok) {
             console.error('Yoco API Error:', data)
-            throw new Error(data.message || 'Failed to create checkout')
+            return new Response(JSON.stringify({
+                error: 'Payment provider error',
+                details: data,
+                message: data.message || 'Failed to create checkout'
+            }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: response.status,
+            })
         }
 
         return new Response(JSON.stringify(data), {
@@ -60,7 +74,10 @@ Deno.serve(async (req: Request) => {
         })
     } catch (error: any) {
         console.error('Error handling request:', error.message)
-        return new Response(JSON.stringify({ error: error.message }), {
+        return new Response(JSON.stringify({
+            error: 'Internal service error',
+            details: error.message
+        }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 400,
         })

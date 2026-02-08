@@ -15,6 +15,15 @@ export interface Property {
     bedrooms: number;
     bathrooms: number;
     description: string;
+    area?: string;
+    adults?: number;
+    children?: number;
+    is_self_catering?: boolean;
+    has_restaurant?: boolean;
+    restaurant_offers?: string[];
+    facilities?: string[];
+    other_facility?: string;
+    discount?: number;
     host: {
         name: string;
         image: string;
