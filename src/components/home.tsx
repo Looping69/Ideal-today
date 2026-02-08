@@ -90,6 +90,7 @@ function Home() {
           reviews: p.reviews_count || 0,
           image: p.image || p.images?.[0] || 'https://images.unsplash.com/photo-1600596542815-27b88e54e621?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
           images: p.images || [],
+          video_url: p.video_url,
           type: p.type,
           amenities: p.amenities || [],
           guests: p.guests,

@@ -414,10 +414,11 @@ export default function AdminListings() {
                     </div>
                   </div>
                 )}
-                <Button onClick={handleUpdateListing} className="w-full">Save Changes</Button>
               </div>
+              <Button onClick={handleUpdateListing} className="w-full">Save Changes</Button>
+            </div>
           )}
-            </DialogContent>
+        </DialogContent>
       </Dialog>
     </div>
   );

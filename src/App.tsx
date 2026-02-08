@@ -54,6 +54,7 @@ const AdminNotifications = lazy(() => import("./components/admin/AdminNotificati
 
 const PaymentPage = lazy(() => import("./components/payment/PaymentPage"));
 const PaymentSuccess = lazy(() => import("./components/payment/PaymentSuccess"));
+const PropertyPage = lazy(() => import("./components/listings/PropertyPage"));
 
 function App() {
   return (
@@ -64,6 +65,7 @@ function App() {
           <>
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/properties/:id" element={<PropertyPage />} />
               <Route path="/health" element={<Health />} />
               <Route path="/diagnose" element={<Diagnose />} />
               <Route path="/book" element={<PaymentPage />} />
