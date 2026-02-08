@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DollarSign, Users, Star, TrendingUp, Loader2, Calendar, LogIn, LogOut, BedDouble, Plus, Search, MoreHorizontal, Bell } from "lucide-react";
+import { DollarSign, Users, Star, TrendingUp, Loader2, Calendar, LogIn, LogOut, BedDouble, Plus, Search, MoreHorizontal, Bell, Trophy, ArrowRight } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -50,7 +50,7 @@ export default function HostDashboard() {
           .from("bookings")
           .select("id, total_price, status, check_in, check_out, created_at, user:profiles(full_name)")
           .in("property_id", propIds)
-          .neq('status', 'canceled'); // We need non-canceled for occupancy
+          .neq('status', 'canceled');
 
         const allBookings = bookingsData || [];
 
@@ -63,20 +63,12 @@ export default function HostDashboard() {
           .limit(5);
 
         // --- Calculate Stats ---
-
-        // Revenue (Total from confirmed/completed)
         const totalRevenue = allBookings
           .filter(b => b.status === 'confirmed' || b.status === 'completed')
           .reduce((sum, b) => sum + (b.total_price || 0), 0);
 
-        // Active Bookings Count (Pending + Confirmed)
         const activeBookingsCount = allBookings.filter(b => b.status === 'pending' || b.status === 'confirmed').length;
 
-        // Average Rating
-        const allReviews = reviewsData || []; // In real app, fetch aggregate or all to average
-        // For accurate average, usually best to use a DB function or fetch just ratings. 
-        // We'll approximate or assume we can fetch basic average if needed.
-        // Let's do a quick separate fetch for pure average to be accurate
         const { data: ratingsData } = await supabase.from("reviews").select("rating").in("property_id", propIds);
         const totalRating = (ratingsData || []).reduce((sum, r) => sum + r.rating, 0);
         const avgRating = ratingsData?.length ? (totalRating / ratingsData.length).toFixed(1) : 0;
@@ -86,7 +78,6 @@ export default function HostDashboard() {
         let departures = 0;
         let inHouse = 0;
 
-        // Helper to check date equality
         const isSameDate = (d1: Date, d2: Date) =>
           d1.getDate() === d2.getDate() &&
           d1.getMonth() === d2.getMonth() &&
@@ -99,12 +90,10 @@ export default function HostDashboard() {
 
           if (isSameDate(checkIn, today)) arrivals++;
           if (isSameDate(checkOut, today)) departures++;
-
-          // In House: checkIn < today < checkOut
           if (checkIn < today && checkOut > today) inHouse++;
         });
 
-        const available = totalProperties - (inHouse + arrivals); // Rough estimate: Total - (Occupied tonight)
+        const available = totalProperties - (inHouse + arrivals);
 
         setTodaysActivity({
           arrivals,
@@ -113,35 +102,25 @@ export default function HostDashboard() {
           available: Math.max(0, available)
         });
 
-        // --- Occupancy Graph (Next 7 Days) ---
+        // --- Occupancy Graph ---
         const next7Days = [];
         const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
         for (let i = 0; i < 7; i++) {
           const d = new Date(today);
           d.setDate(today.getDate() + i);
-
-          // Count properties occupied on this night
           const occupiedCount = allBookings.filter(b => {
             const start = new Date(b.check_in);
             const end = new Date(b.check_out);
             return (b.status === 'confirmed' || b.status === 'completed' || b.status === 'blocked') &&
               d >= start && d < end;
           }).length;
-
           const occupancyPct = totalProperties > 0 ? Math.round((occupiedCount / totalProperties) * 100) : 0;
-
-          next7Days.push({
-            name: dayNames[d.getDay()],
-            occupancy: occupancyPct
-          });
+          next7Days.push({ name: dayNames[d.getDay()], occupancy: occupancyPct });
         }
 
         // --- Activity Feed ---
-        // Combine bookings and reviews
         const feedItems = [];
-
-        // Add recent bookings
         allBookings
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
           .slice(0, 5)
@@ -158,8 +137,7 @@ export default function HostDashboard() {
             });
           });
 
-        // Add recent reviews
-        allReviews.forEach((r: any) => {
+        (reviewsData || []).forEach((r: any) => {
           const userName = Array.isArray(r.user) ? r.user[0]?.full_name : r.user?.full_name;
           feedItems.push({
             type: 'review',
@@ -172,12 +150,9 @@ export default function HostDashboard() {
           });
         });
 
-        // Sort combined feed
         feedItems.sort((a, b) => b.time.getTime() - a.time.getTime());
-        setActivityFeed(feedItems.slice(0, 5)); // Keep top 5
+        setActivityFeed(feedItems.slice(0, 5));
 
-        // Calculate overall occupancy avg for stats (e.g. over next 30 days or general)
-        // Let's use the average of the next 7 days for the "Occupancy" stat
         const avgOccupancy = Math.round(next7Days.reduce((acc, curr) => acc + curr.occupancy, 0) / 7);
 
         setOccupancyData(next7Days);
@@ -198,7 +173,6 @@ export default function HostDashboard() {
     fetchData();
   }, [user]);
 
-  // State for chart data
   const [occupancyData, setOccupancyData] = useState<any[]>([]);
 
   if (loading) {
@@ -277,8 +251,26 @@ export default function HostDashboard() {
         </Card>
       </div>
 
+      {/* Refer-a-Host Promo */}
+      <Card className="border-none bg-gradient-to-r from-indigo-600 to-blue-700 text-white overflow-hidden relative shadow-lg">
+        <div className="absolute top-0 right-0 p-8 opacity-10">
+          <Trophy className="w-32 h-32" />
+        </div>
+        <CardContent className="p-8 flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
+          <div className="space-y-2 text-center md:text-left">
+            <h2 className="text-2xl font-bold">Earn 1,000 Points with Refer-a-Host</h2>
+            <p className="text-indigo-100 max-w-lg">Invite other hosts to IdealStay. When they publish their first listing, you'll receive 1,000 reward points!</p>
+          </div>
+          <Button
+            onClick={() => navigate('/host/referrals')}
+            className="bg-white text-indigo-600 hover:bg-indigo-50 font-bold px-8 h-12 rounded-xl transition-transform hover:scale-105"
+          >
+            Get My Link <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Chart Section */}
         <div className="lg:col-span-2 space-y-6">
           <Card className="border-gray-200 shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -350,7 +342,6 @@ export default function HostDashboard() {
           </div>
         </div>
 
-        {/* Sidebar / Activity Feed */}
         <div className="space-y-6">
           <Card className="border-gray-200 shadow-sm h-full max-h-[600px] flex flex-col">
             <CardHeader className="flex flex-row items-center justify-between pb-4">

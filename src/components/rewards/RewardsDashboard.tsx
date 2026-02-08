@@ -8,6 +8,7 @@ import { Trophy, Map, Star, Calendar, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
+import SEO from "../SEO";
 
 interface Badge {
   id: string;
@@ -173,6 +174,11 @@ export default function RewardsDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 pt-20 pb-12">
+      <SEO
+        title="IdealRewards | Loyalty Program & Exclusive Stays"
+        description="Earn points, unlock unique badges, and get exclusive discounts on your next holiday accommodation with IdealRewards."
+        keywords="travel rewards, holiday points, accommodation discounts, South Africa travel"
+      />
       <div className="container mx-auto px-4">
         {/* Header Section */}
         <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 mb-8 relative overflow-hidden">

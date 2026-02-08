@@ -56,10 +56,10 @@ export default function HostOperations() {
     const [newStaffName, setNewStaffName] = useState('');
     const [properties, setProperties] = useState<{ id: string, title: string }[]>([]);
 
+    // Load initial data from localStorage when user is available
     useEffect(() => {
-        if (!user) return;
+        if (!user?.id) return;
 
-        // Load local storage data
         const savedStaff = localStorage.getItem(`host_staff_${user.id}`);
         const savedManualTasks = localStorage.getItem(`host_manual_tasks_${user.id}`);
         const savedCompletedIds = localStorage.getItem(`host_completed_tasks_${user.id}`);
@@ -67,9 +67,13 @@ export default function HostOperations() {
         if (savedStaff) setStaff(JSON.parse(savedStaff));
         if (savedManualTasks) setManualTasks(JSON.parse(savedManualTasks));
         if (savedCompletedIds) setCompletedTaskIds(JSON.parse(savedCompletedIds));
+    }, [user?.id]);
 
+    // Fetch data when user or dependent local data changes
+    useEffect(() => {
+        if (!user?.id) return;
         fetchData();
-    }, [user, manualTasks, completedTaskIds]); // Depend on manualTasks and completedTaskIds to re-fetch/re-merge
+    }, [user?.id, manualTasks, completedTaskIds]);
 
     const fetchData = async () => {
         setLoading(true);

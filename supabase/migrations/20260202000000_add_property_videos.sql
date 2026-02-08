@@ -18,12 +18,13 @@ CREATE POLICY "Public video access"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'property-videos');
 
--- Allow authenticated users to upload videos
+-- Allow authenticated users to upload videos to their own folder
 CREATE POLICY "Authenticated users can upload videos"
 ON storage.objects FOR INSERT
 WITH CHECK (
   bucket_id = 'property-videos'
   AND auth.role() = 'authenticated'
+  AND (storage.foldername(name))[1] = auth.uid()::text
 );
 
 -- Allow users to delete their own videos
@@ -31,7 +32,8 @@ CREATE POLICY "Users can delete own videos"
 ON storage.objects FOR DELETE
 USING (
   bucket_id = 'property-videos'
-  AND auth.uid()::text = (storage.foldername(name))[1]
+  AND auth.role() = 'authenticated'
+  AND (storage.foldername(name))[1] = auth.uid()::text
 );
 
 -- Index for faster video lookups

@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { Loader2, Upload, X, Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
+import { compressImage, blobToFile, formatBytes } from "@/lib/imageCompression";
 
 interface ImageUploadProps {
   value: string[];
@@ -24,6 +25,7 @@ export default function ImageUpload({
   className,
 }: ImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
+  const [compressionProgress, setCompressionProgress] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -42,16 +44,48 @@ export default function ImageUpload({
 
     setIsUploading(true);
     const newUrls: string[] = [];
+    let totalOriginalSize = 0;
+    let totalCompressedSize = 0;
 
     try {
-      for (const file of Array.from(files)) {
-        const fileExt = file.name.split(".").pop();
-        const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const fileArray = Array.from(files);
+
+      for (let i = 0; i < fileArray.length; i++) {
+        const file = fileArray[i];
+        setCompressionProgress(`Optimizing ${i + 1}/${fileArray.length}...`);
+
+        // Skip non-image files
+        if (!file.type.startsWith('image/')) {
+          toast({
+            variant: "destructive",
+            title: "Invalid file type",
+            description: `${file.name} is not an image file.`,
+          });
+          continue;
+        }
+
+        // Compress the image
+        const result = await compressImage(file, {
+          maxWidth: bucket === 'avatars' ? 400 : 1920,
+          maxHeight: bucket === 'avatars' ? 400 : 1080,
+          quality: 0.82,
+          outputFormat: 'webp',
+        });
+
+        totalOriginalSize += result.originalSize;
+        totalCompressedSize += result.compressedSize;
+
+        // Convert blob to file for upload
+        const compressedFile = blobToFile(result.blob, file.name, result.format);
+
+        const fileName = `${Math.random().toString(36).substring(2)}.${result.format === 'webp' ? 'webp' : 'jpg'}`;
         const filePath = `${fileName}`;
+
+        setCompressionProgress(`Uploading ${i + 1}/${fileArray.length}...`);
 
         const { error: uploadError } = await supabase.storage
           .from(bucket)
-          .upload(filePath, file);
+          .upload(filePath, compressedFile);
 
         if (uploadError) {
           throw uploadError;
@@ -62,9 +96,16 @@ export default function ImageUpload({
       }
 
       onChange([...value, ...newUrls]);
+
+      // Show compression stats in toast
+      const savedBytes = totalOriginalSize - totalCompressedSize;
+      const savedPercent = Math.round((savedBytes / totalOriginalSize) * 100);
+
       toast({
-        title: "Success",
-        description: "Images uploaded successfully",
+        title: "Upload complete",
+        description: savedPercent > 5
+          ? `Optimized ${formatBytes(totalOriginalSize)} → ${formatBytes(totalCompressedSize)} (${savedPercent}% smaller)`
+          : "Images uploaded successfully",
       });
     } catch (error: any) {
       toast({
@@ -74,6 +115,7 @@ export default function ImageUpload({
       });
     } finally {
       setIsUploading(false);
+      setCompressionProgress(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -127,7 +169,14 @@ export default function ImageUpload({
             className="w-full h-32 border-dashed border-2 flex flex-col gap-2 hover:bg-gray-50"
           >
             {isUploading ? (
-              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                {compressionProgress && (
+                  <span className="text-sm font-medium text-gray-600 animate-pulse">
+                    {compressionProgress}
+                  </span>
+                )}
+              </div>
             ) : (
               <div className="flex flex-col items-center gap-2 text-gray-500">
                 <div className="p-2 bg-gray-100 rounded-full">

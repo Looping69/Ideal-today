@@ -29,6 +29,7 @@ export default function WishlistsPage() {
           reviews: row.properties.reviews_count,
           image: row.properties.image,
           images: row.properties.images || [],
+          video_url: row.properties.video_url,
           type: row.properties.type,
           amenities: row.properties.amenities || [],
           guests: row.properties.guests,
