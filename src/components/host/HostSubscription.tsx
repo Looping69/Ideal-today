@@ -199,7 +199,7 @@ export default function HostSubscription() {
             // Store plan intention
             sessionStorage.setItem('pending_plan_upgrade', planId);
 
-            const { data, error } = await supabase.functions.invoke('create-checkout', {
+            const { data, error } = await supabase.functions.invoke('create-checkout-v2', {
                 body: {
                     amount: priceAmount * 100, // Cents
                     currency: 'ZAR',

@@ -22,7 +22,7 @@ export default defineConfig({
   },
   server: {
     host: true,
-    port: Number(process.env.PORT) || 5173,
+    port: Number(process.env.PORT) || 3000,
     strictPort: true,
     allowedHosts: ["localhost", "127.0.0.1"],
     hmr: {
