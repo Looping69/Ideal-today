@@ -12,7 +12,7 @@ export const sendEmail = async (to: string, subject: string, html: string) => {
     } catch (error) {
         console.error('Error sending email:', error);
         // Fallback: Log to console in dev/if function fails
-        console.log(`[EMAIL MOCK] To: ${to}, Subject: ${subject}`);
+        console.warn(`[EMAIL MOCK] To: ${to}, Subject: ${subject}`);
         return null;
     }
 };

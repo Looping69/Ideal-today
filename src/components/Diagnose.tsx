@@ -2,8 +2,15 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { SETUP_SQL } from "@/lib/setup_sql";
 
+interface DiagnosisResult {
+    status: 'ok' | 'error' | 'warning' | 'exception';
+    message: string;
+    details?: unknown;
+    user?: string;
+}
+
 export default function Diagnose() {
-    const [results, setResults] = useState<any>({});
+    const [results, setResults] = useState<Record<string, DiagnosisResult>>({});
     const [loading, setLoading] = useState(true);
     const [copied, setCopied] = useState(false);
 
@@ -13,7 +20,7 @@ export default function Diagnose() {
 
     const runDiagnosis = async () => {
         setLoading(true);
-        const res: any = {};
+        const res: Record<string, DiagnosisResult> = {};
 
         // 1. Check connection
         try {
@@ -23,8 +30,8 @@ export default function Diagnose() {
             } else {
                 res.profilesTable = { status: 'ok', message: 'Table exists and is accessible' };
             }
-        } catch (e: any) {
-            res.profilesTable = { status: 'exception', message: e.message };
+        } catch (e: unknown) {
+            res.profilesTable = { status: 'exception', message: e instanceof Error ? e.message : 'Unknown error' };
         }
 
         // 2. Check Auth (Try to sign up a random user to see if it 500s)
@@ -40,8 +47,8 @@ export default function Diagnose() {
             } else {
                 res.authSignup = { status: 'ok', message: 'Signup successful', user: data.user?.id };
             }
-        } catch (e: any) {
-            res.authSignup = { status: 'exception', message: e.message };
+        } catch (e: unknown) {
+            res.authSignup = { status: 'exception', message: e instanceof Error ? e.message : 'Unknown error' };
         }
 
         // 3. Check for new columns
@@ -53,8 +60,8 @@ export default function Diagnose() {
             } else {
                 res.profileColumns = { status: 'ok', message: 'New profile columns exist' };
             }
-        } catch (e: any) {
-            res.profileColumns = { status: 'exception', message: e.message };
+        } catch (e: unknown) {
+            res.profileColumns = { status: 'exception', message: e instanceof Error ? e.message : 'Unknown error' };
         }
 
         try {
@@ -65,8 +72,8 @@ export default function Diagnose() {
             } else {
                 res.propertyColumns = { status: 'ok', message: 'New property columns exist' };
             }
-        } catch (e: any) {
-            res.propertyColumns = { status: 'exception', message: e.message };
+        } catch (e: unknown) {
+            res.propertyColumns = { status: 'exception', message: e instanceof Error ? e.message : 'Unknown error' };
         }
 
         // 5. Check Buckets
@@ -82,8 +89,8 @@ export default function Diagnose() {
                     details: { verification: hasVerification }
                 };
             }
-        } catch (e: any) {
-            res.buckets = { status: 'exception', message: e.message };
+        } catch (e: unknown) {
+            res.buckets = { status: 'exception', message: e instanceof Error ? e.message : 'Unknown error' };
         }
 
         setResults(res);
@@ -134,7 +141,7 @@ export default function Diagnose() {
                         <h3 className="font-bold">Storage Buckets</h3>
                         <p>{results.buckets?.message}</p>
                         <ul className="list-disc pl-4 text-sm mt-2">
-                            <li>Verification Bucket: {results.buckets?.details?.verification ? '✅' : '❌'}</li>
+                            <li>Verification Bucket: {(results.buckets?.details as Record<string, boolean>)?.verification ? '✅' : '❌'}</li>
                         </ul>
                     </div>
                 </div>

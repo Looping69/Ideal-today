@@ -1,3 +1,4 @@
+declare const Deno: any;
 
 export { }
 
@@ -18,7 +19,7 @@ Deno.serve(async (req: Request) => {
 
     try {
         const body = await req.json()
-        const { amount, currency = 'ZAR', metadata, successUrl, cancelUrl } = body
+        const { amount, currency = 'ZAR', metadata, successUrl, cancelUrl, failureUrl } = body
 
         // Retrieve the secret key from environment variables
         const secretKey = Deno.env.get('YOCO_SECRET_KEY')
@@ -52,7 +53,8 @@ Deno.serve(async (req: Request) => {
             currency,
             metadata,
             successUrl: successUrl,
-            cancelUrl: cancelUrl
+            cancelUrl: cancelUrl,
+            failureUrl: failureUrl
         }
 
         console.log('Creating Yoco checkout with:', JSON.stringify(payload))

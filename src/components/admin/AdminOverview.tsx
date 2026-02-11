@@ -14,10 +14,31 @@ export default function AdminOverview() {
   const [topListings, setTopListings] = useState<TopListing[]>([]);
   const [recentBookings, setRecentBookings] = useState<RecentBooking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [health, setHealth] = useState({ dbLoad: 0, storage: 0, latency: 0 });
 
   useEffect(() => {
     const load = async () => {
       try {
+        // Measure Latency
+        const start = performance.now();
+        await supabase.from('profiles').select('id').limit(1);
+        const latency = Math.round(performance.now() - start);
+
+        // Fetch Storage Stats (Estimated via row counts and table size)
+        // We use a query that gives us some idea of complexity/scale
+        const { count: profileCount } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
+        const { count: propertyCount } = await supabase.from('properties').select('count', { count: 'exact', head: true });
+        const { count: bookingCount } = await supabase.from('bookings').select('count', { count: 'exact', head: true });
+
+        // Mocking relative storage for now based on scale, but in a real app we'd query pg_total_relation_size
+        const totalRows = (profileCount || 0) + (propertyCount || 0) + (bookingCount || 0);
+        const storageUsage = Math.min(Math.round((totalRows / 10000) * 100), 100) || 5; // Base 5% + scale
+
+        // Calculate load based on latency (thresholds: < 50ms=good, 50-200ms=avg, >200ms=high)
+        const dbLoad = Math.min(Math.round((latency / 200) * 100), 100);
+
+        setHealth({ dbLoad, storage: storageUsage, latency });
+
         const users = await supabase.from('profiles').select('count', { count: 'exact', head: true });
         const listings = await supabase.from('properties').select('count', { count: 'exact', head: true });
         const bookings = await supabase.from('bookings').select('count', { count: 'exact', head: true });
@@ -224,28 +245,37 @@ export default function AdminOverview() {
               <div>
                 <div className="flex justify-between text-xs mb-1.5 text-gray-400">
                   <span>Database Load</span>
-                  <span>24%</span>
+                  <span>{health.dbLoad}%</span>
                 </div>
                 <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                  <div className="h-full bg-green-500 w-[24%] rounded-full" />
+                  <div
+                    className={`h-full transition-all duration-1000 rounded-full ${health.dbLoad > 80 ? 'bg-red-500' : health.dbLoad > 50 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                    style={{ width: `${health.dbLoad}%` }}
+                  />
                 </div>
               </div>
               <div>
                 <div className="flex justify-between text-xs mb-1.5 text-gray-400">
                   <span>Storage Usage</span>
-                  <span>68%</span>
+                  <span>{health.storage}%</span>
                 </div>
                 <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-500 w-[68%] rounded-full" />
+                  <div
+                    className="h-full bg-blue-500 rounded-full transition-all duration-1000"
+                    style={{ width: `${health.storage}%` }}
+                  />
                 </div>
               </div>
               <div>
                 <div className="flex justify-between text-xs mb-1.5 text-gray-400">
                   <span>API Latency</span>
-                  <span>45ms</span>
+                  <span>{health.latency}ms</span>
                 </div>
                 <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                  <div className="h-full bg-purple-500 w-[15%] rounded-full" />
+                  <div
+                    className={`h-full transition-all duration-1000 rounded-full ${health.latency > 500 ? 'bg-red-500' : health.latency > 200 ? 'bg-yellow-500' : 'bg-purple-500'}`}
+                    style={{ width: `${Math.min((health.latency / 1000) * 100, 100)}%` }}
+                  />
                 </div>
               </div>
             </div>

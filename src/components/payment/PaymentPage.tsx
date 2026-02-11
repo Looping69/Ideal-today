@@ -5,6 +5,22 @@ import { format } from 'date-fns';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
 import { useState } from 'react';
+import { Property } from '@/types/property';
+
+interface BookingState {
+    property: Property;
+    date: {
+        from: Date;
+        to: Date;
+    };
+    guests: number;
+    total: number;
+    nights: number;
+    user: {
+        id: string;
+        email?: string;
+    };
+}
 
 export default function PaymentPage() {
     const location = useLocation();
@@ -13,7 +29,7 @@ export default function PaymentPage() {
     const [isProcessing, setIsProcessing] = useState(false);
 
     // Get booking data passed from the previous screen
-    const bookingData = location.state;
+    const bookingData = location.state as BookingState | null;
 
     if (!bookingData) {
         return (
@@ -53,7 +69,7 @@ export default function PaymentPage() {
             // 2. Create Yoco Checkout Session via Edge Function
             const { data: checkout, error: checkoutError } = await supabase.functions.invoke('create-checkout', {
                 body: {
-                    amount: total * 100, // Amount in cents
+                    amount: Math.round(total * 100), // Amount in cents, rounded to avoid floating point issues
                     currency: 'ZAR',
                     metadata: {
                         bookingId: booking.id,
@@ -61,7 +77,7 @@ export default function PaymentPage() {
                     },
                     successUrl: `${window.location.origin}/book/success?bookingId=${booking.id}`,
                     cancelUrl: `${window.location.origin}/book?canceled=true`,
-                    failUrl: `${window.location.origin}/book?failed=true`
+                    failureUrl: `${window.location.origin}/book?failed=true`
                 }
             });
 
@@ -74,11 +90,12 @@ export default function PaymentPage() {
                 throw new Error("No redirect URL provided by payment gateway");
             }
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error(error);
+            const message = error instanceof Error ? error.message : "Could not start payment. Please try again.";
             toast({
                 title: "Payment Initialization Failed",
-                description: error.message || "Could not start payment. Please try again.",
+                description: message,
                 variant: "destructive",
             });
             setIsProcessing(false);

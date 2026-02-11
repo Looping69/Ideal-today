@@ -39,7 +39,6 @@ export default function AdminListings() {
     const load = async () => {
       try {
         setLoading(true);
-        console.log('Fetching properties for page:', page);
         const { data, error } = await supabase
           .from('properties')
           .select('*')
@@ -47,19 +46,10 @@ export default function AdminListings() {
           .range(page * pageSize, page * pageSize + pageSize - 1);
 
         if (error) {
-          console.error('Error fetching properties:', error);
-          toast({
-            variant: 'destructive',
-            title: 'Fetch Failed',
-            description: error.message
-          });
-          setLoading(false);
-          return;
+          throw error;
         }
 
-        console.log('Properties data received:', data?.length || 0, 'rows');
-
-        const list = ((data as any[]) || []).map(r => ({
+        const list = (data || []).map(r => ({
           id: r.id,
           title: r.title || 'Untitled',
           location: r.location || 'Unknown Location',
@@ -85,12 +75,18 @@ export default function AdminListings() {
         }
 
         const ids = new Set<string>();
-        (bookings || []).forEach((b: any) => {
+        (bookings || []).forEach((b) => {
           ids.add(b.property_id);
         });
         setBookedIds(ids);
-      } catch (err: any) {
-        console.error('Unexpected error in AdminListings load:', err);
+      } catch (err: unknown) {
+        const error = err as Error;
+        console.error('Unexpected error in AdminListings load:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Fetch Failed',
+          description: error.message || 'An unexpected error occurred'
+        });
       } finally {
         setLoading(false);
       }

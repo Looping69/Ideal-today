@@ -65,7 +65,7 @@ export default function HostVerification() {
                     setDocuments(data.verification_docs);
                 }
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error("Error checking verification status:", error);
         }
     }
@@ -137,11 +137,12 @@ export default function HostVerification() {
                 title: "Verification submitted",
                 description: "We'll review your details and documents shortly.",
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "An unknown error occurred";
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: error.message,
+                description: message,
             });
         } finally {
             setLoading(false);
@@ -292,6 +293,7 @@ export default function HostVerification() {
                                         onRemove={() => setDocuments({ ...documents, id_front: "" })}
                                         bucket="verification"
                                         maxFiles={1}
+                                        isPrivate={true}
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -302,6 +304,7 @@ export default function HostVerification() {
                                         onRemove={() => setDocuments({ ...documents, id_back: "" })}
                                         bucket="verification"
                                         maxFiles={1}
+                                        isPrivate={true}
                                     />
                                 </div>
                             </CardContent>
@@ -324,6 +327,7 @@ export default function HostVerification() {
                                         onRemove={() => setDocuments({ ...documents, selfie: "" })}
                                         bucket="verification"
                                         maxFiles={1}
+                                        isPrivate={true}
                                     />
                                 </div>
                                 <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-600">

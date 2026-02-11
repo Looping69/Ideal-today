@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, ShieldCheck, User, Ban, MoreHorizontal, CheckCircle2, XCircle, FileText, Bell, Pencil } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import SignedImage from '../ui/signed-image';
 import { Textarea } from '@/components/ui/textarea';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { useToast } from '@/components/ui/use-toast';
@@ -16,6 +17,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+interface VerificationDocs {
+  id_front?: string;
+  id_back?: string;
+  selfie?: string;
+}
+
 type Row = {
   id: string;
   email: string;
@@ -24,7 +31,7 @@ type Row = {
   deactivated?: boolean;
   points?: number;
   verification_status?: 'none' | 'pending' | 'verified' | 'rejected';
-  verification_docs?: any;
+  verification_docs?: VerificationDocs;
   host_plan?: 'free' | 'standard' | 'premium';
 };
 
@@ -61,7 +68,7 @@ export default function AdminUsers() {
         .order('created_at', { ascending: false })
         .range(page * pageSize, page * pageSize + pageSize - 1);
 
-      setRows(((data as any[]) || []).map(r => ({
+      setRows((data || []).map(r => ({
         id: r.id,
         email: r.email,
         full_name: r.full_name,
@@ -84,8 +91,9 @@ export default function AdminUsers() {
       if (!data || data.length === 0) throw new Error("Update failed: No rows affected. Access denied by database policy.");
       setRows(rs => rs.map(r => (r.id === id ? { ...r, is_admin: next } : r)));
       toast({ title: "Role Updated", description: `User is now ${next ? 'an admin' : 'a regular user'}.` });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Update Failed", description: e.message });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "An unknown error occurred";
+      toast({ variant: "destructive", title: "Operation Failed", description: message });
     }
   };
 
@@ -96,8 +104,9 @@ export default function AdminUsers() {
       if (!data || data.length === 0) throw new Error("Update failed: No rows affected. Access denied by database policy.");
       setRows(rs => rs.map(r => (r.id === id ? { ...r, deactivated: next } : r)));
       toast({ title: "Account Status Updated", description: `User account has been ${next ? 'deactivated' : 'activated'}.` });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Update Failed", description: e.message });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "An unknown error occurred";
+      toast({ variant: "destructive", title: "Operation Failed", description: message });
     }
   };
 
@@ -135,12 +144,13 @@ export default function AdminUsers() {
         description: `User ${status === 'verified' ? 'approved' : 'rejected'} and notified successfully.`,
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Update failed:', error);
+      const message = error instanceof Error ? error.message : "Could not update verification status.";
       toast({
         variant: "destructive",
         title: "Update Failed",
-        description: error.message || "Could not update verification status."
+        description: message
       });
     }
   };
@@ -166,8 +176,9 @@ export default function AdminUsers() {
       setRows(rs => rs.map(r => r.id === editingUser.id ? editingUser : r));
       setEditingUser(null);
       toast({ title: "Profile Updated", description: "Changes saved successfully." });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Update Failed", description: e.message });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "An unknown error occurred";
+      toast({ variant: "destructive", title: "Operation Failed", description: message });
     }
   };
 
@@ -193,8 +204,9 @@ export default function AdminUsers() {
       setBroadcasting(false);
       setBroadcastData({ title: '', message: '' });
       toast({ title: "Broadcast Sent", description: `Notification sent to ${users?.length || 0} users.` });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Broadcast Failed", description: e.message });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "An unknown error occurred";
+      toast({ variant: "destructive", title: "Broadcast Failed", description: message });
     } finally {
       setLoading(false);
     }
@@ -317,19 +329,31 @@ export default function AdminUsers() {
                               {r.verification_docs?.id_front && (
                                 <div>
                                   <p className="text-sm font-medium mb-2">ID Front</p>
-                                  <img src={r.verification_docs.id_front} className="rounded-lg border w-full" />
+                                  <SignedImage
+                                    bucket="verification"
+                                    path={r.verification_docs.id_front}
+                                    className="rounded-lg border w-full"
+                                  />
                                 </div>
                               )}
                               {r.verification_docs?.id_back && (
                                 <div>
                                   <p className="text-sm font-medium mb-2">ID Back</p>
-                                  <img src={r.verification_docs.id_back} className="rounded-lg border w-full" />
+                                  <SignedImage
+                                    bucket="verification"
+                                    path={r.verification_docs.id_back}
+                                    className="rounded-lg border w-full"
+                                  />
                                 </div>
                               )}
                               {r.verification_docs?.selfie && (
                                 <div>
                                   <p className="text-sm font-medium mb-2">Selfie</p>
-                                  <img src={r.verification_docs.selfie} className="rounded-lg border w-full" />
+                                  <SignedImage
+                                    bucket="verification"
+                                    path={r.verification_docs.selfie}
+                                    className="rounded-lg border w-full"
+                                  />
                                 </div>
                               )}
                             </div>

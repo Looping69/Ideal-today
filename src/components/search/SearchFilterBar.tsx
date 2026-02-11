@@ -1,6 +1,6 @@
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Sparkles, Calendar, Plus, Minus, MapPin, Search, TrendingUp, Building, Home, Palmtree } from "lucide-react";
+import { Send, Sparkles, Calendar, Plus, Minus, MapPin, Search, TrendingUp, Building, Home, Palmtree, LucideIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type Props = {
@@ -28,7 +28,7 @@ export default function SearchFilterBar({ onChange, onModeChange, onSendMessage 
   const [checkOut, setCheckOut] = useState<Date | null>(null);
   const [guests, setGuests] = useState(1);
   const [location, setLocation] = useState("");
-  const [suggestions, setSuggestions] = useState<{ label: string; type: "province" | "place" | "listing" | "city"; icon?: any }[]>([]);
+  const [suggestions, setSuggestions] = useState<{ label: string; type: "province" | "place" | "listing" | "city"; icon?: LucideIcon }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [isLoading, setIsLoading] = useState(false);
@@ -90,10 +90,10 @@ export default function SearchFilterBar({ onChange, onModeChange, onSendMessage 
           .limit(8);
 
         const places = new Map<string, boolean>();
-        const listings: { label: string; type: "listing"; icon: any }[] = [];
+        const listings: { label: string; type: "listing"; icon: LucideIcon }[] = [];
         const provinces = new Set<string>();
 
-        (data || []).forEach((p: any) => {
+        (data || []).forEach((p) => {
           if (p.location && !places.has(p.location)) {
             places.set(p.location, true);
           }

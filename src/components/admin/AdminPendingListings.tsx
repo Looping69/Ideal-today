@@ -68,12 +68,13 @@ export default function AdminPendingListings() {
 
             if (error) throw error;
             setListings(data || []);
-        } catch (error) {
+        } catch (error: unknown) {
             console.error(error);
+            const message = error instanceof Error ? error.message : "Could not load pending listings.";
             toast({
                 variant: 'destructive',
                 title: 'Error fetching listings',
-                description: 'Could not load pending listings.'
+                description: message
             });
         } finally {
             setLoading(false);
@@ -102,12 +103,13 @@ export default function AdminPendingListings() {
 
             // Remove from list
             setListings(prev => prev.filter(l => l.id !== id));
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Approval failed:', error);
+            const message = error instanceof Error ? error.message : "An unknown error occurred";
             toast({
                 variant: 'destructive',
                 title: 'Error',
-                description: error.message
+                description: message
             });
         } finally {
             setProcessing(false);
@@ -141,11 +143,12 @@ export default function AdminPendingListings() {
             setListings(prev => prev.filter(l => l.id !== rejectId));
             setRejectId(null);
             setRejectReason("");
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "An unknown error occurred";
             toast({
                 variant: 'destructive',
                 title: 'Error',
-                description: error.message
+                description: message
             });
         } finally {
             setProcessing(false);

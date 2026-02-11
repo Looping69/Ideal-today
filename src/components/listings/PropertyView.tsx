@@ -23,6 +23,18 @@ interface PropertyViewProps {
     onBookingComplete?: () => void;
 }
 
+interface Profile {
+    full_name: string | null;
+    avatar_url: string | null;
+}
+
+interface Review {
+    rating: number;
+    content: string;
+    created_at: string;
+    user: Profile | null;
+}
+
 export default function PropertyView({ property, onBookingComplete }: PropertyViewProps) {
     const { user } = useAuth();
     const { toast } = useToast();
@@ -31,7 +43,7 @@ export default function PropertyView({ property, onBookingComplete }: PropertyVi
     const [guests, setGuests] = useState(1);
     const [isBooking, setIsBooking] = useState(false);
     const [bookedDates, setBookedDates] = useState<Date[]>([]);
-    const [reviews, setReviews] = useState<any[]>([]);
+    const [reviews, setReviews] = useState<Review[]>([]);
     const [canReview, setCanReview] = useState(false);
     const [myRating, setMyRating] = useState<number>(5);
     const [myText, setMyText] = useState("");
@@ -79,7 +91,8 @@ export default function PropertyView({ property, onBookingComplete }: PropertyVi
             .eq('property_id', property.id)
             .eq('status', 'approved')
             .order('created_at', { ascending: false });
-        setReviews(data || []);
+
+        setReviews((data as unknown as Review[]) || []);
 
         if (user) {
             const { data: bookingOk } = await supabase
@@ -125,8 +138,9 @@ export default function PropertyView({ property, onBookingComplete }: PropertyVi
             setMyRating(5);
             loadReviews();
             setCanReview(false);
-        } catch (e: any) {
-            toast({ variant: 'destructive', title: 'Error', description: e.message || 'Could not submit review.' });
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : "Could not submit review.";
+            toast({ variant: 'destructive', title: 'Error', description: message });
         } finally {
             setIsSubmittingReview(false);
         }

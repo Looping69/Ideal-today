@@ -36,6 +36,23 @@ interface Task {
     isManual?: boolean;
 }
 
+interface NewTask {
+    room: string;
+    type: Task['type'];
+    detail: string;
+    assignee: string;
+    priority: Task['priority'];
+}
+
+interface Booking {
+    id: string;
+    property_id: string;
+    check_in: string;
+    check_out: string;
+    status: string;
+    user: { full_name: string | null } | { full_name: string | null }[] | null;
+}
+
 export default function HostOperations() {
     const { user } = useAuth();
     const { toast } = useToast();
@@ -52,7 +69,7 @@ export default function HostOperations() {
     // Dialog States
     const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
     const [isStaffDialogOpen, setIsStaffDialogOpen] = useState(false);
-    const [newTask, setNewTask] = useState({ room: '', type: 'Maintenance', detail: '', assignee: '', priority: 'medium' });
+    const [newTask, setNewTask] = useState<NewTask>({ room: '', type: 'Maintenance', detail: '', assignee: '', priority: 'medium' });
     const [newStaffName, setNewStaffName] = useState('');
     const [properties, setProperties] = useState<{ id: string, title: string }[]>([]);
 
@@ -109,7 +126,7 @@ export default function HostOperations() {
             const generatedTasks: Task[] = [];
             const now = new Date();
 
-            (bookings || []).forEach((b: any) => {
+            ((bookings as unknown as Booking[]) || []).forEach((b) => {
                 const checkIn = new Date(b.check_in);
                 const checkOut = new Date(b.check_out);
                 const isToday = (d: Date) => d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
@@ -156,8 +173,13 @@ export default function HostOperations() {
             // Merge with manual tasks (filter out deleted ones if we implemented delete)
             setTasks([...generatedTasks, ...manualTasks]);
 
-        } catch (err) {
+        } catch (err: unknown) {
             console.error(err);
+            toast({
+                title: "Fetch Error",
+                description: "Could not load operations data. Please refresh.",
+                variant: "destructive",
+            });
         } finally {
             setLoading(false);
         }
@@ -301,7 +323,7 @@ export default function HostOperations() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="task-type">Task Type</Label>
-                                    <Select onValueChange={(v: any) => setNewTask({ ...newTask, type: v })} defaultValue="Maintenance" value={newTask.type}>
+                                    <Select onValueChange={(v: Task['type']) => setNewTask({ ...newTask, type: v })} defaultValue="Maintenance" value={newTask.type}>
                                         <SelectTrigger id="task-type">
                                             <SelectValue />
                                         </SelectTrigger>
@@ -330,7 +352,7 @@ export default function HostOperations() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="task-priority">Priority</Label>
-                                    <Select onValueChange={(v: any) => setNewTask({ ...newTask, priority: v })} defaultValue="medium" value={newTask.priority}>
+                                    <Select onValueChange={(v: Task['priority']) => setNewTask({ ...newTask, priority: v })} defaultValue="medium" value={newTask.priority}>
                                         <SelectTrigger id="task-priority">
                                             <SelectValue />
                                         </SelectTrigger>
