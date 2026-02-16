@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -37,13 +37,7 @@ export default function HostVerification() {
         selfie: "",
     });
 
-    useEffect(() => {
-        if (user) {
-            checkVerificationStatus();
-        }
-    }, [user]);
-
-    async function checkVerificationStatus() {
+    const checkVerificationStatus = useCallback(async () => {
         try {
             const { data, error } = await supabase
                 .from("profiles")
@@ -68,9 +62,15 @@ export default function HostVerification() {
         } catch (error: unknown) {
             console.error("Error checking verification status:", error);
         }
-    }
+    }, [user]);
 
-    const handleNext = () => {
+    useEffect(() => {
+        if (user) {
+            checkVerificationStatus();
+        }
+    }, [user, checkVerificationStatus]);
+
+    const handleNext = useCallback(() => {
         if (step === 1) {
             if (!profileData.full_name || !profileData.phone || !profileData.bio || !profileData.business_address) {
                 toast({
@@ -82,9 +82,9 @@ export default function HostVerification() {
             }
             setStep(2);
         }
-    };
+    }, [step, profileData, toast]);
 
-    async function submitVerification() {
+    const submitVerification = useCallback(async () => {
         if (!documents.id_front || !documents.id_back || !documents.selfie) {
             toast({
                 variant: "destructive",
@@ -147,7 +147,7 @@ export default function HostVerification() {
         } finally {
             setLoading(false);
         }
-    }
+    }, [user, profileData, documents, toast]);
 
     if (status === 'verified') {
         return (

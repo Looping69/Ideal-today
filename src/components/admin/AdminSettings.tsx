@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -16,6 +16,7 @@ import { Bell, Shield, Mail, Globe, Database, Save, DollarSign, Copy, Check } fr
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
 import { SETUP_SQL } from '@/lib/setup_sql';
+import { getErrorMessage } from '@/lib/errors';
 
 export default function AdminSettings() {
   const [loading, setLoading] = useState(false);
@@ -42,11 +43,7 @@ export default function AdminSettings() {
   const [showSetupSql, setShowSetupSql] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    fetchSettings();
-  }, []);
-
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('admin_settings')
@@ -67,9 +64,13 @@ export default function AdminSettings() {
           booking_confirmation_template: data.booking_confirmation_template || ''
         });
       }
-    } catch (error: any) {
-      console.error('Error fetching settings:', error);
-      if (error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+    } catch (error: unknown) {
+      console.error('Error fetching settings:', getErrorMessage(error));
+      const message = getErrorMessage(error);
+      const isTableMissing = typeof error === 'object' && error !== null && 'code' in error && error.code === 'PGRST205';
+      const isNotFound = message.includes('does not exist');
+
+      if (isTableMissing || isNotFound) {
         setShowSetupSql(true);
         toast({
           variant: "destructive",
@@ -86,7 +87,11 @@ export default function AdminSettings() {
     } finally {
       setFetching(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
 
   const handleSave = async () => {
     setLoading(true);
@@ -102,9 +107,13 @@ export default function AdminSettings() {
         title: "Settings saved",
         description: "Platform settings have been updated successfully.",
       });
-    } catch (error: any) {
-      console.error('Error saving settings:', error);
-      if (error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+    } catch (error: unknown) {
+      console.error('Error saving settings:', getErrorMessage(error));
+      const message = getErrorMessage(error);
+      const isTableMissing = typeof error === 'object' && error !== null && 'code' in error && error.code === 'PGRST205';
+      const isNotFound = message.includes('does not exist');
+
+      if (isTableMissing || isNotFound) {
         setShowSetupSql(true);
         toast({
           variant: "destructive",

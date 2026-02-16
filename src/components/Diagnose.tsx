@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { SETUP_SQL } from "@/lib/setup_sql";
 
@@ -14,17 +14,13 @@ export default function Diagnose() {
     const [loading, setLoading] = useState(true);
     const [copied, setCopied] = useState(false);
 
-    useEffect(() => {
-        runDiagnosis();
-    }, []);
-
-    const runDiagnosis = async () => {
+    const runDiagnosis = useCallback(async () => {
         setLoading(true);
         const res: Record<string, DiagnosisResult> = {};
 
         // 1. Check connection
         try {
-            const { data, error } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
+            const { error } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
             if (error) {
                 res.profilesTable = { status: 'error', message: error.message, details: error };
             } else {
@@ -95,7 +91,14 @@ export default function Diagnose() {
 
         setResults(res);
         setLoading(false);
-    };
+    }, []);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            runDiagnosis();
+        }, 0);
+        return () => clearTimeout(timer);
+    }, [runDiagnosis]);
 
     return (
         <div className="p-8 max-w-4xl mx-auto space-y-8">
@@ -116,25 +119,25 @@ export default function Diagnose() {
                     <div className={`p-4 rounded border ${results.profilesTable?.status === 'ok' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                         <h3 className="font-bold">Profiles Table Check</h3>
                         <p>{results.profilesTable?.message}</p>
-                        {results.profilesTable?.details && <pre className="mt-2 text-xs overflow-auto bg-white p-2 rounded border">{JSON.stringify(results.profilesTable.details, null, 2)}</pre>}
+                        {!!results.profilesTable?.details && <pre className="mt-2 text-xs overflow-auto bg-white p-2 rounded border">{JSON.stringify(results.profilesTable.details, null, 2)}</pre>}
                     </div>
 
                     <div className={`p-4 rounded border ${results.authSignup?.status === 'ok' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                         <h3 className="font-bold">Auth Signup Check</h3>
                         <p>{results.authSignup?.message}</p>
-                        {results.authSignup?.details && <pre className="mt-2 text-xs overflow-auto bg-white p-2 rounded border">{JSON.stringify(results.authSignup.details, null, 2)}</pre>}
+                        {!!results.authSignup?.details && <pre className="mt-2 text-xs overflow-auto bg-white p-2 rounded border">{JSON.stringify(results.authSignup.details, null, 2)}</pre>}
                     </div>
 
                     <div className={`p-4 rounded border ${results.profileColumns?.status === 'ok' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                         <h3 className="font-bold">New Profile Columns</h3>
                         <p>{results.profileColumns?.message}</p>
-                        {results.profileColumns?.details && <pre className="mt-2 text-xs overflow-auto bg-white p-2 rounded border">{JSON.stringify(results.profileColumns.details, null, 2)}</pre>}
+                        {!!results.profileColumns?.details && <pre className="mt-2 text-xs overflow-auto bg-white p-2 rounded border">{JSON.stringify(results.profileColumns.details, null, 2)}</pre>}
                     </div>
 
                     <div className={`p-4 rounded border ${results.propertyColumns?.status === 'ok' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                         <h3 className="font-bold">New Property Columns</h3>
                         <p>{results.propertyColumns?.message}</p>
-                        {results.propertyColumns?.details && <pre className="mt-2 text-xs overflow-auto bg-white p-2 rounded border">{JSON.stringify(results.propertyColumns.details, null, 2)}</pre>}
+                        {!!results.propertyColumns?.details && <pre className="mt-2 text-xs overflow-auto bg-white p-2 rounded border">{JSON.stringify(results.propertyColumns.details, null, 2)}</pre>}
                     </div>
 
                     <div className={`p-4 rounded border ${results.buckets?.status === 'ok' ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}`}>

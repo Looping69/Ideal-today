@@ -1,6 +1,6 @@
 
-import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate, Link, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,20 +8,12 @@ import { Textarea } from "@/components/ui/textarea";
 import ImageUpload from "@/components/ui/image-upload";
 import VideoUpload from "@/components/ui/video-upload";
 import {
-  Home,
-  Building2,
-  Warehouse,
-  Tent,
-  Mountain,
-  Waves,
-  Trees,
   Check,
   ChevronRight,
   ChevronLeft,
   MapPin,
   Loader2,
-  Lock,
-  Video
+  Lock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -29,6 +21,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { geocodeAddress } from "@/lib/geocoding";
+import { getErrorMessage } from "@/lib/errors";
 
 import { CATEGORIES } from "@/constants/categories";
 import { CATEGORY_ICONS } from "@/components/icons/CategoryIcons";
@@ -64,6 +57,8 @@ export default function CreateListing() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { id } = useParams();
+  const isEditMode = !!id;
   const [step, setStep] = useState(1);
   const totalSteps = 6;
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -96,25 +91,26 @@ export default function CreateListing() {
   const [canCreate, setCanCreate] = useState(true);
   const [verificationStatus, setVerificationStatus] = useState<'none' | 'pending' | 'verified' | 'rejected' | null>(null);
 
-  useEffect(() => {
-    async function checkLimits() {
-      if (!user) return;
+  const checkLimits = useCallback(async () => {
+    if (!user) return;
 
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('host_plan, verification_status')
-        .eq('id', user.id)
-        .single();
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('host_plan, verification_status')
+      .eq('id', user.id)
+      .single();
 
-      const currentPlan = (profileData?.host_plan as 'free' | 'standard' | 'premium') || 'free';
-      setPlan(currentPlan);
-      const startStatus = profileData?.verification_status || 'none';
-      setVerificationStatus(startStatus);
+    const currentPlan = (profileData?.host_plan as 'free' | 'standard' | 'premium') || 'free';
+    setPlan(currentPlan);
+    const startStatus = profileData?.verification_status || 'none';
+    setVerificationStatus(startStatus);
 
-      if (profileError) {
-        console.error('Error fetching plan:', profileError);
-      }
+    if (profileError) {
+      console.error('Error fetching plan:', profileError);
+    }
 
+    // Skip limit check if editing
+    if (!isEditMode) {
       const { count, error } = await supabase
         .from('properties')
         .select('*', { count: 'exact', head: true })
@@ -128,10 +124,186 @@ export default function CreateListing() {
           setCanCreate(false);
         }
       }
-      setCheckingLimit(false);
     }
+    setCheckingLimit(false);
+  }, [user, isEditMode]);
+
+  useEffect(() => {
     checkLimits();
-  }, [user]);
+  }, [checkLimits]);
+
+  const fetchListingData = useCallback(async () => {
+    if (!id || !user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("properties")
+        .select("*")
+        .eq("id", id)
+        .eq("host_id", user.id)
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        setFormData({
+          category: data.type || "",
+          location: data.location || "",
+          area: data.area || "",
+          province: data.province || "",
+          title: data.title || "",
+          adults: data.adults || 2,
+          children: data.children || 0,
+          bedrooms: data.bedrooms || 1,
+          bathrooms: data.bathrooms || 1,
+          is_self_catering: data.is_self_catering || false,
+          has_restaurant: data.has_restaurant || false,
+          restaurant_offers: data.restaurant_offers || [],
+          amenities: data.amenities || [],
+          facilities: data.facilities || [],
+          other_facility: data.other_facility || "",
+          description: data.description || "",
+          price: data.price?.toString() || "",
+          discount: data.discount?.toString() || "0",
+          images: data.images || [],
+          video_url: data.video_url || null
+        });
+
+        // Set parent category based on subcategory
+        const parent = CATEGORIES.find(c =>
+          c.subcategories.some(s => s.id === data.type)
+        );
+        if (parent) setParentCategory(parent.id);
+      }
+    } catch (error: unknown) {
+      console.error("Error fetching listing:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Could not load listing data.",
+      });
+      navigate("/host/listings");
+    }
+  }, [id, user, navigate, toast]);
+
+  useEffect(() => {
+    if (isEditMode) {
+      fetchListingData();
+    }
+  }, [isEditMode, fetchListingData]);
+
+  const handleNext = useCallback(() => setStep(step + 1), [step]);
+  const handleBack = useCallback(() => setStep(step - 1), [step]);
+
+  const updateData = useCallback((key: string, value: string | number | boolean | string[] | null) => {
+    setFormData(prev => ({ ...prev, [key]: value }));
+  }, []);
+
+  const toggleAmenity = useCallback((amenity: string) => {
+    setFormData(prev => ({
+      ...prev,
+      amenities: prev.amenities.includes(amenity)
+        ? prev.amenities.filter(a => a !== amenity)
+        : [...prev.amenities, amenity]
+    }));
+  }, []);
+
+  const toggleFacility = useCallback((facility: string) => {
+    setFormData(prev => ({
+      ...prev,
+      facilities: prev.facilities.includes(facility)
+        ? prev.facilities.filter(f => f !== facility)
+        : [...prev.facilities, facility]
+    }));
+  }, []);
+
+  const toggleRestaurantOffer = useCallback((offer: string) => {
+    setFormData(prev => ({
+      ...prev,
+      restaurant_offers: prev.restaurant_offers.includes(offer)
+        ? prev.restaurant_offers.filter(o => o !== offer)
+        : [...prev.restaurant_offers, offer]
+    }));
+  }, []);
+
+  const handleSubmit = useCallback(async () => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "You must be logged in to create a listing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      let latitude = -33.9249;
+      let longitude = 18.4241;
+
+      if (formData.location) {
+        const addressToGeocode = formData.location + (formData.province ? `, ${formData.province}` : "");
+        const coords = await geocodeAddress(addressToGeocode);
+        if (coords) {
+          latitude = coords.lat;
+          longitude = coords.lng;
+        }
+      }
+
+      const propertyPayload = {
+        title: formData.title,
+        description: formData.description,
+        location: formData.location,
+        area: formData.area,
+        province: formData.province || null,
+        price: Number(formData.price),
+        discount: Number(formData.discount),
+        type: formData.category,
+        amenities: formData.amenities,
+        facilities: formData.facilities,
+        other_facility: formData.other_facility,
+        guests: formData.adults + formData.children,
+        adults: formData.adults,
+        children: formData.children,
+        bedrooms: formData.bedrooms,
+        bathrooms: formData.bathrooms,
+        is_self_catering: formData.is_self_catering,
+        has_restaurant: formData.has_restaurant,
+        restaurant_offers: formData.restaurant_offers,
+        image: formData.images[0] || null,
+        images: formData.images,
+        video_url: formData.video_url,
+        host_id: user.id,
+        latitude,
+        longitude,
+        approval_status: 'pending' // Always require re-approval on edit/create
+      };
+
+      const { error } = isEditMode
+        ? await supabase.from("properties").update(propertyPayload).eq("id", id)
+        : await supabase.from("properties").insert(propertyPayload);
+
+      if (error) throw error;
+
+      toast({
+        title: isEditMode ? "Listing Updated!" : "Listing Submitted!",
+        description: isEditMode
+          ? "Your changes have been saved successfully."
+          : "Your listing is pending admin approval and will be live once reviewed.",
+      });
+
+      navigate("/host/listings");
+    } catch (error: unknown) {
+      console.error("Error creating listing:", getErrorMessage(error));
+      toast({
+        title: "Error",
+        description: "Failed to create listing. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [user, formData, isEditMode, id, navigate, toast]);
 
   if (checkingLimit) return <div className="flex justify-center p-20"><Loader2 className="animate-spin" /></div>;
 
@@ -185,114 +357,6 @@ export default function CreateListing() {
       </div>
     );
   }
-
-  const handleNext = () => setStep(step + 1);
-  const handleBack = () => setStep(step - 1);
-
-  const updateData = (key: string, value: any) => {
-    setFormData(prev => ({ ...prev, [key]: value }));
-  };
-
-  const toggleAmenity = (amenity: string) => {
-    setFormData(prev => ({
-      ...prev,
-      amenities: prev.amenities.includes(amenity)
-        ? prev.amenities.filter(a => a !== amenity)
-        : [...prev.amenities, amenity]
-    }));
-  };
-
-  const toggleFacility = (facility: string) => {
-    setFormData(prev => ({
-      ...prev,
-      facilities: prev.facilities.includes(facility)
-        ? prev.facilities.filter(f => f !== facility)
-        : [...prev.facilities, facility]
-    }));
-  };
-
-  const toggleRestaurantOffer = (offer: string) => {
-    setFormData(prev => ({
-      ...prev,
-      restaurant_offers: prev.restaurant_offers.includes(offer)
-        ? prev.restaurant_offers.filter(o => o !== offer)
-        : [...prev.restaurant_offers, offer]
-    }));
-  };
-
-  const handleSubmit = async () => {
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "You must be logged in to create a listing.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      let latitude = -33.9249;
-      let longitude = 18.4241;
-
-      if (formData.location) {
-        const addressToGeocode = formData.location + (formData.province ? `, ${formData.province}` : "");
-        const coords = await geocodeAddress(addressToGeocode);
-        if (coords) {
-          latitude = coords.lat;
-          longitude = coords.lng;
-        }
-      }
-
-      const { error } = await supabase.from("properties").insert({
-        title: formData.title, // Property Name
-        description: formData.description,
-        location: formData.location, // Full Address
-        area: formData.area,
-        province: formData.province || null,
-        price: Number(formData.price),
-        discount: Number(formData.discount),
-        type: formData.category,
-        amenities: formData.amenities,
-        facilities: formData.facilities,
-        other_facility: formData.other_facility,
-        guests: formData.adults + formData.children,
-        adults: formData.adults,
-        children: formData.children,
-        bedrooms: formData.bedrooms,
-        bathrooms: formData.bathrooms,
-        is_self_catering: formData.is_self_catering,
-        has_restaurant: formData.has_restaurant,
-        restaurant_offers: formData.restaurant_offers,
-        image: formData.images[0] || null,
-        images: formData.images,
-        video_url: formData.video_url,
-        host_id: user.id,
-        latitude,
-        longitude,
-        approval_status: 'pending'
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Listing Submitted!",
-        description: "Your listing is pending admin approval and will be live once reviewed.",
-      });
-
-      navigate("/host");
-    } catch (error) {
-      console.error("Error creating listing:", error);
-      toast({
-        title: "Error",
-        description: "Failed to create listing. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   return (
     <div className="max-w-4xl mx-auto pb-20">

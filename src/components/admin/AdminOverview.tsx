@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Users, Home, Calendar, Star, MessageSquare, TrendingUp, ArrowUpRight, ArrowDownRight, MoreHorizontal } from 'lucide-react';
+import { Users, Home, Calendar, Star, MessageSquare, ArrowUpRight, ArrowDownRight, MoreHorizontal } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -59,7 +59,7 @@ export default function AdminOverview() {
           .select('id,status,check_in,check_out,created_at')
           .gte('created_at', since.toISOString());
         const buckets: Record<string, number> = {};
-        (recent || []).forEach((b: any) => {
+        (recent || []).forEach((b) => {
           const d = new Date(b.created_at);
           const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
           buckets[key] = (buckets[key] || 0) + 1;
@@ -76,15 +76,16 @@ export default function AdminOverview() {
           .select('id,title,location,rating,image,price')
           .order('rating', { ascending: false })
           .limit(5);
-        setTopListings((tops as any[]) || []);
+        setTopListings((tops as unknown as TopListing[]) || []);
 
         const { data: rb } = await supabase
           .from('bookings')
           .select(`id,status,check_in,check_out,property:properties(title,image),user:profiles(full_name,email)`)
           .order('created_at', { ascending: false })
-          .limit(5) as any;
-        setRecentBookings((rb as any[]) || []);
-      } catch {
+          .limit(5);
+        setRecentBookings((rb as unknown as RecentBooking[]) || []);
+      } catch (error: unknown) {
+        console.error('Error loading dashboard stats:', error);
         setKpi({ users: 0, listings: 0, bookings: 0, reviews: 0, pendingReviews: 0 });
         setChart([]);
         setTopListings([]);
@@ -111,8 +112,8 @@ export default function AdminOverview() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, i) => (
-          <Card key={i} className="border-none shadow-sm hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden group">
+        {stats.map((stat) => (
+          <Card key={stat.label} className="border-none shadow-sm hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden group">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-500 group-hover:text-gray-900 transition-colors">
                 {stat.label}
@@ -143,7 +144,7 @@ export default function AdminOverview() {
           </div>
           <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
             <div className="h-64 flex items-end gap-4">
-              {chart.map((c, i) => (
+              {chart.map((c) => (
                 <div key={c.label} className="flex-1 flex flex-col justify-end group cursor-pointer">
                   <div
                     className="bg-gray-900 rounded-t-lg transition-all duration-300 group-hover:bg-primary group-hover:shadow-lg group-hover:shadow-primary/20 relative"

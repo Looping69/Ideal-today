@@ -6,10 +6,23 @@ import globals from 'globals';
 
 export default tseslint.config(
     {
-        ignores: ['dist', 'node_modules', '.eslintrc.cjs'],
+        ignores: [
+            'dist',
+            'node_modules',
+            '.eslintrc.cjs',
+            'supabase/functions/**',
+        ],
     },
     js.configs.recommended,
     ...tseslint.configs.recommended,
+    {
+        files: ['**/*.js', '**/*.cjs', '**/*.mjs'],
+        languageOptions: {
+            globals: {
+                ...globals.node,
+            },
+        },
+    },
     {
         files: ['**/*.{ts,tsx}'],
         languageOptions: {
@@ -19,7 +32,7 @@ export default tseslint.config(
                 project: ['./tsconfig.json', './tsconfig.node.json'],
                 tsconfigRootDir: import.meta.dirname,
             },
-        } as any,
+        },
         plugins: {
             'react-hooks': reactHooks,
             'react-refresh': reactRefresh,

@@ -3,7 +3,6 @@ import Header from "./layout/Header";
 import Footer from "./layout/Footer";
 import FilterBar from "./listings/FilterBar";
 import PropertyGrid from "./listings/PropertyGrid";
-import PropertyCard from "./listings/PropertyCard";
 import PropertyDetails from "./listings/PropertyDetails";
 import SearchFilterBar from "./search/SearchFilterBar";
 import PropertyMap from "./listings/PropertyMap";
@@ -51,9 +50,7 @@ function Home() {
   const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
   const [showMap, setShowMap] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [searchState, setSearchState] = useState<{ query: string; guests: number; date?: { from?: Date; to?: Date } } | null>(null);
   const [chatActive, setChatActive] = useState(false);
-  const [chatSeed, setChatSeed] = useState<string | undefined>(undefined);
 
   // Pagination state
   const [page, setPage] = useState(0);
@@ -210,7 +207,6 @@ function Home() {
   };
 
   const handleSearchChange = async (state: { query: string; guests: number; date?: { from?: Date; to?: Date } }) => {
-    setSearchState(state);
     let arr = properties;
     if (state.query?.trim()) {
       const q = state.query.toLowerCase();
@@ -236,7 +232,9 @@ function Home() {
           }
         });
         arr = arr.filter(p => !unavailable.has(p.id));
-      } catch { }
+      } catch (err) {
+        console.error('Error checking availability:', err);
+      }
     }
     setFilteredProperties(arr);
   };
@@ -247,7 +245,6 @@ function Home() {
 
   const handleSendMessage = (msg: string) => {
     if (msg && msg.trim()) {
-      setChatSeed(msg.trim());
       setChatActive(true);
     }
   };

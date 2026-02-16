@@ -20,7 +20,9 @@ export default function WishlistsPage() {
         .select(`property_id, properties(*)`)
         .eq('user_id', user.id);
       if (!error && data) {
-        const mapped: Property[] = data.map((row: any) => ({
+        // cast to unknown first to safely assert properties exists for mapping
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mapped: Property[] = (data as unknown as { property_id: string; properties: Record<string, any> }[]).map((row) => ({
           id: row.properties.id,
           title: row.properties.title,
           location: row.properties.location,

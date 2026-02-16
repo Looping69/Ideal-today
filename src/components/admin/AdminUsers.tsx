@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, ShieldCheck, User, Ban, MoreHorizontal, CheckCircle2, XCircle, FileText, Bell, Pencil } from 'lucide-react';
+import { Search, ShieldCheck, User, Ban, MoreHorizontal, Bell, Pencil } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import SignedImage from '../ui/signed-image';
 import { Textarea } from '@/components/ui/textarea';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { useToast } from '@/components/ui/use-toast';
+import { getErrorMessage } from '@/lib/errors';
 import {
   Dialog,
   DialogContent,
@@ -62,27 +63,32 @@ export default function AdminUsers() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('id,email,full_name,is_admin,deactivated,points,verification_status,verification_docs,host_plan')
         .order('created_at', { ascending: false })
         .range(page * pageSize, page * pageSize + pageSize - 1);
 
-      setRows((data || []).map(r => ({
-        id: r.id,
-        email: r.email,
-        full_name: r.full_name,
-        is_admin: !!r.is_admin,
-        deactivated: !!r.deactivated,
-        points: r.points,
-        verification_status: r.verification_status || 'none',
-        verification_docs: r.verification_docs,
-        host_plan: r.host_plan || 'free'
-      })));
+      if (error) {
+        console.error('Error loading profiles:', getErrorMessage(error));
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load users' });
+      } else {
+        setRows((data as unknown as Row[] || []).map(r => ({
+          id: r.id,
+          email: r.email,
+          full_name: r.full_name,
+          is_admin: !!r.is_admin,
+          deactivated: !!r.deactivated,
+          points: r.points,
+          verification_status: r.verification_status || 'none',
+          verification_docs: r.verification_docs,
+          host_plan: r.host_plan || 'free'
+        })));
+      }
       setLoading(false);
     };
     load();
-  }, [page, filter]);
+  }, [page, filter, toast, pageSize]);
 
   const toggleAdmin = async (id: string, next: boolean) => {
     try {
@@ -92,8 +98,8 @@ export default function AdminUsers() {
       setRows(rs => rs.map(r => (r.id === id ? { ...r, is_admin: next } : r)));
       toast({ title: "Role Updated", description: `User is now ${next ? 'an admin' : 'a regular user'}.` });
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "An unknown error occurred";
-      toast({ variant: "destructive", title: "Operation Failed", description: message });
+      console.error('Error toggling admin role:', getErrorMessage(e));
+      toast({ variant: "destructive", title: "Operation Failed", description: getErrorMessage(e) });
     }
   };
 
@@ -105,8 +111,8 @@ export default function AdminUsers() {
       setRows(rs => rs.map(r => (r.id === id ? { ...r, deactivated: next } : r)));
       toast({ title: "Account Status Updated", description: `User account has been ${next ? 'deactivated' : 'activated'}.` });
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "An unknown error occurred";
-      toast({ variant: "destructive", title: "Operation Failed", description: message });
+      console.error('Error toggling deactivation:', getErrorMessage(e));
+      toast({ variant: "destructive", title: "Operation Failed", description: getErrorMessage(e) });
     }
   };
 
@@ -177,8 +183,8 @@ export default function AdminUsers() {
       setEditingUser(null);
       toast({ title: "Profile Updated", description: "Changes saved successfully." });
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "An unknown error occurred";
-      toast({ variant: "destructive", title: "Operation Failed", description: message });
+      console.error('Error updating profile:', getErrorMessage(e));
+      toast({ variant: "destructive", title: "Operation Failed", description: getErrorMessage(e) });
     }
   };
 
@@ -205,8 +211,8 @@ export default function AdminUsers() {
       setBroadcastData({ title: '', message: '' });
       toast({ title: "Broadcast Sent", description: `Notification sent to ${users?.length || 0} users.` });
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "An unknown error occurred";
-      toast({ variant: "destructive", title: "Broadcast Failed", description: message });
+      console.error('Error during broadcast:', getErrorMessage(e));
+      toast({ variant: "destructive", title: "Broadcast Failed", description: getErrorMessage(e) });
     } finally {
       setLoading(false);
     }
@@ -495,7 +501,7 @@ export default function AdminUsers() {
                 <select
                   className="w-full rounded-md border border-gray-200 p-2 text-sm"
                   value={editingUser.host_plan}
-                  onChange={(e) => setEditingUser({ ...editingUser, host_plan: e.target.value as any })}
+                  onChange={(e) => setEditingUser({ ...editingUser, host_plan: e.target.value as Row['host_plan'] })}
                 >
                   <option value="free">Free</option>
                   <option value="standard">Standard</option>

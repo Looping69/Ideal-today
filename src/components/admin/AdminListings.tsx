@@ -3,8 +3,9 @@ import { supabase } from '@/lib/supabase';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, MapPin, MoreHorizontal, Filter, Star, StarOff, Pencil, Trash2, Video } from 'lucide-react';
+import { Search, MapPin, MoreHorizontal, Filter, Star, StarOff, Video } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { getErrorMessage } from '@/lib/errors';
 import {
   Dialog,
   DialogContent,
@@ -13,7 +14,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -92,7 +92,7 @@ export default function AdminListings() {
       }
     };
     load();
-  }, [page]);
+  }, [page, toast]);
 
   const toggleFeatured = async (id: string, currentStatus: boolean) => {
     const newStatus = !currentStatus;
@@ -148,8 +148,9 @@ export default function AdminListings() {
       setRows(prev => prev.map(r => r.id === editingListing.id ? editingListing : r));
       setEditingListing(null);
       toast({ title: "Listing Updated", description: "Changes saved successfully." });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Update Failed", description: e.message });
+    } catch (e: unknown) {
+      console.error('Error updating listing:', getErrorMessage(e));
+      toast({ variant: "destructive", title: "Update Failed", description: getErrorMessage(e) });
     }
   };
 
@@ -161,8 +162,9 @@ export default function AdminListings() {
       if (!data || data.length === 0) throw new Error("Deletion failed: No rows affected. Access denied by database policy.");
       setRows(prev => prev.filter(r => r.id !== id));
       toast({ title: "Deleted", description: "Listing removed." });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Action Failed", description: e.message });
+    } catch (e: unknown) {
+      console.error('Error deleting listing:', getErrorMessage(e));
+      toast({ variant: "destructive", title: "Action Failed", description: getErrorMessage(e) });
     }
   };
 

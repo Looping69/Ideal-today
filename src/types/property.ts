@@ -38,4 +38,9 @@ export interface Property {
     categories?: string[];
     isFeatured?: boolean;
     isVerifiedHost?: boolean;
+    is_wishlisted?: boolean;
+    created_at?: string;
+    reviews_count?: number;
+    approval_status?: 'pending' | 'approved' | 'rejected';
+    rejection_reason?: string;
 }

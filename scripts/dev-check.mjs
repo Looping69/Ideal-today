@@ -64,7 +64,7 @@ async function main() {
   ok('Build configuration looks sane');
 
   section('🏁 Launch Dev Server');
-  const child = await startDev(port);
+  await startDev(port);
 
   const url = `http://${host}:${port}/`;
   await waitForHttp(url, 60_000);

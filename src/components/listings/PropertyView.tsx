@@ -1,15 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Property } from "@/types/property";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Star, MapPin, Wifi, Car, Utensils, Wind, Share, Heart, Calendar as CalendarIcon, Play, Pause, Video } from "lucide-react";
+import { Star, MapPin, Wifi, Car, Utensils, Wind, Share, Heart, Video } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import ImageUpload from "@/components/ui/image-upload";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { addDays, format, differenceInDays, parseISO } from "date-fns";
+import { format, differenceInDays, parseISO } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,6 +17,7 @@ import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
 import SEO from "../SEO";
 import PropertyMap from "./PropertyMap";
+import { Lightbox } from "@/components/ui/lightbox";
 
 interface PropertyViewProps {
     property: Property;
@@ -32,6 +33,7 @@ interface Review {
     rating: number;
     content: string;
     created_at: string;
+    photo_url?: string;
     user: Profile | null;
 }
 
@@ -40,8 +42,8 @@ export default function PropertyView({ property, onBookingComplete }: PropertyVi
     const { toast } = useToast();
     const navigate = useNavigate();
     const [date, setDate] = useState<DateRange | undefined>();
-    const [guests, setGuests] = useState(1);
-    const [isBooking, setIsBooking] = useState(false);
+    const [guests] = useState(1);
+    const [isBooking] = useState(false);
     const [bookedDates, setBookedDates] = useState<Date[]>([]);
     const [reviews, setReviews] = useState<Review[]>([]);
     const [canReview, setCanReview] = useState(false);
@@ -49,16 +51,11 @@ export default function PropertyView({ property, onBookingComplete }: PropertyVi
     const [myText, setMyText] = useState("");
     const [isSubmittingReview, setIsSubmittingReview] = useState(false);
     const [reviewPhotos, setReviewPhotos] = useState<string[]>([]);
-    const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const [lightboxIndex, setLightboxIndex] = useState(0);
+    const [lightboxImages, setLightboxImages] = useState<string[]>([]);
 
-    useEffect(() => {
-        if (property) {
-            fetchBookedDates();
-            loadReviews();
-        }
-    }, [property]);
-
-    const fetchBookedDates = async () => {
+    const fetchBookedDates = useCallback(async () => {
         if (!property) return;
 
         const { data } = await supabase
@@ -70,7 +67,7 @@ export default function PropertyView({ property, onBookingComplete }: PropertyVi
         if (data) {
             const dates = data.flatMap(booking => {
                 const range = [];
-                let curr = parseISO(booking.check_in);
+                const curr = parseISO(booking.check_in);
                 const end = parseISO(booking.check_out);
 
                 while (curr < end) {
@@ -81,13 +78,13 @@ export default function PropertyView({ property, onBookingComplete }: PropertyVi
             });
             setBookedDates(dates);
         }
-    };
+    }, [property]);
 
-    const loadReviews = async () => {
+    const loadReviews = useCallback(async () => {
         if (!property) return;
         const { data } = await supabase
             .from('reviews')
-            .select('rating, content, created_at, user:profiles!reviews_user_id_fkey(full_name, avatar_url)')
+            .select('rating, content, created_at, photo_url, user:profiles!reviews_user_id_fkey(full_name, avatar_url)')
             .eq('property_id', property.id)
             .eq('status', 'approved')
             .order('created_at', { ascending: false });
@@ -114,7 +111,14 @@ export default function PropertyView({ property, onBookingComplete }: PropertyVi
         } else {
             setCanReview(false);
         }
-    };
+    }, [property, user]);
+
+    useEffect(() => {
+        if (property) {
+            fetchBookedDates();
+            loadReviews();
+        }
+    }, [property, fetchBookedDates, loadReviews]);
 
     const submitReview = async () => {
         if (!user) {
@@ -204,6 +208,14 @@ export default function PropertyView({ property, onBookingComplete }: PropertyVi
     const serviceFee = property.service_fee || 0;
     const total = subtotal + cleaningFee + serviceFee;
 
+    const allImages = [property.image, ...property.images];
+
+    const openLightbox = (index: number, images: string[] = allImages) => {
+        setLightboxImages(images);
+        setLightboxIndex(index);
+        setIsLightboxOpen(true);
+    };
+
     return (
         <div className="p-6">
             <SEO
@@ -243,11 +255,21 @@ export default function PropertyView({ property, onBookingComplete }: PropertyVi
             {/* Images Grid */}
             <div className="grid grid-cols-4 grid-rows-2 gap-2 h-[400px] rounded-xl overflow-hidden mb-8">
                 <div className="col-span-2 row-span-2 relative">
-                    <img src={property.image} alt={property.title} className="w-full h-full object-cover hover:opacity-95 transition-opacity cursor-pointer" />
+                    <img
+                        src={property.image}
+                        alt={property.title}
+                        className="w-full h-full object-cover hover:opacity-95 transition-opacity cursor-pointer"
+                        onClick={() => openLightbox(0)}
+                    />
                 </div>
                 {property.images.slice(0, 4).map((img, i) => (
                     <div key={i} className="col-span-1 row-span-1 relative">
-                        <img src={img} alt={property.title} className="w-full h-full object-cover hover:opacity-95 transition-opacity cursor-pointer" />
+                        <img
+                            src={img}
+                            alt={property.title}
+                            className="w-full h-full object-cover hover:opacity-95 transition-opacity cursor-pointer"
+                            onClick={() => openLightbox(i + 1)}
+                        />
                     </div>
                 ))}
             </div>
@@ -409,7 +431,7 @@ export default function PropertyView({ property, onBookingComplete }: PropertyVi
                                     <div key={idx} className="border rounded-lg p-4">
                                         <div className="flex items-center gap-3 mb-2">
                                             <Avatar className="w-8 h-8">
-                                                <AvatarImage src={r.user?.avatar_url} />
+                                                <AvatarImage src={r.user?.avatar_url || undefined} />
                                                 <AvatarFallback>{(r.user?.full_name || 'G')[0]}</AvatarFallback>
                                             </Avatar>
                                             <div>
@@ -420,7 +442,14 @@ export default function PropertyView({ property, onBookingComplete }: PropertyVi
                                                 {[...Array(r.rating)].map((_, i) => <Star key={i} className="w-4 h-4 fill-black text-black" />)}
                                             </div>
                                         </div>
-                                        <p className="text-sm text-gray-700">{r.content}</p>
+                                        <p className="text-sm text-gray-700 mb-3">{r.content}</p>
+                                        {r.photo_url && (
+                                            <div className="mt-2 w-32 h-32 rounded-lg overflow-hidden border border-gray-100 cursor-pointer hover:opacity-90 transition-opacity" onClick={() => {
+                                                openLightbox(0, [r.photo_url!]);
+                                            }}>
+                                                <img src={r.photo_url} className="w-full h-full object-cover" alt="Review photo" />
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -566,6 +595,13 @@ export default function PropertyView({ property, onBookingComplete }: PropertyVi
                     </div>
                 </div>
             </div>
+
+            <Lightbox
+                images={lightboxImages}
+                initialIndex={lightboxIndex}
+                isOpen={isLightboxOpen}
+                onClose={() => setIsLightboxOpen(false)}
+            />
         </div>
     );
 }

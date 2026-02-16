@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
+import { getErrorMessage } from '@/lib/errors';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Search, Filter, Gift, CheckCircle, Clock, XCircle, MoreHorizontal, Download, Trash2, Plus } from 'lucide-react';
+import { Search, Gift, CheckCircle, Clock, MoreHorizontal, Download, Plus } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +12,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+import { useCallback } from 'react';
 
 type RefRow = { id: string; referrer_id: string; referee_id: string; status: 'pending' | 'confirmed' | 'rewarded'; created_at: string; rewarded_at?: string };
 
@@ -28,27 +30,31 @@ export default function AdminReferrals() {
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     const table = tab === 'guest' ? 'referrals' : 'host_referrals';
     let query = supabase.from(table).select('id,referrer_id,referee_id,status,created_at,rewarded_at').order('created_at', { ascending: false }).range(page * pageSize, page * pageSize + pageSize - 1);
     if (status !== 'all') query = query.eq('status', status);
-    const { data } = await query as any;
-    setRows((data as any[]) || []);
-    setSelected({});
-    const ids = Array.from(new Set(((data as any[]) || []).flatMap((r: any) => [r.referrer_id, r.referee_id])));
-    if (ids.length) {
-      const { data: profiles } = await supabase.from('profiles').select('id,email,full_name').in('id', ids);
-      const map: Record<string, { email?: string; full_name?: string }> = {};
-      (profiles || []).forEach((p: any) => { map[p.id] = { email: p.email, full_name: p.full_name }; });
-      setNames(map);
+    const { data, error } = await query;
+    if (error) {
+      console.error('Error loading referrals:', getErrorMessage(error));
     } else {
-      setNames({});
+      setRows((data as unknown as RefRow[] || []));
+      setSelected({});
+      const ids = Array.from(new Set(((data as unknown as RefRow[] || []).flatMap(r => [r.referrer_id, r.referee_id]))));
+      if (ids.length) {
+        const { data: profiles } = await supabase.from('profiles').select('id,email,full_name').in('id', ids);
+        const map: Record<string, { email?: string; full_name?: string }> = {};
+        (profiles || []).forEach(p => { map[p.id] = { email: p.email, full_name: p.full_name }; });
+        setNames(map);
+      } else {
+        setNames({});
+      }
     }
     setLoading(false);
-  };
+  }, [tab, status, page, pageSize]);
 
-  useEffect(() => { load(); }, [tab, status, page]);
+  useEffect(() => { load(); }, [tab, status, page, load]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return rows;
@@ -88,8 +94,12 @@ export default function AdminReferrals() {
     const { data: referee } = await supabase.from('profiles').select('id').eq('email', refereeEmail).single();
     if (!referrer?.id || !referee?.id) return;
     const table = tab === 'guest' ? 'referrals' : 'host_referrals';
-    const { data } = await supabase.from(table).insert({ referrer_id: referrer.id, referee_id: referee.id, status: 'pending' }).select('id,referrer_id,referee_id,status,created_at').single();
-    setRows(rs => [data as any, ...rs]);
+    const { data, error: insertError } = await supabase.from(table).insert({ referrer_id: referrer.id, referee_id: referee.id, status: 'pending' }).select('id,referrer_id,referee_id,status,created_at').single();
+    if (insertError) {
+      console.error('Error creating manual referral:', getErrorMessage(insertError));
+      return;
+    }
+    setRows(rs => [data as unknown as RefRow, ...rs]);
     setReferrerEmail('');
     setRefereeEmail('');
     await load();
@@ -184,10 +194,10 @@ export default function AdminReferrals() {
         {['all', 'pending', 'confirmed', 'rewarded'].map((s) => (
           <button
             key={s}
-            onClick={() => setStatus(s as any)}
+            onClick={() => setStatus(s as 'all' | 'pending' | 'confirmed' | 'rewarded')}
             className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${status === s
-                ? 'bg-gray-900 text-white shadow-md shadow-gray-900/20'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+              ? 'bg-gray-900 text-white shadow-md shadow-gray-900/20'
+              : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
               }`}
           >
             {s.charAt(0).toUpperCase() + s.slice(1)}
@@ -241,8 +251,8 @@ export default function AdminReferrals() {
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${r.status === 'rewarded' ? 'bg-green-50 text-green-700 border-green-100' :
-                          r.status === 'confirmed' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                            'bg-yellow-50 text-yellow-700 border-yellow-100'
+                        r.status === 'confirmed' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                          'bg-yellow-50 text-yellow-700 border-yellow-100'
                         }`}>
                         {r.status === 'rewarded' && <Gift className="w-3 h-3 mr-1.5" />}
                         {r.status === 'confirmed' && <CheckCircle className="w-3 h-3 mr-1.5" />}

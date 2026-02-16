@@ -7,10 +7,10 @@ import { Loader2, CheckCircle2, XCircle, Calendar as CalendarIcon, User, MapPin,
 import { format, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { useCallback } from "react";
 
 interface Booking {
     id: string;
@@ -38,13 +38,7 @@ export default function HostBookings() {
     const [loading, setLoading] = useState(true);
     const [bookings, setBookings] = useState<Booking[]>([]);
 
-    useEffect(() => {
-        if (user) {
-            fetchBookings();
-        }
-    }, [user]);
-
-    const fetchBookings = async () => {
+    const fetchBookings = useCallback(async () => {
         try {
             setLoading(true);
 
@@ -85,9 +79,15 @@ export default function HostBookings() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [user, toast]);
 
-    const handleUpdateStatus = async (bookingId: string, newStatus: string) => {
+    useEffect(() => {
+        if (user) {
+            fetchBookings();
+        }
+    }, [user, fetchBookings]);
+
+    const handleUpdateStatus = useCallback(async (bookingId: string, newStatus: string) => {
         try {
             const { error } = await supabase
                 .from("bookings")
@@ -103,7 +103,7 @@ export default function HostBookings() {
 
             // Update local state
             setBookings(prev => prev.map(b =>
-                b.id === bookingId ? { ...b, status: newStatus as any } : b
+                b.id === bookingId ? { ...b, status: newStatus as Booking['status'] } : b
             ));
 
         } catch (error) {
@@ -114,7 +114,7 @@ export default function HostBookings() {
                 description: "Failed to update booking status.",
             });
         }
-    };
+    }, [toast]);
 
     const BookingCard = ({ booking }: { booking: Booking }) => (
         <div className="bg-white border rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">

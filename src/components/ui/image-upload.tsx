@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
-import { Loader2, Upload, X, Image as ImageIcon } from "lucide-react";
+import { Loader2, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
 import SignedImage from "./signed-image";

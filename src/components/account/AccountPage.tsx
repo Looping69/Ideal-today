@@ -80,7 +80,7 @@ export default function AccountPage() {
       toast({ variant: 'destructive', title: 'Invalid email' });
       return;
     }
-    const { data, error } = await supabase.auth.updateUser({ email });
+    const { error } = await supabase.auth.updateUser({ email });
     if (error) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
     } else {

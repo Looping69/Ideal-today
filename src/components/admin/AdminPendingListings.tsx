@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, CheckCircle, XCircle, MapPin, Home, User, Eye, AlertCircle, Video } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, MapPin, User, Eye, AlertCircle, Video } from "lucide-react";
 import {
     Table,
     TableBody,
@@ -51,35 +51,34 @@ export default function AdminPendingListings() {
     const [detailsOpen, setDetailsOpen] = useState<string | null>(null);
 
     useEffect(() => {
-        fetchPendingListings();
-    }, []);
+        async function fetchPendingListings() {
+            try {
+                setLoading(true);
+                const { data, error } = await supabase
+                    .from('properties')
+                    .select(`
+                        *,
+                        host:profiles!properties_host_id_fkey(full_name, email, verification_status)
+                    `)
+                    .eq('approval_status', 'pending')
+                    .order('created_at', { ascending: false });
 
-    async function fetchPendingListings() {
-        try {
-            setLoading(true);
-            const { data, error } = await supabase
-                .from('properties')
-                .select(`
-                    *,
-                    host:profiles!properties_host_id_fkey(full_name, email, verification_status)
-                `)
-                .eq('approval_status', 'pending')
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-            setListings(data || []);
-        } catch (error: unknown) {
-            console.error(error);
-            const message = error instanceof Error ? error.message : "Could not load pending listings.";
-            toast({
-                variant: 'destructive',
-                title: 'Error fetching listings',
-                description: message
-            });
-        } finally {
-            setLoading(false);
+                if (error) throw error;
+                setListings(data || []);
+            } catch (error: unknown) {
+                console.error(error);
+                const message = error instanceof Error ? error.message : "Could not load pending listings.";
+                toast({
+                    variant: 'destructive',
+                    title: 'Error fetching listings',
+                    description: message
+                });
+            } finally {
+                setLoading(false);
+            }
         }
-    }
+        fetchPendingListings();
+    }, [toast]);
 
     async function handleApprove(id: string) {
         try {

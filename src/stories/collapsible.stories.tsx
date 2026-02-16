@@ -1,4 +1,5 @@
 // [build] library: 'shadcn'
+import * as React from "react";
 import { ChevronsUpDown } from "lucide-react";
 
 import { Button } from "../components/ui/button";
@@ -17,7 +18,7 @@ const meta = {
 export default meta;
 
 export const Closed = {
-  render: (args: any) => (
+  render: (args: React.ComponentProps<typeof Collapsible>) => (
     <Collapsible {...args} className="w-[350px] space-y-2">
       <div className="flex items-center justify-between space-x-4 px-4">
         <h4 className="text-sm font-semibold">
@@ -49,7 +50,7 @@ export const Closed = {
   },
 };
 export const Open = {
-  render: (args: any) => (
+  render: (args: React.ComponentProps<typeof Collapsible>) => (
     <Collapsible {...args} className="w-[350px] space-y-2">
       <div className="flex items-center justify-between space-x-4 px-4">
         <h4 className="text-sm font-semibold">

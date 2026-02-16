@@ -1,6 +1,6 @@
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Sparkles, Calendar, Plus, Minus, MapPin, Search, TrendingUp, Building, Home, Palmtree, LucideIcon } from "lucide-react";
+import { Send, Sparkles, Plus, Minus, MapPin, Search, TrendingUp, Building, Home, Palmtree, LucideIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type Props = {

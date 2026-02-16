@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,21 +9,18 @@ import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Copy, Share2, Users, Trophy, ExternalLink, Gift, ArrowRight } from "lucide-react";
+import { getErrorMessage } from "@/lib/errors";
+
+type HostRef = { referee_id: string; status: 'pending' | 'confirmed' | 'rewarded'; created_at: string; rewarded_at?: string | null };
 
 export default function HostReferrals() {
     const { user } = useAuth();
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
     const [hostReferralCode, setHostReferralCode] = useState<string | null>(null);
-    const [hostRefs, setHostRefs] = useState<any[]>([]);
+    const [hostRefs, setHostRefs] = useState<HostRef[]>([]);
 
-    useEffect(() => {
-        if (user) {
-            fetchReferralData();
-        }
-    }, [user]);
-
-    async function fetchReferralData() {
+    const fetchReferralData = useCallback(async () => {
         try {
             setLoading(true);
             const { data, error } = await supabase
@@ -40,15 +37,21 @@ export default function HostReferrals() {
                 .select('referee_id, status, created_at, rewarded_at')
                 .eq('referrer_id', user?.id)
                 .order('created_at', { ascending: false });
-            setHostRefs(refs || []);
-        } catch (error) {
-            console.error("Error loading referral data!", error);
+            setHostRefs((refs || []) as HostRef[]);
+        } catch (error: unknown) {
+            console.error("Error loading referral data!", getErrorMessage(error));
         } finally {
             setLoading(false);
         }
-    }
+    }, [user]);
 
-    async function generateHostCode() {
+    useEffect(() => {
+        if (user) {
+            fetchReferralData();
+        }
+    }, [user, fetchReferralData]);
+
+    const generateHostCode = useCallback(async () => {
         try {
             setLoading(true);
             const code = Math.random().toString(36).substring(2, 10).toUpperCase();
@@ -64,16 +67,16 @@ export default function HostReferrals() {
                 title: "Referral code generated!",
                 description: "You can now start inviting other hosts.",
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: "Failed to generate referral code.",
+                description: getErrorMessage(error),
             });
         } finally {
             setLoading(false);
         }
-    }
+    }, [user, toast]);
 
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);

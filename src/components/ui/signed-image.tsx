@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Loader2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/errors";
 
 interface SignedImageProps {
     bucket: string;
@@ -50,10 +51,11 @@ export default function SignedImage({
                 if (isMounted) {
                     setUrl(data.signedUrl);
                 }
-            } catch (err: any) {
-                console.error("Error creating signed URL:", err);
+            } catch (err: unknown) {
+                const message = getErrorMessage(err);
+                console.error("Error creating signed URL:", message);
                 if (isMounted) {
-                    setError(err.message);
+                    setError(message);
                 }
             } finally {
                 if (isMounted) {
