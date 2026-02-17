@@ -1,4 +1,5 @@
 // [build] library: 'shadcn'
+import * as React from "react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -18,7 +19,7 @@ const meta = {
 export default meta;
 
 export const Base = {
-  render: (args: any) => (
+  render: (args: React.ComponentProps<typeof Tabs>) => (
     <Tabs {...args} className="w-[400px]">
       <TabsList>
         <TabsTrigger value="account">Account</TabsTrigger>

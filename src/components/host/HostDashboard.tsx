@@ -1,18 +1,29 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DollarSign, Users, Star, TrendingUp, Loader2, Calendar, LogIn, LogOut, BedDouble, Plus, Search, MoreHorizontal, Bell, Trophy, ArrowRight } from "lucide-react";
+import { Star, TrendingUp, Loader2, Calendar, LogIn, LogOut, BedDouble, Plus, Search, Trophy, ArrowRight, LucideIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useNavigate } from "react-router-dom";
+import { getErrorMessage } from "@/lib/errors";
+
+interface ActivityItem {
+  type: 'booking' | 'review';
+  title: string;
+  desc: string;
+  time: Date;
+  icon: LucideIcon;
+  color: string;
+  bg: string;
+}
 
 export default function HostDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [activityFeed, setActivityFeed] = useState<any[]>([]);
+  const [activityFeed, setActivityFeed] = useState<ActivityItem[]>([]);
   const [stats, setStats] = useState({
     revenue: 0,
     bookings: 0,
@@ -26,154 +37,155 @@ export default function HostDashboard() {
     available: 0
   });
 
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
     if (!user) return;
+    try {
+      setLoading(true);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+      // 1. Fetch properties
+      const { data: propsData } = await supabase.from("properties").select("id").eq("host_id", user.id);
+      const propIds = (propsData || []).map(p => p.id);
+      const totalProperties = propIds.length;
 
-        // 1. Fetch properties
-        const { data: propsData } = await supabase.from("properties").select("id").eq("host_id", user.id);
-        const propIds = (propsData || []).map(p => p.id);
-        const totalProperties = propIds.length;
-
-        if (totalProperties === 0) {
-          setLoading(false);
-          return;
-        }
-
-        // 2. Fetch bookings (all active ones)
-        const { data: bookingsData } = await supabase
-          .from("bookings")
-          .select("id, total_price, status, check_in, check_out, created_at, user:profiles(full_name)")
-          .in("property_id", propIds)
-          .neq('status', 'canceled');
-
-        const allBookings = bookingsData || [];
-
-        // 3. Fetch reviews
-        const { data: reviewsData } = await supabase
-          .from("reviews")
-          .select("rating, created_at, content, user:profiles(full_name)")
-          .in("property_id", propIds)
-          .order("created_at", { ascending: false })
-          .limit(5);
-
-        // --- Calculate Stats ---
-        const totalRevenue = allBookings
-          .filter(b => b.status === 'confirmed' || b.status === 'completed')
-          .reduce((sum, b) => sum + (b.total_price || 0), 0);
-
-        const activeBookingsCount = allBookings.filter(b => b.status === 'pending' || b.status === 'confirmed').length;
-
-        const { data: ratingsData } = await supabase.from("reviews").select("rating").in("property_id", propIds);
-        const totalRating = (ratingsData || []).reduce((sum, r) => sum + r.rating, 0);
-        const avgRating = ratingsData?.length ? (totalRating / ratingsData.length).toFixed(1) : 0;
-
-        // --- Today's Activity ---
-        let arrivals = 0;
-        let departures = 0;
-        let inHouse = 0;
-
-        const isSameDate = (d1: Date, d2: Date) =>
-          d1.getDate() === d2.getDate() &&
-          d1.getMonth() === d2.getMonth() &&
-          d1.getFullYear() === d2.getFullYear();
-
-        allBookings.forEach(b => {
-          if (b.status !== 'confirmed' && b.status !== 'completed') return;
-          const checkIn = new Date(b.check_in);
-          const checkOut = new Date(b.check_out);
-
-          if (isSameDate(checkIn, today)) arrivals++;
-          if (isSameDate(checkOut, today)) departures++;
-          if (checkIn < today && checkOut > today) inHouse++;
-        });
-
-        const available = totalProperties - (inHouse + arrivals);
-
-        setTodaysActivity({
-          arrivals,
-          departures,
-          inHouse,
-          available: Math.max(0, available)
-        });
-
-        // --- Occupancy Graph ---
-        const next7Days = [];
-        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-        for (let i = 0; i < 7; i++) {
-          const d = new Date(today);
-          d.setDate(today.getDate() + i);
-          const occupiedCount = allBookings.filter(b => {
-            const start = new Date(b.check_in);
-            const end = new Date(b.check_out);
-            return (b.status === 'confirmed' || b.status === 'completed' || b.status === 'blocked') &&
-              d >= start && d < end;
-          }).length;
-          const occupancyPct = totalProperties > 0 ? Math.round((occupiedCount / totalProperties) * 100) : 0;
-          next7Days.push({ name: dayNames[d.getDay()], occupancy: occupancyPct });
-        }
-
-        // --- Activity Feed ---
-        const feedItems = [];
-        allBookings
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-          .slice(0, 5)
-          .forEach((b: any) => {
-            const userName = Array.isArray(b.user) ? b.user[0]?.full_name : b.user?.full_name;
-            feedItems.push({
-              type: 'booking',
-              title: b.status === 'pending' ? 'New Request' : 'New Booking',
-              desc: `${userName || 'Guest'} - ${new Date(b.check_in).toLocaleDateString()}`,
-              time: new Date(b.created_at),
-              icon: Calendar,
-              color: 'text-blue-600',
-              bg: 'bg-blue-50'
-            });
-          });
-
-        (reviewsData || []).forEach((r: any) => {
-          const userName = Array.isArray(r.user) ? r.user[0]?.full_name : r.user?.full_name;
-          feedItems.push({
-            type: 'review',
-            title: 'New Review',
-            desc: `${r.rating} stars from ${userName || 'Guest'}`,
-            time: new Date(r.created_at),
-            icon: Star,
-            color: 'text-yellow-600',
-            bg: 'bg-yellow-50'
-          });
-        });
-
-        feedItems.sort((a, b) => b.time.getTime() - a.time.getTime());
-        setActivityFeed(feedItems.slice(0, 5));
-
-        const avgOccupancy = Math.round(next7Days.reduce((acc, curr) => acc + curr.occupancy, 0) / 7);
-
-        setOccupancyData(next7Days);
-        setStats({
-          revenue: totalRevenue,
-          bookings: activeBookingsCount,
-          rating: Number(avgRating),
-          occupancy: avgOccupancy
-        });
-
-      } catch (error) {
-        console.error("Error fetching host data:", error);
-      } finally {
+      if (totalProperties === 0) {
         setLoading(false);
+        return;
       }
-    };
 
-    fetchData();
+      // 2. Fetch bookings (all active ones)
+      const { data: bookingsData } = await supabase
+        .from("bookings")
+        .select("id, total_price, status, check_in, check_out, created_at, user:profiles(full_name)")
+        .in("property_id", propIds)
+        .neq('status', 'canceled');
+
+      const allBookings = bookingsData || [];
+
+      // 3. Fetch reviews
+      const { data: reviewsData } = await supabase
+        .from("reviews")
+        .select("rating, created_at, content, user:profiles(full_name)")
+        .in("property_id", propIds)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      // --- Calculate Stats ---
+      const totalRevenue = allBookings
+        .filter(b => b.status === 'confirmed' || b.status === 'completed')
+        .reduce((sum, b) => sum + (b.total_price || 0), 0);
+
+      const activeBookingsCount = allBookings.filter(b => b.status === 'pending' || b.status === 'confirmed').length;
+
+      const { data: ratingsData } = await supabase.from("reviews").select("rating").in("property_id", propIds);
+      const totalRating = (ratingsData || []).reduce((sum, r) => sum + r.rating, 0);
+      const avgRating = ratingsData?.length ? (totalRating / ratingsData.length).toFixed(1) : 0;
+
+      // --- Today's Activity ---
+      let arrivals = 0;
+      let departures = 0;
+      let inHouse = 0;
+
+      const isSameDate = (d1: Date, d2: Date) =>
+        d1.getDate() === d2.getDate() &&
+        d1.getMonth() === d2.getMonth() &&
+        d1.getFullYear() === d2.getFullYear();
+
+      allBookings.forEach(b => {
+        if (b.status !== 'confirmed' && b.status !== 'completed') return;
+        const checkIn = new Date(b.check_in);
+        const checkOut = new Date(b.check_out);
+
+        if (isSameDate(checkIn, today)) arrivals++;
+        if (isSameDate(checkOut, today)) departures++;
+        if (checkIn < today && checkOut > today) inHouse++;
+      });
+
+      const available = totalProperties - (inHouse + arrivals);
+
+      setTodaysActivity({
+        arrivals,
+        departures,
+        inHouse,
+        available: Math.max(0, available)
+      });
+
+      // --- Occupancy Graph ---
+      const next7Days = [];
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(today);
+        d.setDate(today.getDate() + i);
+        const occupiedCount = allBookings.filter(b => {
+          const start = new Date(b.check_in);
+          const end = new Date(b.check_out);
+          return (b.status === 'confirmed' || b.status === 'completed' || b.status === 'blocked') &&
+            d >= start && d < end;
+        }).length;
+        const occupancyPct = totalProperties > 0 ? Math.round((occupiedCount / totalProperties) * 100) : 0;
+        next7Days.push({ name: dayNames[d.getDay()], occupancy: occupancyPct });
+      }
+
+      // --- Activity Feed ---
+      const feedItems: ActivityItem[] = [];
+      allBookings
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 5)
+        .forEach((b) => {
+          const userProfile = Array.isArray(b.user) ? b.user[0] : b.user;
+          const userName = (userProfile as { full_name: string })?.full_name;
+          feedItems.push({
+            type: 'booking',
+            title: b.status === 'pending' ? 'New Request' : 'New Booking',
+            desc: `${userName || 'Guest'} - ${new Date(b.check_in).toLocaleDateString()}`,
+            time: new Date(b.created_at),
+            icon: Calendar,
+            color: 'text-blue-600',
+            bg: 'bg-blue-50'
+          });
+        });
+
+      (reviewsData || []).forEach((r) => {
+        const userProfile = Array.isArray(r.user) ? r.user[0] : r.user;
+        const userName = (userProfile as { full_name: string })?.full_name;
+        feedItems.push({
+          type: 'review',
+          title: 'New Review',
+          desc: `${r.rating} stars from ${userName || 'Guest'}`,
+          time: new Date(r.created_at),
+          icon: Star,
+          color: 'text-yellow-600',
+          bg: 'bg-yellow-50'
+        });
+      });
+
+      feedItems.sort((a, b) => b.time.getTime() - a.time.getTime());
+      setActivityFeed(feedItems.slice(0, 5));
+
+      const avgOccupancy = Math.round(next7Days.reduce((acc, curr) => acc + curr.occupancy, 0) / 7);
+
+      setOccupancyData(next7Days);
+      setStats({
+        revenue: totalRevenue,
+        bookings: activeBookingsCount,
+        rating: Number(avgRating),
+        occupancy: avgOccupancy
+      });
+
+    } catch (error: unknown) {
+      console.error("Error fetching host data:", getErrorMessage(error));
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
-  const [occupancyData, setOccupancyData] = useState<any[]>([]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const [occupancyData, setOccupancyData] = useState<{ name: string; occupancy: number }[]>([]);
 
   if (loading) {
     return (
@@ -346,9 +358,6 @@ export default function HostDashboard() {
           <Card className="border-gray-200 shadow-sm h-full max-h-[600px] flex flex-col">
             <CardHeader className="flex flex-row items-center justify-between pb-4">
               <CardTitle className="text-lg font-bold text-gray-900">Activity Feed</CardTitle>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Bell className="w-4 h-4 text-gray-500" />
-              </Button>
             </CardHeader>
             <CardContent className="space-y-6 overflow-y-auto pr-2">
               {activityFeed.length === 0 ? (

@@ -3,7 +3,6 @@ import Header from "./layout/Header";
 import Footer from "./layout/Footer";
 import FilterBar from "./listings/FilterBar";
 import PropertyGrid from "./listings/PropertyGrid";
-import PropertyCard from "./listings/PropertyCard";
 import PropertyDetails from "./listings/PropertyDetails";
 import SearchFilterBar from "./search/SearchFilterBar";
 import PropertyMap from "./listings/PropertyMap";
@@ -51,9 +50,7 @@ function Home() {
   const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
   const [showMap, setShowMap] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [searchState, setSearchState] = useState<{ query: string; guests: number; date?: any } | null>(null);
   const [chatActive, setChatActive] = useState(false);
-  const [chatSeed, setChatSeed] = useState<string | undefined>(undefined);
 
   // Pagination state
   const [page, setPage] = useState(0);
@@ -80,7 +77,7 @@ function Home() {
       }
 
       if (data) {
-        const mappedProperties: Property[] = data.map((p: any) => ({
+        const mappedProperties: Property[] = data.map((p) => ({
           id: p.id,
           title: p.title,
           location: p.location,
@@ -125,8 +122,8 @@ function Home() {
         // Sort by host plan priority: premium > standard > free
         const planPriority = { premium: 0, standard: 1, free: 2 };
         const sortedProperties = mappedProperties.sort((a, b) => {
-          const aPlan = (data.find((d: any) => d.id === a.id)?.host?.host_plan || 'free') as keyof typeof planPriority;
-          const bPlan = (data.find((d: any) => d.id === b.id)?.host?.host_plan || 'free') as keyof typeof planPriority;
+          const aPlan = (data.find((d) => d.id === a.id)?.host?.host_plan || 'free') as keyof typeof planPriority;
+          const bPlan = (data.find((d) => d.id === b.id)?.host?.host_plan || 'free') as keyof typeof planPriority;
           return (planPriority[aPlan] ?? 2) - (planPriority[bPlan] ?? 2);
         });
 
@@ -210,7 +207,6 @@ function Home() {
   };
 
   const handleSearchChange = async (state: { query: string; guests: number; date?: { from?: Date; to?: Date } }) => {
-    setSearchState(state);
     let arr = properties;
     if (state.query?.trim()) {
       const q = state.query.toLowerCase();
@@ -228,7 +224,7 @@ function Home() {
           .select('property_id, check_in, check_out, status')
           .neq('status', 'canceled');
         const unavailable = new Set<string>();
-        (data || []).forEach((b: any) => {
+        (data || []).forEach((b) => {
           const bi = new Date(b.check_in);
           const bo = new Date(b.check_out);
           if (bo > from && bi < to) {
@@ -236,7 +232,9 @@ function Home() {
           }
         });
         arr = arr.filter(p => !unavailable.has(p.id));
-      } catch { }
+      } catch (err) {
+        console.error('Error checking availability:', err);
+      }
     }
     setFilteredProperties(arr);
   };
@@ -247,7 +245,6 @@ function Home() {
 
   const handleSendMessage = (msg: string) => {
     if (msg && msg.trim()) {
-      setChatSeed(msg.trim());
       setChatActive(true);
     }
   };

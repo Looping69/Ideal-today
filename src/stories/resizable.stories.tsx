@@ -1,10 +1,11 @@
+import * as React from "react";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "../components/ui/resizable";
 
-const meta= {
+const meta = {
   title: "ui/ResizablePanelGroup",
   component: ResizablePanelGroup,
   tags: ["autodocs"],
@@ -13,7 +14,7 @@ const meta= {
 export default meta;
 
 export const Base = {
-  render: (args: any) => (
+  render: (args: React.ComponentProps<typeof ResizablePanelGroup>) => (
     <ResizablePanelGroup
       {...args}
       direction="horizontal"

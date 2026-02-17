@@ -1,10 +1,10 @@
-
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
-import { Loader2, Upload, X, Image as ImageIcon } from "lucide-react";
+import { Loader2, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
+import SignedImage from "./signed-image";
 import { compressImage, blobToFile, formatBytes } from "@/lib/imageCompression";
 
 interface ImageUploadProps {
@@ -14,6 +14,7 @@ interface ImageUploadProps {
   bucket: "property-images" | "avatars" | "review-photos" | "verification";
   maxFiles?: number;
   className?: string;
+  isPrivate?: boolean;
 }
 
 export default function ImageUpload({
@@ -23,6 +24,7 @@ export default function ImageUpload({
   bucket,
   maxFiles = 5,
   className,
+  isPrivate = false,
 }: ImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [compressionProgress, setCompressionProgress] = useState<string | null>(null);
@@ -91,8 +93,13 @@ export default function ImageUpload({
           throw uploadError;
         }
 
-        const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
-        newUrls.push(data.publicUrl);
+        if (isPrivate) {
+          // For private files, we store the relative path
+          newUrls.push(filePath);
+        } else {
+          const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+          newUrls.push(data.publicUrl);
+        }
       }
 
       onChange([...value, ...newUrls]);
@@ -107,11 +114,12 @@ export default function ImageUpload({
           ? `Optimized ${formatBytes(totalOriginalSize)} → ${formatBytes(totalCompressedSize)} (${savedPercent}% smaller)`
           : "Images uploaded successfully",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "An unknown error occurred";
       toast({
         variant: "destructive",
         title: "Upload failed",
-        description: error.message,
+        description: message,
       });
     } finally {
       setIsUploading(false);
@@ -141,11 +149,19 @@ export default function ImageUpload({
                 <X className="h-3 w-3" />
               </Button>
             </div>
-            <img
-              src={url}
-              alt="Upload"
-              className="object-cover w-full h-full"
-            />
+            {isPrivate ? (
+              <SignedImage
+                bucket={bucket}
+                path={url}
+                className="object-cover w-full h-full"
+              />
+            ) : (
+              <img
+                src={url}
+                alt="Upload"
+                className="object-cover w-full h-full"
+              />
+            )}
           </div>
         ))}
       </div>

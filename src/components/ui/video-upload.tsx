@@ -1,10 +1,11 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
-import { Loader2, Upload, X, Video, Play, Pause } from "lucide-react";
+import { Loader2, X, Video, Play, Pause } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { getErrorMessage } from "@/lib/errors";
 
 
 interface VideoUploadProps {
@@ -93,11 +94,12 @@ export default function VideoUpload({
                 title: "Video uploaded",
                 description: "Your property video has been uploaded successfully.",
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = getErrorMessage(error);
             toast({
                 variant: "destructive",
                 title: "Upload failed",
-                description: error.message || "Failed to upload video. Please try again.",
+                description: message || "Failed to upload video. Please try again.",
             });
         } finally {
             setIsUploading(false);
@@ -121,8 +123,8 @@ export default function VideoUpload({
                 const fullPath = `${userId}/${fileName}`;
 
                 await supabase.storage.from(bucket).remove([fullPath]);
-            } catch (e) {
-                console.error("Error removing video:", e);
+            } catch (e: unknown) {
+                console.error("Error removing video:", getErrorMessage(e));
             }
         }
         onChange(null);

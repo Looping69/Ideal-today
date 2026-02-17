@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from "@/components/ui/use-toast";
 import { NotificationBell } from "@/components/ui/notification-bell";
 import { supabase } from '@/lib/supabase';
 import { Users, Home as HomeIcon, MessageSquare, Star, Settings, ClipboardList, Gift, Share2, Bell, Clock, Wallet, Menu, X } from 'lucide-react';

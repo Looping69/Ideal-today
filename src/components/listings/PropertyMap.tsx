@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { Property } from "@/types/property"; // Keep for type definition
@@ -12,7 +12,7 @@ import L from "leaflet";
 import icon from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
 
-let DefaultIcon = L.icon({
+const DefaultIcon = L.icon({
   iconUrl: icon,
   shadowUrl: iconShadow,
   iconSize: [25, 41],
@@ -46,7 +46,6 @@ function MapController({ properties }: { properties: Property[] }) {
 }
 
 export default function PropertyMap({ properties = [], onPropertyClick }: PropertyMapProps) {
-  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
 
   return (
     <div className="w-full h-full rounded-xl overflow-hidden z-0 relative">
@@ -67,7 +66,7 @@ export default function PropertyMap({ properties = [], onPropertyClick }: Proper
             key={property.id}
             position={[property.coordinates.lat, property.coordinates.lng]}
             eventHandlers={{
-              click: () => setSelectedProperty(property),
+              click: () => onPropertyClick(property),
             }}
           >
             <Popup>

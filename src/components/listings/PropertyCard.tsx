@@ -18,16 +18,38 @@ export default function PropertyCard({ property, onClick }: PropertyCardProps) {
   const { toast } = useToast();
   const [saved, setSaved] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [isIntersecting, setIsIntersecting] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (isHovered && videoRef.current) {
-      videoRef.current.play().catch(err => console.log("Video auto-play blocked or failed", err));
-    } else if (!isHovered && videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsIntersecting(entry.isIntersecting);
+      },
+      {
+        threshold: 0.6, // Play when 60% of the card is visible
+      }
+    );
+
+    if (cardRef.current) {
+      observer.observe(cardRef.current);
     }
-  }, [isHovered]);
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const shouldPlay = isHovered || isIntersecting;
+    if (shouldPlay && videoRef.current) {
+      videoRef.current.play().catch(err => console.warn("Video auto-play blocked or failed", err));
+    } else if (!shouldPlay && videoRef.current) {
+      videoRef.current.pause();
+      if (!isIntersecting) {
+        videoRef.current.currentTime = 0;
+      }
+    }
+  }, [isHovered, isIntersecting]);
 
   useEffect(() => {
     const checkSaved = async () => {
@@ -74,6 +96,7 @@ export default function PropertyCard({ property, onClick }: PropertyCardProps) {
 
   return (
     <div
+      ref={cardRef}
       className="group cursor-pointer flex flex-col gap-3"
       onClick={() => onClick(property)}
       onMouseEnter={() => setIsHovered(true)}
@@ -85,7 +108,7 @@ export default function PropertyCard({ property, onClick }: PropertyCardProps) {
           alt={property.title}
           className={cn(
             "h-full w-full object-cover transition-all duration-500 group-hover:scale-105",
-            isHovered && property.video_url ? "opacity-0 scale-110" : "opacity-100"
+            (isHovered || isIntersecting) && property.video_url ? "opacity-0 scale-110" : "opacity-100"
           )}
         />
 
@@ -98,7 +121,7 @@ export default function PropertyCard({ property, onClick }: PropertyCardProps) {
             playsInline
             className={cn(
               "absolute inset-0 h-full w-full object-cover transition-opacity duration-500",
-              isHovered ? "opacity-100 scale-100" : "opacity-0 scale-105"
+              (isHovered || isIntersecting) ? "opacity-100 scale-100" : "opacity-0 scale-105"
             )}
           />
         )}

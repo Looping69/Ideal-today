@@ -1,3 +1,4 @@
+declare const Deno: any;
 
 export { }
 
@@ -18,15 +19,28 @@ Deno.serve(async (req: Request) => {
 
     try {
         const body = await req.json()
-        const { amount, currency = 'ZAR', metadata, successUrl, cancelUrl } = body
+        const { amount, currency = 'ZAR', metadata, successUrl, cancelUrl, failureUrl } = body
 
         // Retrieve the secret key from environment variables
         const secretKey = Deno.env.get('YOCO_SECRET_KEY')
+        console.log('YOCO_SECRET_KEY presence check:', secretKey ? 'Set (starts with ' + secretKey.substring(0, 3) + ')' : 'Not Set')
+
         if (!secretKey) {
             console.error('YOCO_SECRET_KEY is not set')
             return new Response(JSON.stringify({
                 error: 'Server misconfiguration: Payment Key missing',
-                details: 'The YOCO_SECRET_KEY environment variable is not defined in Supabase secrets.'
+                details: 'The YOCO_SECRET_KEY environment variable is not defined in Supabase secrets. Please run: supabase secrets set YOCO_SECRET_KEY=sk_test_...'
+            }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 500,
+            })
+        }
+
+        if (secretKey.startsWith('pk_')) {
+            console.error('YOCO_SECRET_KEY appears to be a PUBLIC key (starts with pk_). It must be a SECRET key (starts with sk_).')
+            return new Response(JSON.stringify({
+                error: 'Server misconfiguration: Invalid Payment Key Type',
+                details: 'A Public Key (pk_...) was provided instead of a Secret Key (sk_...). Please use your Yoco Secret Key.'
             }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 status: 500,
@@ -39,22 +53,33 @@ Deno.serve(async (req: Request) => {
             currency,
             metadata,
             successUrl: successUrl,
-            cancelUrl: cancelUrl
+            cancelUrl: cancelUrl,
+            failureUrl: failureUrl
         }
 
         console.log('Creating Yoco checkout with:', JSON.stringify(payload))
 
         // Using the documented V1 checkout endpoint
+        // Including both Bearer and X-Auth-Secret-Key to maximize compatibility with Yoco v1
         const response = await fetch('https://online.yoco.com/v1/checkouts', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${secretKey}`,
+                'X-Auth-Secret-Key': secretKey,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify(payload),
         })
 
-        const data = await response.json()
+        let data;
+        const text = await response.text();
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            data = { rawResponse: text };
+        }
+
+        console.log(`Yoco API response (${response.status}):`, JSON.stringify(data))
 
         if (!response.ok) {
             console.error('Yoco API Error:', data)

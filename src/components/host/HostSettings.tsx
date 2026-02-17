@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
 import ImageUpload from "@/components/ui/image-upload";
 import { Loader2 } from "lucide-react";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function HostSettings() {
   const { user } = useAuth();
@@ -19,13 +20,7 @@ export default function HostSettings() {
     avatar_url: "",
   });
 
-  useEffect(() => {
-    if (user) {
-      getProfile();
-    }
-  }, [user]);
-
-  async function getProfile() {
+  const getProfile = useCallback(async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -42,14 +37,20 @@ export default function HostSettings() {
           avatar_url: data.avatar_url || "",
         });
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error loading user data!", error);
     } finally {
       setLoading(false);
     }
-  }
+  }, [user]);
 
-  async function updateProfile() {
+  useEffect(() => {
+    if (user) {
+      getProfile();
+    }
+  }, [user, getProfile]);
+
+  const updateProfile = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -67,16 +68,16 @@ export default function HostSettings() {
         title: "Profile updated",
         description: "Your host profile has been updated successfully.",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message,
+        description: getErrorMessage(error),
       });
     } finally {
       setLoading(false);
     }
-  }
+  }, [user, formData, toast]);
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">

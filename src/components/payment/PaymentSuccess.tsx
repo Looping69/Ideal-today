@@ -5,12 +5,28 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
 
+interface BookingDetails {
+    id: string;
+    total_price: number;
+    check_in: string;
+    check_out: string;
+    property?: {
+        title: string;
+        image: string;
+        location: string;
+    };
+    user?: {
+        email: string;
+        full_name: string;
+    }
+}
+
 export default function PaymentSuccess() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const { toast } = useToast();
     const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
-    const [bookingDetails, setBookingDetails] = useState<any>(null);
+    const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(null);
     const verifiedRef = useRef(false);
 
     useEffect(() => {
@@ -153,11 +169,11 @@ export default function PaymentSuccess() {
                     <div className="space-y-2 text-sm text-gray-600">
                         <div className="flex justify-between">
                             <span>Check-in</span>
-                            <span className="font-medium text-gray-900">{new Date(bookingDetails?.check_in).toLocaleDateString()}</span>
+                            <span className="font-medium text-gray-900">{bookingDetails?.check_in ? new Date(bookingDetails.check_in).toLocaleDateString() : ''}</span>
                         </div>
                         <div className="flex justify-between">
                             <span>Check-out</span>
-                            <span className="font-medium text-gray-900">{new Date(bookingDetails?.check_out).toLocaleDateString()}</span>
+                            <span className="font-medium text-gray-900">{bookingDetails?.check_out ? new Date(bookingDetails.check_out).toLocaleDateString() : ''}</span>
                         </div>
                     </div>
                 </div>

@@ -1,14 +1,9 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, Clock, AlertCircle, Search, Filter, MoreHorizontal, Calendar, Plus, UserPlus, Trash2 } from 'lucide-react';
+import { CheckCircle, AlertCircle, Search, Plus, UserPlus, Trash2 } from 'lucide-react';
+import { useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
     Dialog,
     DialogContent,
@@ -36,6 +31,23 @@ interface Task {
     isManual?: boolean;
 }
 
+interface NewTask {
+    room: string;
+    type: Task['type'];
+    detail: string;
+    assignee: string;
+    priority: Task['priority'];
+}
+
+interface Booking {
+    id: string;
+    property_id: string;
+    check_in: string;
+    check_out: string;
+    status: string;
+    user: { full_name: string | null } | { full_name: string | null }[] | null;
+}
+
 export default function HostOperations() {
     const { user } = useAuth();
     const { toast } = useToast();
@@ -52,7 +64,7 @@ export default function HostOperations() {
     // Dialog States
     const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
     const [isStaffDialogOpen, setIsStaffDialogOpen] = useState(false);
-    const [newTask, setNewTask] = useState({ room: '', type: 'Maintenance', detail: '', assignee: '', priority: 'medium' });
+    const [newTask, setNewTask] = useState<NewTask>({ room: '', type: 'Maintenance', detail: '', assignee: '', priority: 'medium' });
     const [newStaffName, setNewStaffName] = useState('');
     const [properties, setProperties] = useState<{ id: string, title: string }[]>([]);
 
@@ -69,13 +81,7 @@ export default function HostOperations() {
         if (savedCompletedIds) setCompletedTaskIds(JSON.parse(savedCompletedIds));
     }, [user?.id]);
 
-    // Fetch data when user or dependent local data changes
-    useEffect(() => {
-        if (!user?.id) return;
-        fetchData();
-    }, [user?.id, manualTasks, completedTaskIds]);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             // 1. Get properties
@@ -109,11 +115,12 @@ export default function HostOperations() {
             const generatedTasks: Task[] = [];
             const now = new Date();
 
-            (bookings || []).forEach((b: any) => {
+            ((bookings as unknown as Booking[]) || []).forEach((b) => {
                 const checkIn = new Date(b.check_in);
                 const checkOut = new Date(b.check_out);
                 const isToday = (d: Date) => d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-                const userName = Array.isArray(b.user) ? b.user[0]?.full_name : b.user?.full_name;
+                const userProfile = Array.isArray(b.user) ? b.user[0] : b.user;
+                const userName = userProfile?.full_name;
 
                 // Check-out Cleaning Task
                 if (checkOut >= past && checkOut <= future) {
@@ -156,16 +163,27 @@ export default function HostOperations() {
             // Merge with manual tasks (filter out deleted ones if we implemented delete)
             setTasks([...generatedTasks, ...manualTasks]);
 
-        } catch (err) {
+        } catch (err: unknown) {
             console.error(err);
+            toast({
+                title: "Fetch Error",
+                description: "Could not load operations data. Please refresh.",
+                variant: "destructive",
+            });
         } finally {
             setLoading(false);
         }
-    };
+    }, [user, manualTasks, completedTaskIds, toast]);
+
+    // Fetch data when user or dependent local data changes
+    useEffect(() => {
+        if (!user?.id) return;
+        fetchData();
+    }, [user?.id, fetchData]);
 
     // --- Actions ---
 
-    const handleAddTask = () => {
+    const handleAddTask = useCallback(() => {
         if (!newTask.room || !newTask.detail) {
             toast({ title: "Error", description: "Property and Detail are required.", variant: "destructive" });
             return;
@@ -173,11 +191,11 @@ export default function HostOperations() {
 
         const task: Task = {
             id: `manual-${Date.now()}`,
-            room: newTask.room, // Just title string
-            type: newTask.type as any,
+            room: newTask.room,
+            type: newTask.type,
             detail: newTask.detail,
             status: 'pending',
-            priority: newTask.priority as any,
+            priority: newTask.priority,
             due: new Date().toLocaleDateString(),
             assignee: newTask.assignee || 'Unassigned',
             isManual: true
@@ -191,9 +209,9 @@ export default function HostOperations() {
         setIsTaskDialogOpen(false);
         setNewTask({ room: '', type: 'Maintenance', detail: '', assignee: '', priority: 'medium' });
         toast({ title: "Task Created", description: "New task added to the board." });
-    };
+    }, [newTask, manualTasks, user, toast]);
 
-    const handleAddStaff = () => {
+    const handleAddStaff = useCallback(() => {
         if (!newStaffName.trim()) {
             toast({ title: "Error", description: "Staff name cannot be empty.", variant: "destructive" });
             return;
@@ -204,9 +222,9 @@ export default function HostOperations() {
         setNewStaffName('');
         setIsStaffDialogOpen(false);
         toast({ title: "Staff Added", description: `${newStaffName} is now available for assignment.` });
-    };
+    }, [newStaffName, staff, user, toast]);
 
-    const handleCompleteTask = (taskId: string, isManual: boolean) => {
+    const handleCompleteTask = useCallback((taskId: string, isManual: boolean) => {
         if (isManual) {
             // Remove from manual tasks
             const updatedManual = manualTasks.filter(t => t.id !== taskId);
@@ -222,16 +240,16 @@ export default function HostOperations() {
         // Update local state
         setTasks(prev => prev.filter(t => t.id !== taskId));
         toast({ title: "Task Completed", description: "Task moved to history." });
-    };
+    }, [manualTasks, completedTaskIds, user, toast]);
 
-    const handleDeleteTask = (taskId: string) => {
+    const handleDeleteTask = useCallback((taskId: string) => {
         // Only for manual tasks
         const updatedManual = manualTasks.filter(t => t.id !== taskId);
         setManualTasks(updatedManual);
         localStorage.setItem(`host_manual_tasks_${user!.id}`, JSON.stringify(updatedManual));
         setTasks(prev => prev.filter(t => t.id !== taskId));
         toast({ title: "Task Deleted" });
-    };
+    }, [manualTasks, user, toast]);
 
     // --- Stats ---
     const stats = {
@@ -284,6 +302,7 @@ export default function HostOperations() {
                         <DialogContent>
                             <DialogHeader>
                                 <DialogTitle>Create New Task</DialogTitle>
+                                <DialogDescription>Assign a new maintenance or cleaning task to a property.</DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
                                 <div className="space-y-2">
@@ -301,7 +320,7 @@ export default function HostOperations() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="task-type">Task Type</Label>
-                                    <Select onValueChange={(v: any) => setNewTask({ ...newTask, type: v })} defaultValue="Maintenance" value={newTask.type}>
+                                    <Select onValueChange={(v: Task['type']) => setNewTask({ ...newTask, type: v })} defaultValue="Maintenance" value={newTask.type}>
                                         <SelectTrigger id="task-type">
                                             <SelectValue />
                                         </SelectTrigger>
@@ -330,7 +349,7 @@ export default function HostOperations() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="task-priority">Priority</Label>
-                                    <Select onValueChange={(v: any) => setNewTask({ ...newTask, priority: v })} defaultValue="medium" value={newTask.priority}>
+                                    <Select onValueChange={(v: Task['priority']) => setNewTask({ ...newTask, priority: v })} defaultValue="medium" value={newTask.priority}>
                                         <SelectTrigger id="task-priority">
                                             <SelectValue />
                                         </SelectTrigger>

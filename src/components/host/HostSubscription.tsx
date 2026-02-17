@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, Loader2, Sparkles, Smartphone, ShieldCheck, Video, BarChart4, Gift, Users, Share2 } from "lucide-react";
+import { Check, Loader2, Sparkles, Smartphone, ShieldCheck, Video, BarChart4, Users, Share2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
+import { getErrorMessage } from "@/lib/errors";
 
 type PlanTier = 'free' | 'standard' | 'premium';
 
@@ -93,6 +94,33 @@ export default function HostSubscription() {
     const [currentPlan, setCurrentPlan] = useState<PlanTier>('free');
     const [searchParams] = useSearchParams();
 
+    const performUpgrade = useCallback(async (planId: PlanTier) => {
+        if (!user) return;
+        setLoadingPlan(planId);
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ host_plan: planId })
+                .eq('id', user.id);
+
+            if (error) throw error;
+
+            setCurrentPlan(planId);
+            toast({
+                title: "Plan Updated!",
+                description: `You are now on the ${planId.charAt(0).toUpperCase() + planId.slice(1)} plan.`,
+            });
+        } catch (err: unknown) {
+            toast({
+                variant: "destructive",
+                title: "Update Failed",
+                description: getErrorMessage(err),
+            });
+        } finally {
+            setLoadingPlan(null);
+        }
+    }, [user, toast]);
+
     // Check for Upgrade Status on Return
     useEffect(() => {
         const checkPaymentStatus = async () => {
@@ -127,58 +155,34 @@ export default function HostSubscription() {
         };
 
         checkPaymentStatus();
-    }, [searchParams]);
+    }, [searchParams, performUpgrade, toast]);
 
-    useEffect(() => {
-        async function fetchPlan() {
-            if (!user) return;
-            try {
-                const { data, error } = await supabase
-                    .from('profiles')
-                    .select('host_plan')
-                    .eq('id', user.id)
-                    .single();
-
-                if (error) throw error;
-                if (data?.host_plan) {
-                    setCurrentPlan(data.host_plan as PlanTier);
-                }
-            } catch (err) {
-                console.error('Error fetching plan:', err);
-            } finally {
-                setFetchingPlan(false);
-            }
-        }
-        fetchPlan();
-    }, [user]);
-
-    const performUpgrade = async (planId: PlanTier) => {
-        setLoadingPlan(planId);
+    const fetchPlan = useCallback(async () => {
+        if (!user) return;
         try {
-            const { error } = await supabase
+            const { data, error } = await supabase
                 .from('profiles')
-                .update({ host_plan: planId })
-                .eq('id', user.id);
+                .select('host_plan')
+                .eq('id', user.id)
+                .single();
 
             if (error) throw error;
-
-            setCurrentPlan(planId);
-            toast({
-                title: "Plan Updated!",
-                description: `You are now on the ${planId.charAt(0).toUpperCase() + planId.slice(1)} plan.`,
-            });
-        } catch (err: any) {
-            toast({
-                variant: "destructive",
-                title: "Update Failed",
-                description: "Payment was successful but we couldn't update your profile. Please contact support.",
-            });
+            if (data?.host_plan) {
+                setCurrentPlan(data.host_plan as PlanTier);
+            }
+        } catch (err) {
+            console.error('Error fetching plan:', err);
         } finally {
-            setLoadingPlan(null);
+            setFetchingPlan(false);
         }
-    };
+    }, [user]);
 
-    const handleUpgrade = async (planId: PlanTier) => {
+    useEffect(() => {
+        fetchPlan();
+    }, [fetchPlan]);
+
+
+    const handleUpgrade = useCallback(async (planId: PlanTier) => {
         if (!user) return;
 
         const plan = plans.find(p => p.id === planId);
@@ -199,7 +203,7 @@ export default function HostSubscription() {
             // Store plan intention
             sessionStorage.setItem('pending_plan_upgrade', planId);
 
-            const { data, error } = await supabase.functions.invoke('create-checkout', {
+            const { data, error } = await supabase.functions.invoke('create-checkout-v2', {
                 body: {
                     amount: priceAmount * 100, // Cents
                     currency: 'ZAR',
@@ -222,13 +226,13 @@ export default function HostSubscription() {
                 throw new Error('No redirect URL returned from payment server');
             }
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             setLoadingPlan(null);
             sessionStorage.removeItem('pending_plan_upgrade');
-            console.error("Payment setup error:", error);
+            console.error("Payment setup error:", getErrorMessage(error));
 
             // Helpful error message if function fails (e.g. locally without serving)
-            let msg = error.message || "Could not start payment session.";
+            let msg = getErrorMessage(error);
             if (msg.includes('Failed to fetch')) {
                 msg = "Payment server is unreachable. If developing locally, ensure 'supabase start' is running.";
             }
@@ -239,7 +243,7 @@ export default function HostSubscription() {
                 description: msg,
             });
         }
-    };
+    }, [user, performUpgrade, toast]);
 
     if (fetchingPlan) {
         return (

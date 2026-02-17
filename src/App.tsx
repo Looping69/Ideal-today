@@ -141,6 +141,7 @@ function App() {
               <Route path="/host" element={<HostLayout />}>
                 <Route index element={<HostDashboard />} />
                 <Route path="create" element={<CreateListing />} />
+                <Route path="edit/:id" element={<CreateListing />} />
                 <Route path="listings" element={<HostListings />} />
                 <Route path="bookings" element={<HostBookings />} />
                 <Route path="calendar" element={<HostCalendar />} />

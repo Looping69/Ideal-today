@@ -1,30 +1,33 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { SETUP_SQL } from "@/lib/setup_sql";
 
+interface DiagnosisResult {
+    status: 'ok' | 'error' | 'warning' | 'exception';
+    message: string;
+    details?: unknown;
+    user?: string;
+}
+
 export default function Diagnose() {
-    const [results, setResults] = useState<any>({});
+    const [results, setResults] = useState<Record<string, DiagnosisResult>>({});
     const [loading, setLoading] = useState(true);
     const [copied, setCopied] = useState(false);
 
-    useEffect(() => {
-        runDiagnosis();
-    }, []);
-
-    const runDiagnosis = async () => {
+    const runDiagnosis = useCallback(async () => {
         setLoading(true);
-        const res: any = {};
+        const res: Record<string, DiagnosisResult> = {};
 
         // 1. Check connection
         try {
-            const { data, error } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
+            const { error } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
             if (error) {
                 res.profilesTable = { status: 'error', message: error.message, details: error };
             } else {
                 res.profilesTable = { status: 'ok', message: 'Table exists and is accessible' };
             }
-        } catch (e: any) {
-            res.profilesTable = { status: 'exception', message: e.message };
+        } catch (e: unknown) {
+            res.profilesTable = { status: 'exception', message: e instanceof Error ? e.message : 'Unknown error' };
         }
 
         // 2. Check Auth (Try to sign up a random user to see if it 500s)
@@ -40,8 +43,8 @@ export default function Diagnose() {
             } else {
                 res.authSignup = { status: 'ok', message: 'Signup successful', user: data.user?.id };
             }
-        } catch (e: any) {
-            res.authSignup = { status: 'exception', message: e.message };
+        } catch (e: unknown) {
+            res.authSignup = { status: 'exception', message: e instanceof Error ? e.message : 'Unknown error' };
         }
 
         // 3. Check for new columns
@@ -53,8 +56,8 @@ export default function Diagnose() {
             } else {
                 res.profileColumns = { status: 'ok', message: 'New profile columns exist' };
             }
-        } catch (e: any) {
-            res.profileColumns = { status: 'exception', message: e.message };
+        } catch (e: unknown) {
+            res.profileColumns = { status: 'exception', message: e instanceof Error ? e.message : 'Unknown error' };
         }
 
         try {
@@ -65,8 +68,8 @@ export default function Diagnose() {
             } else {
                 res.propertyColumns = { status: 'ok', message: 'New property columns exist' };
             }
-        } catch (e: any) {
-            res.propertyColumns = { status: 'exception', message: e.message };
+        } catch (e: unknown) {
+            res.propertyColumns = { status: 'exception', message: e instanceof Error ? e.message : 'Unknown error' };
         }
 
         // 5. Check Buckets
@@ -82,13 +85,20 @@ export default function Diagnose() {
                     details: { verification: hasVerification }
                 };
             }
-        } catch (e: any) {
-            res.buckets = { status: 'exception', message: e.message };
+        } catch (e: unknown) {
+            res.buckets = { status: 'exception', message: e instanceof Error ? e.message : 'Unknown error' };
         }
 
         setResults(res);
         setLoading(false);
-    };
+    }, []);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            runDiagnosis();
+        }, 0);
+        return () => clearTimeout(timer);
+    }, [runDiagnosis]);
 
     return (
         <div className="p-8 max-w-4xl mx-auto space-y-8">
@@ -109,32 +119,32 @@ export default function Diagnose() {
                     <div className={`p-4 rounded border ${results.profilesTable?.status === 'ok' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                         <h3 className="font-bold">Profiles Table Check</h3>
                         <p>{results.profilesTable?.message}</p>
-                        {results.profilesTable?.details && <pre className="mt-2 text-xs overflow-auto bg-white p-2 rounded border">{JSON.stringify(results.profilesTable.details, null, 2)}</pre>}
+                        {!!results.profilesTable?.details && <pre className="mt-2 text-xs overflow-auto bg-white p-2 rounded border">{JSON.stringify(results.profilesTable.details, null, 2)}</pre>}
                     </div>
 
                     <div className={`p-4 rounded border ${results.authSignup?.status === 'ok' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                         <h3 className="font-bold">Auth Signup Check</h3>
                         <p>{results.authSignup?.message}</p>
-                        {results.authSignup?.details && <pre className="mt-2 text-xs overflow-auto bg-white p-2 rounded border">{JSON.stringify(results.authSignup.details, null, 2)}</pre>}
+                        {!!results.authSignup?.details && <pre className="mt-2 text-xs overflow-auto bg-white p-2 rounded border">{JSON.stringify(results.authSignup.details, null, 2)}</pre>}
                     </div>
 
                     <div className={`p-4 rounded border ${results.profileColumns?.status === 'ok' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                         <h3 className="font-bold">New Profile Columns</h3>
                         <p>{results.profileColumns?.message}</p>
-                        {results.profileColumns?.details && <pre className="mt-2 text-xs overflow-auto bg-white p-2 rounded border">{JSON.stringify(results.profileColumns.details, null, 2)}</pre>}
+                        {!!results.profileColumns?.details && <pre className="mt-2 text-xs overflow-auto bg-white p-2 rounded border">{JSON.stringify(results.profileColumns.details, null, 2)}</pre>}
                     </div>
 
                     <div className={`p-4 rounded border ${results.propertyColumns?.status === 'ok' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                         <h3 className="font-bold">New Property Columns</h3>
                         <p>{results.propertyColumns?.message}</p>
-                        {results.propertyColumns?.details && <pre className="mt-2 text-xs overflow-auto bg-white p-2 rounded border">{JSON.stringify(results.propertyColumns.details, null, 2)}</pre>}
+                        {!!results.propertyColumns?.details && <pre className="mt-2 text-xs overflow-auto bg-white p-2 rounded border">{JSON.stringify(results.propertyColumns.details, null, 2)}</pre>}
                     </div>
 
                     <div className={`p-4 rounded border ${results.buckets?.status === 'ok' ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}`}>
                         <h3 className="font-bold">Storage Buckets</h3>
                         <p>{results.buckets?.message}</p>
                         <ul className="list-disc pl-4 text-sm mt-2">
-                            <li>Verification Bucket: {results.buckets?.details?.verification ? '✅' : '❌'}</li>
+                            <li>Verification Bucket: {(results.buckets?.details as Record<string, boolean>)?.verification ? '✅' : '❌'}</li>
                         </ul>
                     </div>
                 </div>

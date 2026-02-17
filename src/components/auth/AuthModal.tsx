@@ -17,10 +17,10 @@ export default function AuthModal({ isOpen, onClose, defaultView = "login" }: Au
   const [view, setView] = useState<"login" | "signup">(defaultView);
 
   useEffect(() => {
-    if (isOpen) {
-      setView(defaultView);
+    if (isOpen && view !== defaultView) {
+      setTimeout(() => setView(defaultView), 0);
     }
-  }, [isOpen, defaultView]);
+  }, [isOpen, defaultView, view]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

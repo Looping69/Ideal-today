@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Users, Home, Calendar, Star, MessageSquare, TrendingUp, ArrowUpRight, ArrowDownRight, MoreHorizontal } from 'lucide-react';
+import { Users, Home, Calendar, Star, MessageSquare, ArrowUpRight, ArrowDownRight, MoreHorizontal } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -14,10 +14,31 @@ export default function AdminOverview() {
   const [topListings, setTopListings] = useState<TopListing[]>([]);
   const [recentBookings, setRecentBookings] = useState<RecentBooking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [health, setHealth] = useState({ dbLoad: 0, storage: 0, latency: 0 });
 
   useEffect(() => {
     const load = async () => {
       try {
+        // Measure Latency
+        const start = performance.now();
+        await supabase.from('profiles').select('id').limit(1);
+        const latency = Math.round(performance.now() - start);
+
+        // Fetch Storage Stats (Estimated via row counts and table size)
+        // We use a query that gives us some idea of complexity/scale
+        const { count: profileCount } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
+        const { count: propertyCount } = await supabase.from('properties').select('count', { count: 'exact', head: true });
+        const { count: bookingCount } = await supabase.from('bookings').select('count', { count: 'exact', head: true });
+
+        // Mocking relative storage for now based on scale, but in a real app we'd query pg_total_relation_size
+        const totalRows = (profileCount || 0) + (propertyCount || 0) + (bookingCount || 0);
+        const storageUsage = Math.min(Math.round((totalRows / 10000) * 100), 100) || 5; // Base 5% + scale
+
+        // Calculate load based on latency (thresholds: < 50ms=good, 50-200ms=avg, >200ms=high)
+        const dbLoad = Math.min(Math.round((latency / 200) * 100), 100);
+
+        setHealth({ dbLoad, storage: storageUsage, latency });
+
         const users = await supabase.from('profiles').select('count', { count: 'exact', head: true });
         const listings = await supabase.from('properties').select('count', { count: 'exact', head: true });
         const bookings = await supabase.from('bookings').select('count', { count: 'exact', head: true });
@@ -38,7 +59,7 @@ export default function AdminOverview() {
           .select('id,status,check_in,check_out,created_at')
           .gte('created_at', since.toISOString());
         const buckets: Record<string, number> = {};
-        (recent || []).forEach((b: any) => {
+        (recent || []).forEach((b) => {
           const d = new Date(b.created_at);
           const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
           buckets[key] = (buckets[key] || 0) + 1;
@@ -55,15 +76,16 @@ export default function AdminOverview() {
           .select('id,title,location,rating,image,price')
           .order('rating', { ascending: false })
           .limit(5);
-        setTopListings((tops as any[]) || []);
+        setTopListings((tops as unknown as TopListing[]) || []);
 
         const { data: rb } = await supabase
           .from('bookings')
           .select(`id,status,check_in,check_out,property:properties(title,image),user:profiles(full_name,email)`)
           .order('created_at', { ascending: false })
-          .limit(5) as any;
-        setRecentBookings((rb as any[]) || []);
-      } catch {
+          .limit(5);
+        setRecentBookings((rb as unknown as RecentBooking[]) || []);
+      } catch (error: unknown) {
+        console.error('Error loading dashboard stats:', error);
         setKpi({ users: 0, listings: 0, bookings: 0, reviews: 0, pendingReviews: 0 });
         setChart([]);
         setTopListings([]);
@@ -90,8 +112,8 @@ export default function AdminOverview() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, i) => (
-          <Card key={i} className="border-none shadow-sm hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden group">
+        {stats.map((stat) => (
+          <Card key={stat.label} className="border-none shadow-sm hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden group">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-500 group-hover:text-gray-900 transition-colors">
                 {stat.label}
@@ -122,7 +144,7 @@ export default function AdminOverview() {
           </div>
           <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
             <div className="h-64 flex items-end gap-4">
-              {chart.map((c, i) => (
+              {chart.map((c) => (
                 <div key={c.label} className="flex-1 flex flex-col justify-end group cursor-pointer">
                   <div
                     className="bg-gray-900 rounded-t-lg transition-all duration-300 group-hover:bg-primary group-hover:shadow-lg group-hover:shadow-primary/20 relative"
@@ -224,28 +246,37 @@ export default function AdminOverview() {
               <div>
                 <div className="flex justify-between text-xs mb-1.5 text-gray-400">
                   <span>Database Load</span>
-                  <span>24%</span>
+                  <span>{health.dbLoad}%</span>
                 </div>
                 <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                  <div className="h-full bg-green-500 w-[24%] rounded-full" />
+                  <div
+                    className={`h-full transition-all duration-1000 rounded-full ${health.dbLoad > 80 ? 'bg-red-500' : health.dbLoad > 50 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                    style={{ width: `${health.dbLoad}%` }}
+                  />
                 </div>
               </div>
               <div>
                 <div className="flex justify-between text-xs mb-1.5 text-gray-400">
                   <span>Storage Usage</span>
-                  <span>68%</span>
+                  <span>{health.storage}%</span>
                 </div>
                 <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-500 w-[68%] rounded-full" />
+                  <div
+                    className="h-full bg-blue-500 rounded-full transition-all duration-1000"
+                    style={{ width: `${health.storage}%` }}
+                  />
                 </div>
               </div>
               <div>
                 <div className="flex justify-between text-xs mb-1.5 text-gray-400">
                   <span>API Latency</span>
-                  <span>45ms</span>
+                  <span>{health.latency}ms</span>
                 </div>
                 <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                  <div className="h-full bg-purple-500 w-[15%] rounded-full" />
+                  <div
+                    className={`h-full transition-all duration-1000 rounded-full ${health.latency > 500 ? 'bg-red-500' : health.latency > 200 ? 'bg-yellow-500' : 'bg-purple-500'}`}
+                    style={{ width: `${Math.min((health.latency / 1000) * 100, 100)}%` }}
+                  />
                 </div>
               </div>
             </div>

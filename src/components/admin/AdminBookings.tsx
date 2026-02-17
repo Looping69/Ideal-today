@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
-import { Search, Filter, Calendar, MoreHorizontal, CheckCircle, XCircle, Clock, ArrowRight, Pencil, Trash2, DollarSign } from 'lucide-react';
+import { Search, Filter, Calendar, MoreHorizontal, CheckCircle, XCircle, Clock, ArrowRight, Pencil, Trash2 } from 'lucide-react';
+import { getErrorMessage } from '@/lib/errors';
 import {
   Dialog,
   DialogContent,
@@ -32,23 +33,29 @@ export default function AdminBookings() {
   const pageSize = 50;
   const { toast } = useToast();
 
+  const load = useCallback(async () => {
+    setLoading(true);
+    let query = supabase
+      .from('bookings')
+      .select('id,property_id,user_id,status,check_in,check_out,user:profiles!bookings_user_id_fkey(email,full_name),property:properties(title)')
+      .order('created_at', { ascending: false })
+      .range(page * pageSize, page * pageSize + pageSize - 1);
+
+    if (tab !== 'all') query = query.eq('status', tab);
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('Error loading bookings:', getErrorMessage(error));
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to load bookings' });
+    } else {
+      setRows((data as unknown as Row[]) || []);
+    }
+    setLoading(false);
+  }, [tab, page, toast, pageSize]);
+
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      let query = supabase
-        .from('bookings')
-        .select('id,property_id,user_id,status,check_in,check_out,user:profiles!bookings_user_id_fkey(email,full_name),property:properties(title)')
-        .order('created_at', { ascending: false })
-        .range(page * pageSize, page * pageSize + pageSize - 1);
-
-      if (tab !== 'all') query = query.eq('status', tab);
-
-      const { data } = await query as any;
-      setRows((data as any[]) || []);
-      setLoading(false);
-    };
     load();
-  }, [tab, page]);
+  }, [load]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return rows;
@@ -61,14 +68,16 @@ export default function AdminBookings() {
     ));
   }, [rows, search]);
 
-  const updateStatus = async (id: string, next: 'pending' | 'confirmed' | 'completed' | 'canceled') => {
+  const updateStatus = useCallback(async (id: string, next: 'pending' | 'confirmed' | 'completed' | 'canceled') => {
     const { error } = await supabase.from('bookings').update({ status: next }).eq('id', id);
-    if (error) toast({ variant: 'destructive', title: 'Error', description: error.message });
-    else {
+    if (error) {
+      console.error('Error updating status:', getErrorMessage(error));
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    } else {
       setRows(rs => rs.map(r => (r.id === id ? { ...r, status: next } : r)));
       toast({ title: 'Success', description: `Booking marked as ${next}` });
     }
-  };
+  }, [toast]);
 
   const [editingBooking, setEditingBooking] = useState<Row | null>(null);
 
@@ -90,8 +99,9 @@ export default function AdminBookings() {
       setRows(prev => prev.map(r => r.id === editingBooking.id ? editingBooking : r));
       setEditingBooking(null);
       toast({ title: "Booking Updated", description: "Changes saved successfully." });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Update Failed", description: e.message });
+    } catch (e: unknown) {
+      console.error('Error saving booking override:', getErrorMessage(e));
+      toast({ variant: "destructive", title: "Update Failed", description: getErrorMessage(e) });
     }
   };
 
@@ -102,8 +112,9 @@ export default function AdminBookings() {
       if (error) throw error;
       setRows(prev => prev.filter(r => r.id !== id));
       toast({ title: "Deleted", description: "Booking record removed." });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Action Failed", description: e.message });
+    } catch (e: unknown) {
+      console.error('Error deleting booking:', getErrorMessage(e));
+      toast({ variant: "destructive", title: "Action Failed", description: getErrorMessage(e) });
     }
   };
 
@@ -131,10 +142,10 @@ export default function AdminBookings() {
       </div>
 
       <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
-        {['all', 'pending', 'confirmed', 'completed', 'canceled'].map((s) => (
+        {(['all', 'pending', 'confirmed', 'completed', 'canceled'] as const).map((s) => (
           <button
             key={s}
-            onClick={() => setTab(s as any)}
+            onClick={() => setTab(s)}
             className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${tab === s
               ? 'bg-gray-900 text-white shadow-md shadow-gray-900/20'
               : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'

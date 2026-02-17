@@ -45,9 +45,9 @@ export default function TripsPage() {
         if (error) throw error;
 
         if (data) {
-          setBookings(data);
+          setBookings(data as unknown as Booking[]);
         }
-      } catch (error) {
+      } catch (error: unknown) {
         console.error("Error fetching bookings:", error);
       } finally {
         setLoading(false);
