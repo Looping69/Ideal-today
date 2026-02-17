@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Star, MessageSquare, CheckCircle, Clock, XCircle, MoreHorizontal } from 'lucide-react';
+import { Star, CheckCircle, Clock, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type Row = { id: string; property_id: string; user_id: string; rating: number; content: string; status: string; created_at: string };
@@ -19,7 +19,7 @@ export default function AdminReviews() {
         .select('id,property_id,user_id,rating,content,status,created_at')
         .order('created_at', { ascending: false })
         .range(page * pageSize, page * pageSize + pageSize - 1);
-      setRows((data as any[]) || []);
+      setRows((data as Row[]) || []);
       setLoading(false);
     };
     load();

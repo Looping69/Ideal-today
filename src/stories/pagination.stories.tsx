@@ -1,3 +1,4 @@
+import * as React from "react";
 import {
   Pagination,
   PaginationContent,
@@ -17,7 +18,7 @@ const meta = {
 export default meta;
 
 export const Base = {
-  render: (args: any) => (
+  render: (args: React.ComponentProps<typeof Pagination>) => (
     <Pagination {...args}>
       <PaginationContent>
         <PaginationItem>

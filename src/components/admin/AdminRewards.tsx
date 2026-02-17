@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Search, Filter, Gift, Download, Trash2, Plus, Medal } from 'lucide-react';
+import { Search, Gift, Download, Trash2, Medal } from 'lucide-react';
+import { useCallback } from 'react';
 
 type Row = { id: string; user_id: string; reward_code: string; created_at: string };
 
@@ -23,17 +23,22 @@ export default function AdminRewards() {
   const [manualCode, setManualCode] = useState<'coastal_explorer' | 'photo_finisher'>('coastal_explorer');
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     let query = supabase.from('rewards_completions').select('id,user_id,reward_code,created_at').order('created_at', { ascending: false }).range(page * pageSize, page * pageSize + pageSize - 1);
     if (codeFilter !== 'all') query = query.eq('reward_code', codeFilter);
-    const { data } = await query as any;
-    setRows((data as any[]) || []);
+    const { data } = await query;
+    setRows((data as Row[]) || []);
     setSelected({});
     setLoading(false);
-  };
+  }, [page, codeFilter, pageSize]);
 
-  useEffect(() => { load(); }, [page, codeFilter]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      load();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [load]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return rows;
@@ -49,11 +54,23 @@ export default function AdminRewards() {
     const { data: existing } = await supabase.from('rewards_completions').select('id').eq('user_id', profile.id).eq('reward_code', manualCode).limit(1);
     if (existing && existing.length > 0) return;
     await supabase.from('rewards_completions').insert({ user_id: profile.id, reward_code: manualCode });
-    if (points) await supabase.from('profiles').update({ points: (undefined as any) }).eq('id', profile.id);
-    await supabase.rpc('noop');
-    await supabase.from('profiles').update({ points: supabase.rpc as any }).eq('id', profile.id);
-    const { data: refresh } = await supabase.from('rewards_completions').select('id,user_id,reward_code,created_at').eq('user_id', profile.id).eq('reward_code', manualCode).limit(1);
-    setRows(rs => refresh && refresh.length ? [refresh[0] as any, ...rs] : rs);
+    if (points) {
+      // Fetch current points first to update
+      const { data: currentProfile } = await supabase.from('profiles').select('points').eq('id', profile.id).single();
+      const newPoints = (currentProfile?.points || 0) + points;
+      await supabase.from('profiles').update({ points: newPoints }).eq('id', profile.id);
+    }
+
+    const { data: refresh } = await supabase
+      .from('rewards_completions')
+      .select('id,user_id,reward_code,created_at')
+      .eq('user_id', profile.id)
+      .eq('reward_code', manualCode)
+      .limit(1);
+
+    if (refresh && refresh.length > 0) {
+      setRows(rs => [refresh[0] as Row, ...rs]);
+    }
     setUserEmail('');
   };
 
@@ -110,8 +127,8 @@ export default function AdminRewards() {
           <button
             onClick={() => setCodeFilter('all')}
             className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${codeFilter === 'all'
-                ? 'bg-gray-900 text-white shadow-md shadow-gray-900/20'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+              ? 'bg-gray-900 text-white shadow-md shadow-gray-900/20'
+              : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
               }`}
           >
             All Rewards
@@ -119,8 +136,8 @@ export default function AdminRewards() {
           <button
             onClick={() => setCodeFilter('coastal_explorer')}
             className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${codeFilter === 'coastal_explorer'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+              : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
               }`}
           >
             Coastal Explorer
@@ -130,8 +147,8 @@ export default function AdminRewards() {
           <button
             onClick={() => setCodeFilter('photo_finisher')}
             className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${codeFilter === 'photo_finisher'
-                ? 'bg-green-600 text-white shadow-md shadow-green-600/20'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+              ? 'bg-green-600 text-white shadow-md shadow-green-600/20'
+              : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
               }`}
           >
             Photo Finisher
@@ -182,7 +199,7 @@ export default function AdminRewards() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <div className={`p-1.5 rounded-lg ${r.reward_code === 'coastal_explorer' ? 'bg-blue-100 text-blue-600' :
-                            r.reward_code === 'photo_finisher' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'
+                          r.reward_code === 'photo_finisher' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'
                           }`}>
                           <Medal className="w-4 h-4" />
                         </div>
@@ -226,7 +243,7 @@ export default function AdminRewards() {
             <select
               className="h-10 w-64 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               value={manualCode}
-              onChange={(e) => setManualCode(e.target.value as any)}
+              onChange={(e) => setManualCode(e.target.value as 'coastal_explorer' | 'photo_finisher')}
             >
               <option value="coastal_explorer">Coastal Explorer (+500)</option>
               <option value="photo_finisher">Photo Finisher (+200)</option>

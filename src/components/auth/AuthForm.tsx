@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/form";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { getErrorMessage } from "@/lib/errors";
 
 const formSchema = z.object({
   email: z.string().email(),
@@ -89,11 +90,11 @@ export default function AuthForm({ view, onSuccess, onViewChange }: AuthFormProp
         });
         onSuccess();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message,
+        description: getErrorMessage(error),
       });
     } finally {
       setIsLoading(false);

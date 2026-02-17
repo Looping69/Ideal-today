@@ -1,3 +1,4 @@
+import * as React from "react";
 import { Card, CardContent } from "../components/ui/card";
 import {
   Carousel,
@@ -16,7 +17,7 @@ const meta = {
 export default meta;
 
 export const Base = {
-  render: (args: any) => (
+  render: (args: React.ComponentProps<typeof Carousel>) => (
     <Carousel {...args} className="mx-12 w-full max-w-xs">
       <CarouselContent>
         {Array.from({ length: 5 }).map((_, index) => (
@@ -39,7 +40,7 @@ export const Base = {
 };
 
 export const Size = {
-  render: (args: any) => (
+  render: (args: React.ComponentProps<typeof Carousel>) => (
     <Carousel {...args} className="mx-12 w-full max-w-xs">
       <CarouselContent>
         {Array.from({ length: 5 }).map((_, index) => (

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Property } from "@/types/property";
@@ -6,6 +6,7 @@ import Header from "../layout/Header";
 import Footer from "../layout/Footer";
 import PropertyView from "./PropertyView";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function PropertyPage() {
     const { id } = useParams<{ id: string }>();
@@ -14,13 +15,7 @@ export default function PropertyPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (id) {
-            fetchProperty();
-        }
-    }, [id]);
-
-    const fetchProperty = async () => {
+    const fetchProperty = useCallback(async () => {
         try {
             setLoading(true);
             const { data, error: fetchError } = await supabase
@@ -76,13 +71,20 @@ export default function PropertyPage() {
             };
 
             setProperty(mapped);
-        } catch (e: any) {
-            console.error("Error fetching property:", e);
-            setError(e.message);
+        } catch (e: unknown) {
+            const message = getErrorMessage(e);
+            console.error("Error fetching property:", message);
+            setError(message);
         } finally {
             setLoading(false);
         }
-    };
+    }, [id]);
+
+    useEffect(() => {
+        if (id) {
+            fetchProperty();
+        }
+    }, [id, fetchProperty]);
 
     if (loading) {
         return (

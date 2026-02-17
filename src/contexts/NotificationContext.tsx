@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import { getErrorMessage } from '@/lib/errors';
 
 export type Notification = {
     id: string;
@@ -52,9 +53,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
                 if (error) throw error;
                 setNotifications(data || []);
-            } catch (error: any) {
-                console.error('Error fetching notifications:', error);
-                if (error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+            } catch (error: unknown) {
+                const message = getErrorMessage(error);
+                console.error('Error fetching notifications:', message);
+
+                // Check for specific Supabase error codes if possible, or use message check
+                const isTableMissing = typeof error === 'object' && error !== null && 'code' in error && error.code === 'PGRST205';
+                const isNotFound = message.includes('does not exist');
+
+                if (isTableMissing || isNotFound) {
                     // Silent failure for missing table to avoid spamming toasts on every page load
                     // The admin settings page will warn about missing tables
                     console.warn('Notifications table missing. Please run migration.');
@@ -97,6 +104,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         return () => {
             subscription.unsubscribe();
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user]);
 
     const markAsRead = async (id: string) => {
@@ -110,8 +118,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 .eq('id', id);
 
             if (error) throw error;
-        } catch (error) {
-            console.error('Error marking notification as read:', error);
+        } catch (error: unknown) {
+            console.error('Error marking notification as read:', getErrorMessage(error));
             // Revert on error could be implemented here
         }
     };
@@ -127,8 +135,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 .eq('read', false);
 
             if (error) throw error;
-        } catch (error) {
-            console.error('Error marking all as read:', error);
+        } catch (error: unknown) {
+            console.error('Error marking all as read:', getErrorMessage(error));
         }
     };
 
@@ -142,8 +150,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 .eq('id', id);
 
             if (error) throw error;
-        } catch (error) {
-            console.error('Error deleting notification:', error);
+        } catch (error: unknown) {
+            console.error('Error deleting notification:', getErrorMessage(error));
         }
     };
 
@@ -158,8 +166,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 });
 
             if (error) throw error;
-        } catch (error) {
-            console.error('Error sending notification:', error);
+        } catch (error: unknown) {
+            console.error('Error sending notification:', getErrorMessage(error));
             throw error;
         }
     };
@@ -179,6 +187,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useNotifications() {
     const context = useContext(NotificationContext);
     if (context === undefined) {

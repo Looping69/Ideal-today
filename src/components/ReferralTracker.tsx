@@ -12,12 +12,10 @@ export default function ReferralTracker() {
 
         if (ref) {
             sessionStorage.setItem('referral_code', ref);
-            console.log('Referral code captured:', ref);
         }
 
         if (hostRef) {
             sessionStorage.setItem('host_referral_code', hostRef);
-            console.log('Host referral code captured:', hostRef);
         }
     }, [location]);
 

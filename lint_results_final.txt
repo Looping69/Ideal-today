@@ -1,0 +1,371 @@
+
+C:\Git Repos\Ideal-today\debug-db.ts
+  0:0  error  Parsing error: "parserOptions.project" has been provided for @typescript-eslint/parser.
+The file was not found in any of the provided project(s): debug-db.ts
+
+C:\Git Repos\Ideal-today\scripts\dev-check.mjs
+  67:9  error  'child' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Git Repos\Ideal-today\src\components\Diagnose.tsx
+  23:21  error  'data' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+  97:9   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Git Repos\Ideal-today\src\components\Diagnose.tsx:97:9
+   95 |
+   96 |     useEffect(() => {
+>  97 |         runDiagnosis();
+      |         ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+   98 |     }, []);
+   99 |
+  100 |     return (  react-hooks/set-state-in-effect
+
+C:\Git Repos\Ideal-today\src\components\account\AccountPage.tsx
+  83:13  error  'data' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Git Repos\Ideal-today\src\components\admin\AdminBookings.tsx
+    6:109  error    'DollarSign' is defined but never used                                                                    @typescript-eslint/no-unused-vars
+   57:6    warning  React Hook useEffect has a missing dependency: 'toast'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  147:40   warning  Unexpected any. Specify a different type                                                                  @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\components\admin\AdminFinancials.tsx
+   60:37   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   62:54   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   62:77   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   62:102  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   63:57   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   63:76   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   63:97   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   64:49   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   66:37   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   67:39   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   68:39   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   71:35   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   72:49   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   73:50   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  203:70   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\components\admin\AdminLayout.tsx
+  4:10  error  'useToast' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Git Repos\Ideal-today\src\components\admin\AdminListings.tsx
+   6:65  error    'Pencil' is defined but never used                                                                        @typescript-eslint/no-unused-vars
+   6:73  error    'Trash2' is defined but never used                                                                        @typescript-eslint/no-unused-vars
+  17:10  error    'Textarea' is defined but never used                                                                      @typescript-eslint/no-unused-vars
+  96:6   warning  React Hook useEffect has a missing dependency: 'toast'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Git Repos\Ideal-today\src\components\admin\AdminNotifications.tsx
+   10:32  error    'Search' is defined but never used              @typescript-eslint/no-unused-vars
+   18:12  error    'search' is assigned a value but never used     @typescript-eslint/no-unused-vars
+   18:20  error    'setSearch' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  142:97  warning  Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\components\admin\AdminPendingListings.tsx
+   5:49  error    'Home' is defined but never used                                                                                         @typescript-eslint/no-unused-vars
+  55:8   warning  React Hook useEffect has a missing dependency: 'fetchPendingListings'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Git Repos\Ideal-today\src\components\admin\AdminReferrals.tsx
+   6:10  error    'Badge' is defined but never used                                                                        @typescript-eslint/no-unused-vars
+   7:18  error    'Filter' is defined but never used                                                                       @typescript-eslint/no-unused-vars
+   7:52  error    'XCircle' is defined but never used                                                                      @typescript-eslint/no-unused-vars
+   7:87  error    'Trash2' is defined but never used                                                                       @typescript-eslint/no-unused-vars
+  56:32  warning  React Hook useEffect has a missing dependency: 'load'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Git Repos\Ideal-today\src\components\admin\AdminReviews.tsx
+   3:16  error    'MessageSquare' is defined but never used  @typescript-eslint/no-unused-vars
+   3:51  error    'XCircle' is defined but never used        @typescript-eslint/no-unused-vars
+  22:24  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\components\admin\AdminRewards.tsx
+    5:10  error    'Badge' is defined but never used                                                                        @typescript-eslint/no-unused-vars
+   30:37  warning  Unexpected any. Specify a different type                                                                 @typescript-eslint/no-explicit-any
+   31:22  warning  Unexpected any. Specify a different type                                                                 @typescript-eslint/no-explicit-any
+   41:6   warning  React Hook useEffect has a missing dependency: 'load'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   57:80  warning  Unexpected any. Specify a different type                                                                 @typescript-eslint/no-explicit-any
+   59:70  warning  Unexpected any. Specify a different type                                                                 @typescript-eslint/no-explicit-any
+   61:62  warning  Unexpected any. Specify a different type                                                                 @typescript-eslint/no-explicit-any
+  234:64  warning  Unexpected any. Specify a different type                                                                 @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\components\admin\AdminSettings.tsx
+  48:6  warning  React Hook useEffect has a missing dependency: 'fetchSettings'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Git Repos\Ideal-today\src\components\admin\AdminUsers.tsx
+   5:58  error    'CheckCircle2' is defined but never used                                                                  @typescript-eslint/no-unused-vars
+   5:72  error    'XCircle' is defined but never used                                                                       @typescript-eslint/no-unused-vars
+   5:81  error    'FileText' is defined but never used                                                                      @typescript-eslint/no-unused-vars
+  91:6   warning  React Hook useEffect has a missing dependency: 'toast'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Git Repos\Ideal-today\src\components\auth\AuthModal.tsx
+  21:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Git Repos\Ideal-today\src\components\auth\AuthModal.tsx:21:7
+  19 |   useEffect(() => {
+  20 |     if (isOpen && view !== defaultView) {
+> 21 |       setView(defaultView);
+     |       ^^^^^^^ Avoid calling setState() directly within an effect
+  22 |     }
+  23 |   }, [isOpen, defaultView, view]);
+  24 |  react-hooks/set-state-in-effect
+
+C:\Git Repos\Ideal-today\src\components\home.tsx
+    6:8   error  'PropertyCard' is defined but never used  @typescript-eslint/no-unused-vars
+  236:15  error  Empty block statement                     no-empty
+
+C:\Git Repos\Ideal-today\src\components\host\CreateListing.tsx
+  11:3  error  'Home' is defined but never used       @typescript-eslint/no-unused-vars
+  12:3  error  'Building2' is defined but never used  @typescript-eslint/no-unused-vars
+  13:3  error  'Warehouse' is defined but never used  @typescript-eslint/no-unused-vars
+  14:3  error  'Tent' is defined but never used       @typescript-eslint/no-unused-vars
+  15:3  error  'Mountain' is defined but never used   @typescript-eslint/no-unused-vars
+  16:3  error  'Waves' is defined but never used      @typescript-eslint/no-unused-vars
+  17:3  error  'Trees' is defined but never used      @typescript-eslint/no-unused-vars
+  24:3  error  'Video' is defined but never used      @typescript-eslint/no-unused-vars
+
+C:\Git Repos\Ideal-today\src\components\host\HostBookings.tsx
+   10:10  error    'Card' is defined but never used                                                                                  @typescript-eslint/no-unused-vars
+   10:16  error    'CardContent' is defined but never used                                                                           @typescript-eslint/no-unused-vars
+   10:29  error    'CardHeader' is defined but never used                                                                            @typescript-eslint/no-unused-vars
+   10:41  error    'CardTitle' is defined but never used                                                                             @typescript-eslint/no-unused-vars
+   45:8   warning  React Hook useEffect has a missing dependency: 'fetchBookings'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  106:67  warning  Unexpected any. Specify a different type                                                                          @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\components\host\HostCalendar.tsx
+    3:52   error    'CardDescription' is defined but never used                                                                   @typescript-eslint/no-unused-vars
+    9:16   error    'TabsContent' is defined but never used                                                                       @typescript-eslint/no-unused-vars
+   14:94   error    'ChevronRight' is defined but never used                                                                      @typescript-eslint/no-unused-vars
+   14:108  error    'Filter' is defined but never used                                                                            @typescript-eslint/no-unused-vars
+   15:18   error    'isSameDay' is defined but never used                                                                         @typescript-eslint/no-unused-vars
+   15:48   error    'isWithinInterval' is defined but never used                                                                  @typescript-eslint/no-unused-vars
+   59:6    warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  218:9    error    'upcomingBookings' is assigned a value but never used                                                         @typescript-eslint/no-unused-vars
+
+C:\Git Repos\Ideal-today\src\components\host\HostDashboard.tsx
+    5:10   error    'DollarSign' is defined but never used      @typescript-eslint/no-unused-vars
+    5:22   error    'Users' is defined but never used           @typescript-eslint/no-unused-vars
+    5:106  error    'MoreHorizontal' is defined but never used  @typescript-eslint/no-unused-vars
+   17:9    warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  139:41   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  145:33   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  152:39   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  158:27   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\components\host\HostGuests.tsx
+    4:92  error    'User' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+   97:46  warning  Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  101:45  warning  Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  107:43  warning  Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  108:44  warning  Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  109:44  warning  Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  114:49  warning  Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  147:8   warning  React Hook useEffect has a missing dependency: 'fetchGuests'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  351:77  warning  Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\components\host\HostLayout.tsx
+  53:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Git Repos\Ideal-today\src\components\host\HostLayout.tsx:53:7
+  51 |       navigate("/");
+  52 |     } else if (user) {
+> 53 |       checkStatus();
+     |       ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  54 |     }
+  55 |   }, [loading, user, navigate, toast, checkStatus]);
+  56 |  react-hooks/set-state-in-effect
+
+C:\Git Repos\Ideal-today\src\components\host\HostListings.tsx
+  48:6  warning  React Hook useEffect has a missing dependency: 'fetchListings'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Git Repos\Ideal-today\src\components\host\HostOperations.tsx
+    2:23  error    'Clock' is defined but never used                                                                             @typescript-eslint/no-unused-vars
+    2:51  error    'Filter' is defined but never used                                                                            @typescript-eslint/no-unused-vars
+    2:59  error    'MoreHorizontal' is defined but never used                                                                    @typescript-eslint/no-unused-vars
+    2:75  error    'Calendar' is defined but never used                                                                          @typescript-eslint/no-unused-vars
+    7:5   error    'DropdownMenu' is defined but never used                                                                      @typescript-eslint/no-unused-vars
+    8:5   error    'DropdownMenuContent' is defined but never used                                                               @typescript-eslint/no-unused-vars
+    9:5   error    'DropdownMenuItem' is defined but never used                                                                  @typescript-eslint/no-unused-vars
+   10:5   error    'DropdownMenuTrigger' is defined but never used                                                               @typescript-eslint/no-unused-vars
+   93:8   warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  199:35  warning  Unexpected any. Specify a different type                                                                      @typescript-eslint/no-explicit-any
+  202:43  warning  Unexpected any. Specify a different type                                                                      @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\components\host\HostReferrals.tsx
+  27:8   warning  React Hook useEffect has a missing dependency: 'fetchReferralData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  70:25  warning  Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\components\host\HostReports.tsx
+   1:31  error    'useMemo' is defined but never used           @typescript-eslint/no-unused-vars
+  13:12  error    'loading' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  14:48  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\components\host\HostSettings.tsx
+  27:6  warning  React Hook useEffect has a missing dependency: 'getProfile'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Git Repos\Ideal-today\src\components\host\HostSubscription.tsx
+    5:79  error    'Gift' is defined but never used                                                                                                 @typescript-eslint/no-unused-vars
+  131:8   warning  React Hook useEffect has missing dependencies: 'performUpgrade' and 'toast'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Git Repos\Ideal-today\src\components\host\HostVerification.tsx
+  44:8  warning  React Hook useEffect has a missing dependency: 'checkVerificationStatus'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Git Repos\Ideal-today\src\components\icons\CategoryIcons.tsx
+  161:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Git Repos\Ideal-today\src\components\layout\Header.tsx
+  2:31  error  'User' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Git Repos\Ideal-today\src\components\listings\FilterBar.tsx
+  1:20  error  'useEffect' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Git Repos\Ideal-today\src\components\listings\PropertyMap.tsx
+  49:10  error  'selectedProperty' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Git Repos\Ideal-today\src\components\listings\PropertyPage.tsx
+  22:8  warning  React Hook useEffect has a missing dependency: 'fetchProperty'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Git Repos\Ideal-today\src\components\listings\PropertyView.tsx
+  58:8  warning  React Hook useEffect has missing dependencies: 'fetchBookedDates' and 'loadReviews'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Git Repos\Ideal-today\src\components\payment\PaymentSuccess.tsx
+  13:58  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\components\rewards\RewardsDashboard.tsx
+   7:29  error    'Calendar' is defined but never used                                                                             @typescript-eslint/no-unused-vars
+  48:46  warning  Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+  55:6   warning  React Hook useEffect has a missing dependency: 'fetchProfile'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  79:14  error    'error' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+
+C:\Git Repos\Ideal-today\src\components\search\SearchFilterBar.tsx
+  3:26  error  'Calendar' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Git Repos\Ideal-today\src\components\ui\badge.tsx
+  36:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Git Repos\Ideal-today\src\components\ui\button.tsx
+  57:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Git Repos\Ideal-today\src\components\ui\form.tsx
+  168:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Git Repos\Ideal-today\src\components\ui\image-upload.tsx
+  4:39  error  'ImageIcon' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Git Repos\Ideal-today\src\components\ui\navigation-menu.tsx
+  119:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Git Repos\Ideal-today\src\components\ui\notification-bell.tsx
+  5:5  error  'DropdownMenuItem' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Git Repos\Ideal-today\src\components\ui\toggle.tsx
+  43:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Git Repos\Ideal-today\src\components\ui\use-toast.ts
+  19:7  error  'actionTypes' is assigned a value but only used as a type  @typescript-eslint/no-unused-vars
+
+C:\Git Repos\Ideal-today\src\components\ui\video-upload.tsx
+  4:19  error  'Upload' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Git Repos\Ideal-today\src\components\wishlists\WishlistsPage.tsx
+  24:106  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\contexts\AuthContext.tsx
+  56:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Git Repos\Ideal-today\src\contexts\NotificationContext.tsx
+  107:8   warning  React Hook useEffect has a missing dependency: 'toast'. Either include it or remove the dependency array                        react-hooks/exhaustive-deps
+  189:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Git Repos\Ideal-today\src\stories\accordion.stories.tsx
+  19:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\stories\badge.stories.tsx
+  13:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  17:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  23:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  29:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\stories\button.stories.tsx
+  15:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  19:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  25:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  31:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  37:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  43:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  54:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\stories\calendar.stories.tsx
+   33:18  warning  Unexpected any. Specify a different type                                                                                                                                                                                                      @typescript-eslint/no-explicit-any
+   66:29  error    React Hook "useState" is called in function "render" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word "use"  react-hooks/rules-of-hooks
+  114:29  error    React Hook "useState" is called in function "render" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word "use"  react-hooks/rules-of-hooks
+
+C:\Git Repos\Ideal-today\src\stories\carousel.stories.tsx
+  19:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  42:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\stories\checkbox.stories.tsx
+  13:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  32:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\stories\collapsible.stories.tsx
+  20:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  52:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\stories\drawer.stories.tsx
+  22:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\stories\input.stories.tsx
+  15:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  22:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  26:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  35:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  45:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\stories\menubar.stories.tsx
+  120:3  error  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+C:\Git Repos\Ideal-today\src\stories\pagination.stories.tsx
+  20:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\stories\resizable.stories.tsx
+  16:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\stories\sheet.stories.tsx
+  20:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  42:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  64:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  86:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\stories\tabs.stories.tsx
+  21:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\stories\textarea.stories.tsx
+  15:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  22:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  30:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  40:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  53:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\src\types\supabase.ts
+  1:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Git Repos\Ideal-today\tailwind.config.js
+  76:13  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+Γ£û 186 problems (76 errors, 110 warnings)
+

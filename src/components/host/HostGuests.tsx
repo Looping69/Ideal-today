@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
-import { Search, Mail, Phone, Star, MoreHorizontal, Download, MessageSquare, Plus, Trash2, User } from 'lucide-react';
+import { Search, Mail, Phone, Star, MoreHorizontal, Download, MessageSquare, Plus, Trash2 } from 'lucide-react';
+import { useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -24,23 +25,47 @@ import { useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { getErrorMessage } from '@/lib/errors';
+
+interface GuestNote {
+    id: string;
+    host_id: string;
+    guest_id: string;
+    content: string;
+    created_at: string;
+}
+
+interface Guest {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    stays: number;
+    spent: number;
+    avatar_url: string;
+    lastStay: string;
+    lastBookingId: string;
+    notes: GuestNote[];
+    status: 'VIP' | 'Returning' | 'New';
+    rating: number;
+}
 
 export default function HostGuests() {
     const [search, setSearch] = useState('');
-    const [guests, setGuests] = useState<any[]>([]);
+    const [guests, setGuests] = useState<Guest[]>([]);
     const { user } = useAuth();
     const { toast } = useToast();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
 
     // Dialog states
-    const [selectedGuest, setSelectedGuest] = useState<any>(null);
+    const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isNoteOpen, setIsNoteOpen] = useState(false);
     const [noteContent, setNoteContent] = useState('');
     const [savingNote, setSavingNote] = useState(false);
 
-    const fetchGuests = async () => {
+    const fetchGuests = useCallback(async () => {
         if (!user) return;
         setLoading(true);
         try {
@@ -70,28 +95,31 @@ export default function HostGuests() {
             if (!bookings) return;
 
             // 4. Aggregate by User
-            const guestMap = new Map();
+            const guestMap = new Map<string, Partial<Guest> & { id: string; stays: number; spent: number; lastStay: string | null }>();
 
-            bookings.forEach((b: any) => {
-                const guestId = b.user?.id;
+            bookings.forEach((b) => {
+                const profile = (Array.isArray(b.user) ? b.user[0] : b.user) as { id: string; full_name: string; avatar_url: string; email: string; phone: string } | null;
+                const guestId = profile?.id;
                 if (!guestId) return;
 
                 if (!guestMap.has(guestId)) {
                     guestMap.set(guestId, {
                         id: guestId,
-                        name: b.user.full_name || 'Unknown Guest',
-                        email: b.user.email || 'No email',
-                        phone: b.user.phone || 'N/A',
+                        name: profile.full_name || 'Unknown Guest',
+                        email: profile.email || 'No email',
+                        phone: profile.phone || 'N/A',
                         stays: 0,
                         spent: 0,
-                        lastStay: null,
-                        lastBookingId: b.id, // Since it's ordered by check_in desc, first one is latest
-                        avatar_url: b.user.avatar_url,
-                        notes: (notes || []).filter(n => n.guest_id === guestId)
+                        lastStay: '',
+                        lastBookingId: b.id,
+                        avatar_url: profile.avatar_url || "",
+                        notes: (notes || []).filter(n => n.guest_id === guestId),
+                        status: 'New',
+                        rating: 5.0
                     });
                 }
 
-                const guest = guestMap.get(guestId);
+                const guest = guestMap.get(guestId)!;
                 guest.stays += 1;
                 guest.spent += b.total_price || 0;
 
@@ -102,10 +130,10 @@ export default function HostGuests() {
             });
 
             // 5. Transform and set
-            const guestList = Array.from(guestMap.values()).map(g => ({
-                ...g,
+            const guestList: Guest[] = Array.from(guestMap.values()).map(g => ({
+                ...g as Guest,
                 lastStay: g.lastStay ? new Date(g.lastStay).toISOString().split('T')[0] : 'N/A',
-                status: g.stays > 5 ? 'VIP' : g.stays > 1 ? 'Returning' : 'New',
+                status: g.stays > 5 ? 'VIP' : (g.stays || 0) > 1 ? 'Returning' : 'New',
                 rating: 5.0
             }));
 
@@ -115,11 +143,11 @@ export default function HostGuests() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [user]);
 
     useEffect(() => {
         fetchGuests();
-    }, [user]);
+    }, [user, fetchGuests]);
 
     const handleMessageGuest = (bookingId: string) => {
         navigate(`/host/inbox/${bookingId}`);
@@ -142,8 +170,8 @@ export default function HostGuests() {
             setNoteContent('');
             setIsNoteOpen(false);
             fetchGuests(); // Refresh to show new note in profile if open
-        } catch (err: any) {
-            toast({ title: "Error saving note", description: err.message, variant: "destructive" });
+        } catch (err: unknown) {
+            toast({ title: "Error saving note", description: getErrorMessage(err), variant: "destructive" });
         } finally {
             setSavingNote(false);
         }
@@ -154,8 +182,8 @@ export default function HostGuests() {
             const { error } = await supabase.from('guest_notes').delete().eq('id', noteId);
             if (error) throw error;
             fetchGuests();
-        } catch (err: any) {
-            toast({ title: "Error deleting note", description: err.message, variant: "destructive" });
+        } catch (err: unknown) {
+            toast({ title: "Error deleting note", description: getErrorMessage(err), variant: "destructive" });
         }
     };
 
@@ -276,6 +304,7 @@ export default function HostGuests() {
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>Guest Profile</DialogTitle>
+                        <DialogDescription>Detailed history and notes for this guest.</DialogDescription>
                     </DialogHeader>
                     {selectedGuest && (
                         <div className="space-y-6 py-4">
@@ -323,7 +352,7 @@ export default function HostGuests() {
                                         <p className="text-sm text-gray-500 italic text-center py-8">No notes for this guest yet.</p>
                                     ) : (
                                         <div className="space-y-4">
-                                            {selectedGuest.notes.map((note: any) => (
+                                            {selectedGuest.notes.map((note: GuestNote) => (
                                                 <div key={note.id} className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm relative group">
                                                     <p className="text-sm text-gray-700 leading-relaxed pr-8">{note.content}</p>
                                                     <p className="text-[10px] text-gray-400 mt-2">

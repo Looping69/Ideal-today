@@ -1,5 +1,5 @@
 
-import { Search, Globe, Menu, User, LogOut, Trophy } from "lucide-react";
+import { Search, Globe, Menu, LogOut, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,

@@ -17,6 +17,7 @@ import {
   AlertCircle,
   Trophy
 } from "lucide-react";
+import { useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,13 +33,13 @@ export default function HostLayout() {
   const { toast } = useToast();
   const [verificationStatus, setVerificationStatus] = useState<'none' | 'pending' | 'verified' | 'rejected'>('none');
 
-  const checkStatus = async () => {
+  const checkStatus = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase.from('profiles').select('verification_status').eq('id', user.id).single();
     if (data) {
       setVerificationStatus(data.verification_status || 'none');
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -49,9 +50,9 @@ export default function HostLayout() {
       });
       navigate("/");
     } else if (user) {
-      checkStatus();
+      setTimeout(() => checkStatus(), 0);
     }
-  }, [loading, user, location.pathname]);
+  }, [loading, user, navigate, toast, checkStatus]);
 
   const sidebarItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/host" },

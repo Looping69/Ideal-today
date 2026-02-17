@@ -1,22 +1,20 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import {
-    DollarSign,
     TrendingUp,
     ArrowUpRight,
-    ArrowDownRight,
-    Calendar,
     Download,
     Filter,
     Search,
     CreditCard,
-    PieChart as PieChartIcon,
-    BarChart3
+    BarChart3,
+    Clock
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { getErrorMessage } from '@/lib/errors';
 
 type Transaction = {
     id: string;
@@ -35,11 +33,7 @@ export default function AdminFinancials() {
     const [search, setSearch] = useState('');
     const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
 
-    useEffect(() => {
-        fetchFinancialData();
-    }, [timeRange]);
-
-    const fetchFinancialData = async () => {
+    const fetchFinancialData = useCallback(async () => {
         setLoading(true);
         try {
             // Fetch bookings to derive income
@@ -58,10 +52,12 @@ export default function AdminFinancials() {
 
             if (error) throw error;
 
-            const formatted: Transaction[] = (bookings || []).map((b: any) => {
+            const formatted: Transaction[] = (bookings || []).map((b) => {
                 const total = b.total_price || 0;
                 // Fallback to 10% if property doesn't have a specific fee set
-                const feePercent = b.property?.service_fee || 10;
+                const property = (Array.isArray(b.property) ? b.property[0] : b.property) as { title: string; service_fee?: number } | null;
+                const userProfile = (Array.isArray(b.user) ? b.user[0] : b.user) as { email: string } | null;
+                const feePercent = property?.service_fee || 10;
                 return {
                     id: `TX-${b.id.slice(0, 8).toUpperCase()}`,
                     booking_id: b.id,
@@ -69,18 +65,22 @@ export default function AdminFinancials() {
                     amount: total,
                     fee_amount: total * (feePercent / 100),
                     status: b.status,
-                    user_email: b.user?.email || 'N/A',
-                    property_title: b.property?.title || 'N/A'
+                    user_email: userProfile?.email || 'N/A',
+                    property_title: property?.title || 'N/A'
                 };
             });
 
             setTransactions(formatted);
-        } catch (e) {
-            console.error('Error fetching financials:', e);
+        } catch (e: unknown) {
+            console.error('Error fetching financials:', getErrorMessage(e));
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchFinancialData();
+    }, [timeRange, fetchFinancialData]);
 
     const filtered = useMemo(() => {
         return transactions.filter(t =>
@@ -200,7 +200,7 @@ export default function AdminFinancials() {
                             {(['7d', '30d', 'all'] as const).map((r) => (
                                 <button
                                     key={r}
-                                    onClick={() => setTimeRange(r as any)}
+                                    onClick={() => setTimeRange(r as '7d' | '30d' | '90d' | 'all')}
                                     className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${timeRange === r ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                                 >
                                     {r === 'all' ? 'All Time' : r.toUpperCase()}
@@ -285,23 +285,3 @@ export default function AdminFinancials() {
     );
 }
 
-// Re-using Loader symbol from lucide-react or just using custom div
-function Clock(props: any) {
-    return (
-        <svg
-            {...props}
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <circle cx="12" cy="12" r="10" />
-            <polyline points="12 6 12 12 16 14" />
-        </svg>
-    )
-}

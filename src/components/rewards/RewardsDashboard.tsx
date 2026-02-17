@@ -1,10 +1,10 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import BadgeCard from "./BadgeCard";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, Map, Star, Calendar, Award } from "lucide-react";
+import { Trophy, Map, Star, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
@@ -16,6 +16,13 @@ interface Badge {
   icon: string;
   description: string;
   date: string;
+}
+
+interface Referral {
+  referee_id: string;
+  status: string;
+  created_at: string;
+  rewarded_at: string | null;
 }
 
 interface Profile {
@@ -45,16 +52,10 @@ export default function RewardsDashboard() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const [referralCode, setReferralCode] = useState<string | null>(null);
-  const [referrals, setReferrals] = useState<any[]>([]);
+  const [referrals, setReferrals] = useState<Referral[]>([]);
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (user) {
-      fetchProfile();
-    }
-  }, [user]);
-
-  async function fetchProfile() {
+  const fetchProfile = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from("profiles")
@@ -76,7 +77,7 @@ export default function RewardsDashboard() {
         setProfile(data);
         setReferralCode(data?.referral_code || null);
       }
-    } catch (error) {
+    } catch {
       // On network error, use mock data
       setProfile({
         points: 1250,
@@ -89,7 +90,13 @@ export default function RewardsDashboard() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    }
+  }, [user, fetchProfile]);
 
   useEffect(() => {
     const loadReferrals = async () => {

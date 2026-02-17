@@ -3,8 +3,9 @@ import { supabase } from '@/lib/supabase';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, MapPin, MoreHorizontal, Filter, Star, StarOff, Pencil, Trash2, Video } from 'lucide-react';
+import { Search, MapPin, MoreHorizontal, Filter, Star, StarOff, Video } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { getErrorMessage } from '@/lib/errors';
 import {
   Dialog,
   DialogContent,
@@ -13,7 +14,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,7 +39,6 @@ export default function AdminListings() {
     const load = async () => {
       try {
         setLoading(true);
-        console.log('Fetching properties for page:', page);
         const { data, error } = await supabase
           .from('properties')
           .select('*')
@@ -47,19 +46,10 @@ export default function AdminListings() {
           .range(page * pageSize, page * pageSize + pageSize - 1);
 
         if (error) {
-          console.error('Error fetching properties:', error);
-          toast({
-            variant: 'destructive',
-            title: 'Fetch Failed',
-            description: error.message
-          });
-          setLoading(false);
-          return;
+          throw error;
         }
 
-        console.log('Properties data received:', data?.length || 0, 'rows');
-
-        const list = ((data as any[]) || []).map(r => ({
+        const list = (data || []).map(r => ({
           id: r.id,
           title: r.title || 'Untitled',
           location: r.location || 'Unknown Location',
@@ -85,18 +75,24 @@ export default function AdminListings() {
         }
 
         const ids = new Set<string>();
-        (bookings || []).forEach((b: any) => {
+        (bookings || []).forEach((b) => {
           ids.add(b.property_id);
         });
         setBookedIds(ids);
-      } catch (err: any) {
-        console.error('Unexpected error in AdminListings load:', err);
+      } catch (err: unknown) {
+        const error = err as Error;
+        console.error('Unexpected error in AdminListings load:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Fetch Failed',
+          description: error.message || 'An unexpected error occurred'
+        });
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, [page]);
+  }, [page, toast]);
 
   const toggleFeatured = async (id: string, currentStatus: boolean) => {
     const newStatus = !currentStatus;
@@ -152,8 +148,9 @@ export default function AdminListings() {
       setRows(prev => prev.map(r => r.id === editingListing.id ? editingListing : r));
       setEditingListing(null);
       toast({ title: "Listing Updated", description: "Changes saved successfully." });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Update Failed", description: e.message });
+    } catch (e: unknown) {
+      console.error('Error updating listing:', getErrorMessage(e));
+      toast({ variant: "destructive", title: "Update Failed", description: getErrorMessage(e) });
     }
   };
 
@@ -165,8 +162,9 @@ export default function AdminListings() {
       if (!data || data.length === 0) throw new Error("Deletion failed: No rows affected. Access denied by database policy.");
       setRows(prev => prev.filter(r => r.id !== id));
       toast({ title: "Deleted", description: "Listing removed." });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Action Failed", description: e.message });
+    } catch (e: unknown) {
+      console.error('Error deleting listing:', getErrorMessage(e));
+      toast({ variant: "destructive", title: "Action Failed", description: getErrorMessage(e) });
     }
   };
 

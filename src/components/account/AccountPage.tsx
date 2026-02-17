@@ -12,7 +12,7 @@ export default function AccountPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<{ full_name: string; avatar_url: string; phone?: string; bio?: string; preferences?: any } | null>(null);
+  const [profile, setProfile] = useState<{ full_name: string; avatar_url: string; phone?: string; bio?: string; preferences?: Record<string, unknown> } | null>(null);
   const [password, setPassword] = useState("");
   const [email, setEmail] = useState<string>("");
 
@@ -80,7 +80,7 @@ export default function AccountPage() {
       toast({ variant: 'destructive', title: 'Invalid email' });
       return;
     }
-    const { data, error } = await supabase.auth.updateUser({ email });
+    const { error } = await supabase.auth.updateUser({ email });
     if (error) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
     } else {
@@ -89,7 +89,7 @@ export default function AccountPage() {
   };
 
   const signOutAll = async () => {
-    const { error } = await supabase.auth.signOut({ scope: 'global' as any });
+    const { error } = await supabase.auth.signOut({ scope: 'global' });
     if (error) toast({ variant: 'destructive', title: 'Error', description: error.message });
     else toast({ title: 'Signed out everywhere' });
   };

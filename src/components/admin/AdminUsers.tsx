@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, ShieldCheck, User, Ban, MoreHorizontal, CheckCircle2, XCircle, FileText, Bell, Pencil } from 'lucide-react';
+import { Search, ShieldCheck, User, Ban, MoreHorizontal, Bell, Pencil } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import SignedImage from '../ui/signed-image';
 import { Textarea } from '@/components/ui/textarea';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { useToast } from '@/components/ui/use-toast';
+import { getErrorMessage } from '@/lib/errors';
 import {
   Dialog,
   DialogContent,
@@ -16,6 +18,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+interface VerificationDocs {
+  id_front?: string;
+  id_back?: string;
+  selfie?: string;
+}
+
 type Row = {
   id: string;
   email: string;
@@ -24,7 +32,7 @@ type Row = {
   deactivated?: boolean;
   points?: number;
   verification_status?: 'none' | 'pending' | 'verified' | 'rejected';
-  verification_docs?: any;
+  verification_docs?: VerificationDocs;
   host_plan?: 'free' | 'standard' | 'premium';
 };
 
@@ -55,27 +63,32 @@ export default function AdminUsers() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('id,email,full_name,is_admin,deactivated,points,verification_status,verification_docs,host_plan')
         .order('created_at', { ascending: false })
         .range(page * pageSize, page * pageSize + pageSize - 1);
 
-      setRows(((data as any[]) || []).map(r => ({
-        id: r.id,
-        email: r.email,
-        full_name: r.full_name,
-        is_admin: !!r.is_admin,
-        deactivated: !!r.deactivated,
-        points: r.points,
-        verification_status: r.verification_status || 'none',
-        verification_docs: r.verification_docs,
-        host_plan: r.host_plan || 'free'
-      })));
+      if (error) {
+        console.error('Error loading profiles:', getErrorMessage(error));
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load users' });
+      } else {
+        setRows((data as unknown as Row[] || []).map(r => ({
+          id: r.id,
+          email: r.email,
+          full_name: r.full_name,
+          is_admin: !!r.is_admin,
+          deactivated: !!r.deactivated,
+          points: r.points,
+          verification_status: r.verification_status || 'none',
+          verification_docs: r.verification_docs,
+          host_plan: r.host_plan || 'free'
+        })));
+      }
       setLoading(false);
     };
     load();
-  }, [page, filter]);
+  }, [page, filter, toast, pageSize]);
 
   const toggleAdmin = async (id: string, next: boolean) => {
     try {
@@ -84,8 +97,9 @@ export default function AdminUsers() {
       if (!data || data.length === 0) throw new Error("Update failed: No rows affected. Access denied by database policy.");
       setRows(rs => rs.map(r => (r.id === id ? { ...r, is_admin: next } : r)));
       toast({ title: "Role Updated", description: `User is now ${next ? 'an admin' : 'a regular user'}.` });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Update Failed", description: e.message });
+    } catch (e: unknown) {
+      console.error('Error toggling admin role:', getErrorMessage(e));
+      toast({ variant: "destructive", title: "Operation Failed", description: getErrorMessage(e) });
     }
   };
 
@@ -96,8 +110,9 @@ export default function AdminUsers() {
       if (!data || data.length === 0) throw new Error("Update failed: No rows affected. Access denied by database policy.");
       setRows(rs => rs.map(r => (r.id === id ? { ...r, deactivated: next } : r)));
       toast({ title: "Account Status Updated", description: `User account has been ${next ? 'deactivated' : 'activated'}.` });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Update Failed", description: e.message });
+    } catch (e: unknown) {
+      console.error('Error toggling deactivation:', getErrorMessage(e));
+      toast({ variant: "destructive", title: "Operation Failed", description: getErrorMessage(e) });
     }
   };
 
@@ -135,12 +150,13 @@ export default function AdminUsers() {
         description: `User ${status === 'verified' ? 'approved' : 'rejected'} and notified successfully.`,
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Update failed:', error);
+      const message = error instanceof Error ? error.message : "Could not update verification status.";
       toast({
         variant: "destructive",
         title: "Update Failed",
-        description: error.message || "Could not update verification status."
+        description: message
       });
     }
   };
@@ -166,8 +182,9 @@ export default function AdminUsers() {
       setRows(rs => rs.map(r => r.id === editingUser.id ? editingUser : r));
       setEditingUser(null);
       toast({ title: "Profile Updated", description: "Changes saved successfully." });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Update Failed", description: e.message });
+    } catch (e: unknown) {
+      console.error('Error updating profile:', getErrorMessage(e));
+      toast({ variant: "destructive", title: "Operation Failed", description: getErrorMessage(e) });
     }
   };
 
@@ -193,8 +210,9 @@ export default function AdminUsers() {
       setBroadcasting(false);
       setBroadcastData({ title: '', message: '' });
       toast({ title: "Broadcast Sent", description: `Notification sent to ${users?.length || 0} users.` });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Broadcast Failed", description: e.message });
+    } catch (e: unknown) {
+      console.error('Error during broadcast:', getErrorMessage(e));
+      toast({ variant: "destructive", title: "Broadcast Failed", description: getErrorMessage(e) });
     } finally {
       setLoading(false);
     }
@@ -317,19 +335,31 @@ export default function AdminUsers() {
                               {r.verification_docs?.id_front && (
                                 <div>
                                   <p className="text-sm font-medium mb-2">ID Front</p>
-                                  <img src={r.verification_docs.id_front} className="rounded-lg border w-full" />
+                                  <SignedImage
+                                    bucket="verification"
+                                    path={r.verification_docs.id_front}
+                                    className="rounded-lg border w-full"
+                                  />
                                 </div>
                               )}
                               {r.verification_docs?.id_back && (
                                 <div>
                                   <p className="text-sm font-medium mb-2">ID Back</p>
-                                  <img src={r.verification_docs.id_back} className="rounded-lg border w-full" />
+                                  <SignedImage
+                                    bucket="verification"
+                                    path={r.verification_docs.id_back}
+                                    className="rounded-lg border w-full"
+                                  />
                                 </div>
                               )}
                               {r.verification_docs?.selfie && (
                                 <div>
                                   <p className="text-sm font-medium mb-2">Selfie</p>
-                                  <img src={r.verification_docs.selfie} className="rounded-lg border w-full" />
+                                  <SignedImage
+                                    bucket="verification"
+                                    path={r.verification_docs.selfie}
+                                    className="rounded-lg border w-full"
+                                  />
                                 </div>
                               )}
                             </div>
@@ -397,6 +427,7 @@ export default function AdminUsers() {
                           <DialogContent>
                             <DialogHeader>
                               <DialogTitle>Send Notification to {r.full_name}</DialogTitle>
+                              <DialogDescription>Send a direct message or system alert to this user.</DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
                               <div className="space-y-2">
@@ -471,7 +502,7 @@ export default function AdminUsers() {
                 <select
                   className="w-full rounded-md border border-gray-200 p-2 text-sm"
                   value={editingUser.host_plan}
-                  onChange={(e) => setEditingUser({ ...editingUser, host_plan: e.target.value as any })}
+                  onChange={(e) => setEditingUser({ ...editingUser, host_plan: e.target.value as Row['host_plan'] })}
                 >
                   <option value="free">Free</option>
                   <option value="standard">Standard</option>
