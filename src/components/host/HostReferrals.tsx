@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Copy, Share2, Users, Trophy, ExternalLink, Gift, ArrowRight } from "lucide-react";
+import { Loader2, Copy, Share2, Users, Trophy, ExternalLink, Gift, ArrowRight, Wallet, Crown } from "lucide-react";
 import { getErrorMessage } from "@/lib/errors";
 
 type HostRef = { referee_id: string; status: 'pending' | 'confirmed' | 'rewarded'; created_at: string; rewarded_at?: string | null };
@@ -19,18 +19,22 @@ export default function HostReferrals() {
     const [loading, setLoading] = useState(false);
     const [hostReferralCode, setHostReferralCode] = useState<string | null>(null);
     const [hostRefs, setHostRefs] = useState<HostRef[]>([]);
+    const [isFoundingMember, setIsFoundingMember] = useState(false);
+    const [balance, setBalance] = useState(0);
 
     const fetchReferralData = useCallback(async () => {
         try {
             setLoading(true);
             const { data, error } = await supabase
                 .from("profiles")
-                .select("host_referral_code")
+                .select("host_referral_code, is_founding_member, balance")
                 .eq("id", user?.id)
                 .single();
 
             if (error) throw error;
             setHostReferralCode(data.host_referral_code || null);
+            setIsFoundingMember(!!data.is_founding_member);
+            setBalance(data.balance || 0);
 
             const { data: refs } = await supabase
                 .from('host_referrals')
@@ -96,23 +100,40 @@ export default function HostReferrals() {
         <div className="max-w-4xl mx-auto space-y-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Refer & Earn</h1>
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Refer & Earn</h1>
+                        {isFoundingMember && (
+                            <Badge className="bg-amber-100 text-amber-800 border-amber-200 gap-1 px-3 py-1">
+                                <Crown className="w-3 h-3 fill-amber-800" /> Founding Member
+                            </Badge>
+                        )}
+                    </div>
                     <p className="text-gray-500 mt-1">Invite fellow hosts and grow the IdealStay community.</p>
                 </div>
-                <div className="flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100">
-                    <Trophy className="w-5 h-5 text-indigo-600" />
-                    <span className="font-bold text-indigo-900">{hostRefs.filter(r => r.status === 'rewarded').length * 1000} Points Earned</span>
+                <div className="flex gap-3">
+                    <div className="flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100">
+                        <Trophy className="w-5 h-5 text-indigo-600" />
+                        <span className="font-bold text-indigo-900">{hostRefs.filter(r => r.status === 'rewarded').length * 1000} Points</span>
+                    </div>
+                    <div className="flex items-center gap-2 bg-green-50 px-4 py-2 rounded-xl border border-green-100">
+                        <Wallet className="w-5 h-5 text-green-600" />
+                        <span className="font-bold text-green-900">R{balance.toLocaleString()}</span>
+                    </div>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="md:col-span-2 border-indigo-100 bg-white shadow-sm overflow-hidden">
+                <Card className="md:col-span-2 border-indigo-100 bg-white shadow-sm overflow-hidden relative">
                     <div className="absolute top-0 right-0 p-8 opacity-5">
                         <Gift className="w-32 h-32 text-indigo-600" />
                     </div>
                     <CardHeader>
                         <CardTitle className="text-xl">How it works</CardTitle>
-                        <CardDescription>Simple steps to earn rewards</CardDescription>
+                        <CardDescription>
+                            {isFoundingMember
+                                ? "Exclusive Founding Member Rewards Active"
+                                : "Simple steps to earn rewards"}
+                        </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -124,12 +145,16 @@ export default function HostReferrals() {
                             <div className="space-y-2">
                                 <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">2</div>
                                 <p className="text-sm font-semibold">They join & list</p>
-                                <p className="text-xs text-gray-500">Wait for them to sign up and publish their first listing.</p>
+                                <p className="text-xs text-gray-500">Wait for them to sign up and start hosting.</p>
                             </div>
                             <div className="space-y-2">
                                 <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">3</div>
-                                <p className="text-sm font-semibold">Get 1,000 Points</p>
-                                <p className="text-xs text-gray-500">Points are automatically added to your account.</p>
+                                <p className="text-sm font-semibold">Earn Revenue Share</p>
+                                <p className="text-xs text-gray-500">
+                                    {isFoundingMember
+                                        ? "Earn 40% of platform fees for Year 1, then 20% forever."
+                                        : "Earn 20% of platform fees for their first 3 months."}
+                                </p>
                             </div>
                         </div>
 
@@ -197,7 +222,7 @@ export default function HostReferrals() {
                                 />
                             </div>
                             <div className="flex items-center justify-between text-sm">
-                                <span className="text-gray-500">Earned Rewards</span>
+                                <span className="text-gray-500">Active Hosts</span>
                                 <span className="font-bold text-green-600">{hostRefs.filter(r => r.status === 'rewarded').length}</span>
                             </div>
                         </div>
@@ -228,7 +253,7 @@ export default function HostReferrals() {
                                         <th className="px-4 py-3">Host ID</th>
                                         <th className="px-4 py-3">Date Joined</th>
                                         <th className="px-4 py-3">Status</th>
-                                        <th className="px-4 py-3 text-right">Reward</th>
+                                        <th className="px-4 py-3 text-right">Commission Tier</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
@@ -238,12 +263,14 @@ export default function HostReferrals() {
                                             <td className="px-4 py-4 text-sm text-gray-500">{new Date(r.created_at).toLocaleDateString()}</td>
                                             <td className="px-4 py-4">
                                                 <Badge variant={r.status === 'rewarded' ? 'default' : 'secondary'} className={r.status === 'rewarded' ? 'bg-green-100 text-green-700 hover:bg-green-100' : 'bg-gray-100 text-gray-600 hover:bg-gray-100'}>
-                                                    {r.status === 'rewarded' ? 'Listing Published' : 'Joined'}
+                                                    {r.status === 'rewarded' ? 'Active Host' : 'Joined'}
                                                 </Badge>
                                             </td>
                                             <td className="px-4 py-4 text-right">
                                                 <span className={r.status === 'rewarded' ? 'text-indigo-600 font-bold' : 'text-gray-300 font-medium'}>
-                                                    {r.status === 'rewarded' ? '+1,000 pts' : '—'}
+                                                    {r.status === 'rewarded'
+                                                        ? (isFoundingMember ? "40% / 20%" : "20% (3mo)")
+                                                        : '—'}
                                                 </span>
                                             </td>
                                         </tr>
