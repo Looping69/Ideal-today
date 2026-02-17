@@ -304,6 +304,7 @@ export default function HostGuests() {
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>Guest Profile</DialogTitle>
+                        <DialogDescription>Detailed history and notes for this guest.</DialogDescription>
                     </DialogHeader>
                     {selectedGuest && (
                         <div className="space-y-6 py-4">

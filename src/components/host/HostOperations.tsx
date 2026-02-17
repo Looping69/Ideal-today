@@ -302,6 +302,7 @@ export default function HostOperations() {
                         <DialogContent>
                             <DialogHeader>
                                 <DialogTitle>Create New Task</DialogTitle>
+                                <DialogDescription>Assign a new maintenance or cleaning task to a property.</DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
                                 <div className="space-y-2">

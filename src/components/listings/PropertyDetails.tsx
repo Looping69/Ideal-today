@@ -1,6 +1,8 @@
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Property } from "@/types/property";
@@ -18,6 +20,8 @@ export default function PropertyDetails({ property, isOpen, onClose }: PropertyD
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl w-[95vw] h-[95vh] p-0 overflow-hidden flex flex-col">
+        <DialogTitle className="sr-only">{property.title}</DialogTitle>
+        <DialogDescription className="sr-only">Detailed information for {property.title}</DialogDescription>
         <ScrollArea className="flex-1">
           <PropertyView
             property={property}

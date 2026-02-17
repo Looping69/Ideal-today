@@ -9,6 +9,7 @@ import {
     CarouselPrevious,
 } from "@/components/ui/carousel";
 import { Star } from "lucide-react";
+import Autoplay from "embla-carousel-autoplay";
 
 interface FeaturedCarouselProps {
     properties: Property[];
@@ -16,6 +17,10 @@ interface FeaturedCarouselProps {
 }
 
 export default function FeaturedCarousel({ properties, onPropertyClick }: FeaturedCarouselProps) {
+    const autoplayPlugin = React.useRef(
+        Autoplay({ delay: 2000, stopOnInteraction: false, stopOnMouseEnter: true })
+    );
+
     if (properties.length === 0) return null;
 
     return (
@@ -39,8 +44,8 @@ export default function FeaturedCarousel({ properties, onPropertyClick }: Featur
                     opts={{
                         align: "start",
                         loop: true,
-                        skipSnaps: false,
                     }}
+                    plugins={[autoplayPlugin.current] as any}
                     className="w-full max-w-[1400px] mx-auto overflow-visible"
                 >
                     <CarouselContent className="-ml-6">

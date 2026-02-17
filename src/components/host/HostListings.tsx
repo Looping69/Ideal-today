@@ -244,7 +244,14 @@ export default function HostListings() {
                     {listing.approval_status === 'approved' ? (
                       <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Active</Badge>
                     ) : listing.approval_status === 'rejected' ? (
-                      <Badge variant="destructive" className="bg-red-100 text-red-800 hover:bg-red-100">Rejected</Badge>
+                      <div className="flex flex-col gap-1">
+                        <Badge variant="destructive" className="bg-red-100 text-red-800 hover:bg-red-100">Rejected</Badge>
+                        {listing.rejection_reason && (
+                          <span className="text-[10px] text-red-500 max-w-[150px] leading-tight italic">
+                            Reason: {listing.rejection_reason}
+                          </span>
+                        )}
+                      </div>
                     ) : (
                       <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Pending</Badge>
                     )}

@@ -427,6 +427,7 @@ export default function AdminUsers() {
                           <DialogContent>
                             <DialogHeader>
                               <DialogTitle>Send Notification to {r.full_name}</DialogTitle>
+                              <DialogDescription>Send a direct message or system alert to this user.</DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
                               <div className="space-y-2">
