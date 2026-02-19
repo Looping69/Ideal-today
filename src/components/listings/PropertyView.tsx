@@ -228,14 +228,14 @@ export default function PropertyView({ property, onBookingComplete }: PropertyVi
             {/* Header */}
             <div className="flex justify-between items-start mb-4">
                 <div>
-                    <h1 className="text-2xl font-bold mb-1">{property.title}</h1>
+                    <h1 className="text-2xl font-bold mb-1 uppercase">{property.title}</h1>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Star className="w-4 h-4 fill-black text-black" />
                         <span className="font-medium text-black">{property.rating}</span>
                         <span>·</span>
                         <span className="underline cursor-pointer">{property.reviews} reviews</span>
                         <span>·</span>
-                        <span className="font-medium underline cursor-pointer">
+                        <span className="font-medium underline cursor-pointer uppercase">
                             {property.area ? `${property.area}, ` : ""}{property.location}
                         </span>
                     </div>
@@ -415,7 +415,7 @@ export default function PropertyView({ property, onBookingComplete }: PropertyVi
                         </div>
                         <p className="mt-2 text-sm text-gray-500 flex items-center gap-2">
                             <MapPin className="w-4 h-4" />
-                            {property.area ? `${property.area}, ` : ""}{property.location}
+                            <span className="uppercase">{property.area ? `${property.area}, ` : ""}{property.location}</span>
                         </p>
                     </div>
 

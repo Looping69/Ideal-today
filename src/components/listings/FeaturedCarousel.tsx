@@ -24,7 +24,7 @@ export default function FeaturedCarousel({ properties, onPropertyClick }: Featur
     if (properties.length === 0) return null;
 
     return (
-        <section className="w-full bg-[#FAFAFA] py-16 mb-16 border-y border-gray-100 overflow-hidden">
+        <section className="w-full bg-[#FAFAFA] py-16 mb-16 border-y border-gray-100 overflow-visible">
             <div className="container mx-auto px-4 mb-10">
                 <div className="flex items-end justify-between">
                     <div className="flex items-center gap-4">
@@ -48,12 +48,12 @@ export default function FeaturedCarousel({ properties, onPropertyClick }: Featur
                     plugins={[autoplayPlugin.current] as any}
                     className="w-full max-w-[1400px] mx-auto overflow-visible"
                 >
-                    <CarouselContent className="-ml-6">
+                    <CarouselContent className="-ml-6" viewportClassName="overflow-visible">
                         {properties.map((property) => (
-                            <CarouselItem key={property.id} className="pl-6 basis-full sm:basis-1/2 lg:basis-1/3 xl:basis-1/4">
+                            <CarouselItem key={property.id} className="pl-6 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5">
                                 <div className="p-1 h-full">
                                     <div className="transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl hover:shadow-gray-200 rounded-2xl h-full">
-                                        <PropertyCard property={property} onClick={onPropertyClick} />
+                                        <PropertyCard property={property} onClick={onPropertyClick} showBorder={true} />
                                     </div>
                                 </div>
                             </CarouselItem>

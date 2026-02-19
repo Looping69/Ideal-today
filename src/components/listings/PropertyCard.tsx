@@ -11,9 +11,10 @@ import { cn } from "@/lib/utils";
 interface PropertyCardProps {
   property: Property;
   onClick: (property: Property) => void;
+  showBorder?: boolean;
 }
 
-export default function PropertyCard({ property, onClick }: PropertyCardProps) {
+export default function PropertyCard({ property, onClick, showBorder = false }: PropertyCardProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [saved, setSaved] = useState(false);
@@ -97,7 +98,10 @@ export default function PropertyCard({ property, onClick }: PropertyCardProps) {
   return (
     <div
       ref={cardRef}
-      className="group cursor-pointer flex flex-col gap-3"
+      className={cn(
+        "group cursor-pointer flex flex-col gap-3",
+        showBorder && "border border-gray-100 rounded-2xl p-3 bg-white"
+      )}
       onClick={() => onClick(property)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -164,16 +168,23 @@ export default function PropertyCard({ property, onClick }: PropertyCardProps) {
       </div>
 
       <div className="flex justify-between items-start">
-        <div>
-          <h3 className="font-semibold text-base text-gray-900 truncate leading-tight">{property.location}</h3>
-          <p className="text-gray-500 text-sm mt-0.5 truncate">Hosted by {property.host.name}</p>
-          <p className="text-gray-500 text-sm truncate">Oct 23 - 28</p>
-          <div className="flex items-baseline gap-1 mt-1.5">
-            <span className="font-semibold text-gray-900">R{property.price.toLocaleString()}</span>
-            <span className="text-gray-900">night</span>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-base text-gray-900 truncate uppercase leading-tight">{property.title}</h3>
+          <p className="text-gray-500 text-sm mt-0.5 truncate">{property.location}</p>
+          <div className="flex flex-col gap-1 mt-1">
+            <p className={cn(
+              "text-xs font-bold uppercase tracking-wider",
+              property.is_occupied ? "text-red-500" : "text-green-500"
+            )}>
+              {property.is_occupied ? "Occupied" : "Available"}
+            </p>
+            <div className="flex items-baseline gap-1">
+              <span className="font-semibold text-gray-900">R{property.price.toLocaleString()}</span>
+              <span className="text-gray-900 text-xs">night</span>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-1 mt-0.5">
+        <div className="flex items-center gap-1 mt-0.5 shrink-0 ml-2">
           <Star className="w-3.5 h-3.5 fill-black text-black" />
           <span className="text-sm font-medium text-gray-900">{property.rating}</span>
         </div>

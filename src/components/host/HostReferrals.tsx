@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Copy, Share2, Users, Trophy, ExternalLink, Gift, ArrowRight, Wallet, Crown } from "lucide-react";
 import { getErrorMessage } from "@/lib/errors";
 
+type ReferralTier = 'founder' | 'pro' | 'standard';
 type HostRef = { referee_id: string; status: 'pending' | 'confirmed' | 'rewarded'; created_at: string; rewarded_at?: string | null };
 
 export default function HostReferrals() {
@@ -19,7 +20,7 @@ export default function HostReferrals() {
     const [loading, setLoading] = useState(false);
     const [hostReferralCode, setHostReferralCode] = useState<string | null>(null);
     const [hostRefs, setHostRefs] = useState<HostRef[]>([]);
-    const [isFoundingMember, setIsFoundingMember] = useState(false);
+    const [referralTier, setReferralTier] = useState<ReferralTier>('standard');
     const [balance, setBalance] = useState(0);
 
     const fetchReferralData = useCallback(async () => {
@@ -27,13 +28,13 @@ export default function HostReferrals() {
             setLoading(true);
             const { data, error } = await supabase
                 .from("profiles")
-                .select("host_referral_code, is_founding_member, balance")
+                .select("host_referral_code, referral_tier, balance")
                 .eq("id", user?.id)
                 .single();
 
             if (error) throw error;
             setHostReferralCode(data.host_referral_code || null);
-            setIsFoundingMember(!!data.is_founding_member);
+            setReferralTier((data.referral_tier as ReferralTier) || 'standard');
             setBalance(data.balance || 0);
 
             const { data: refs } = await supabase
@@ -102,9 +103,14 @@ export default function HostReferrals() {
                 <div>
                     <div className="flex items-center gap-3">
                         <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Refer & Earn</h1>
-                        {isFoundingMember && (
+                        {referralTier === 'founder' && (
                             <Badge className="bg-amber-100 text-amber-800 border-amber-200 gap-1 px-3 py-1">
                                 <Crown className="w-3 h-3 fill-amber-800" /> Founding Member
+                            </Badge>
+                        )}
+                        {referralTier === 'pro' && (
+                            <Badge className="bg-blue-100 text-blue-800 border-blue-200 gap-1 px-3 py-1">
+                                <Trophy className="w-3 h-3 fill-blue-800" /> Pro Partner
                             </Badge>
                         )}
                     </div>
@@ -130,9 +136,11 @@ export default function HostReferrals() {
                     <CardHeader>
                         <CardTitle className="text-xl">How it works</CardTitle>
                         <CardDescription>
-                            {isFoundingMember
+                            {referralTier === 'founder'
                                 ? "Exclusive Founding Member Rewards Active"
-                                : "Simple steps to earn rewards"}
+                                : referralTier === 'pro'
+                                    ? "Pro Partner Benefits Active"
+                                    : "Simple steps to earn rewards"}
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
@@ -151,9 +159,11 @@ export default function HostReferrals() {
                                 <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">3</div>
                                 <p className="text-sm font-semibold">Earn Revenue Share</p>
                                 <p className="text-xs text-gray-500">
-                                    {isFoundingMember
+                                    {referralTier === 'founder'
                                         ? "Earn 40% of platform fees for Year 1, then 20% forever."
-                                        : "Earn 20% of platform fees for their first 3 months."}
+                                        : referralTier === 'pro'
+                                            ? "Earn 20% of platform fees for Year 1, then 10% forever."
+                                            : "Earn 10% of platform fees for Year 1, then 5% forever."}
                                 </p>
                             </div>
                         </div>
@@ -269,7 +279,7 @@ export default function HostReferrals() {
                                             <td className="px-4 py-4 text-right">
                                                 <span className={r.status === 'rewarded' ? 'text-indigo-600 font-bold' : 'text-gray-300 font-medium'}>
                                                     {r.status === 'rewarded'
-                                                        ? (isFoundingMember ? "40% / 20%" : "20% (3mo)")
+                                                        ? (referralTier === 'founder' ? "40% / 20%" : referralTier === 'pro' ? "20% / 10%" : "10% / 5%")
                                                         : '—'}
                                                 </span>
                                             </td>
