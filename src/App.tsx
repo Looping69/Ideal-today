@@ -55,6 +55,7 @@ const AdminNotifications = lazy(() => import("./components/admin/AdminNotificati
 const PaymentPage = lazy(() => import("./components/payment/PaymentPage"));
 const PaymentSuccess = lazy(() => import("./components/payment/PaymentSuccess"));
 const PropertyPage = lazy(() => import("./components/listings/PropertyPage"));
+const DevAuth = lazy(() => import("./components/dev/DevAuth"));
 
 function App() {
   return (
@@ -121,6 +122,9 @@ function App() {
               <Route path="/liability-waiver" element={<LiabilityWaiver />} />
               <Route path="/cancellation-policy" element={<CancellationPolicy />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
+
+              {/* Dev Tools */}
+              <Route path="/dev-auth" element={<DevAuth />} />
 
 
               <Route path="/admin" element={<AdminLayout />}>
