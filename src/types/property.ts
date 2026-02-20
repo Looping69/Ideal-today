@@ -43,4 +43,5 @@ export interface Property {
     reviews_count?: number;
     approval_status?: 'pending' | 'approved' | 'rejected';
     rejection_reason?: string;
+    is_occupied?: boolean;
 }

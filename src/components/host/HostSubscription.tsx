@@ -203,7 +203,7 @@ export default function HostSubscription() {
             // Store plan intention
             sessionStorage.setItem('pending_plan_upgrade', planId);
 
-            const { data, error } = await supabase.functions.invoke('create-checkout-v2', {
+            const { data, error } = await supabase.functions.invoke('create-checkout', {
                 body: {
                     amount: priceAmount * 100, // Cents
                     currency: 'ZAR',
@@ -213,7 +213,7 @@ export default function HostSubscription() {
                     },
                     successUrl: window.location.href, // Return to this page
                     cancelUrl: window.location.href,
-                    failUrl: window.location.href
+                    failureUrl: window.location.href
                 }
             });
 
@@ -242,6 +242,11 @@ export default function HostSubscription() {
                 title: "Payment Error",
                 description: msg,
             });
+
+            // Log full details for debugging
+            if (error && typeof error === 'object') {
+                console.error("Payment error full details:", JSON.stringify(error, null, 2));
+            }
         }
     }, [user, performUpgrade, toast]);
 

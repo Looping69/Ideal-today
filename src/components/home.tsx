@@ -116,7 +116,8 @@ function Home() {
           other_facility: p.other_facility,
           discount: p.discount || 0,
           isFeatured: p.is_featured === true,
-          isVerifiedHost: p.host?.host_plan && p.host.host_plan !== 'free'
+          isVerifiedHost: p.host?.host_plan && p.host.host_plan !== 'free',
+          is_occupied: p.is_occupied === true
         }));
 
         // Sort by host plan priority: premium > standard > free
@@ -297,9 +298,9 @@ function Home() {
           </div>
         </div>
 
-        {!loading && !showMap && filteredProperties.filter(p => p.isFeatured).length > 0 && (
+        {!loading && !showMap && filteredProperties.filter(p => p.isFeatured && !p.is_occupied).length > 0 && (
           <FeaturedCarousel
-            properties={filteredProperties.filter(p => p.isFeatured).slice(0, 10)}
+            properties={filteredProperties.filter(p => p.isFeatured && !p.is_occupied).slice(0, 10)}
             onPropertyClick={handlePropertyClick}
           />
         )}
