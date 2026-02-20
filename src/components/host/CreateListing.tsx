@@ -83,7 +83,8 @@ export default function CreateListing() {
     price: "",
     discount: "0",
     images: [] as string[],
-    video_url: null as string | null
+    video_url: null as string | null,
+    is_occupied: false
   });
 
   const [plan, setPlan] = useState<'free' | 'standard' | 'premium'>('free');
@@ -165,7 +166,8 @@ export default function CreateListing() {
           price: data.price?.toString() || "",
           discount: data.discount?.toString() || "0",
           images: data.images || [],
-          video_url: data.video_url || null
+          video_url: data.video_url || null,
+          is_occupied: data.is_occupied || false
         });
 
         // Set parent category based on subcategory
@@ -273,6 +275,7 @@ export default function CreateListing() {
         image: formData.images[0] || null,
         images: formData.images,
         video_url: formData.video_url,
+        is_occupied: formData.is_occupied,
         host_id: user.id,
         latitude,
         longitude,
@@ -600,6 +603,36 @@ export default function CreateListing() {
                         </div>
                       </div>
                     )}
+                  </div>
+                </div>
+
+                {/* Availability Toggle */}
+                <div className="pt-6 border-t border-gray-100">
+                  <h3 className="font-semibold text-lg mb-4">Availability Status</h3>
+                  <div className="flex items-center justify-between p-4 rounded-xl border-2 transition-all bg-gray-50 uppercase leading-tight">
+                    <div className="space-y-1">
+                      <span className="font-medium block text-black">Occupancy Status</span>
+                      <p className="text-xs text-gray-400 normal-case font-normal leading-normal">
+                        {formData.is_occupied
+                          ? "This property is currently marked as occupied and will NOT appear in the featured carousel."
+                          : "This property is currently available and will appear in the listings."}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => updateData("is_occupied", !formData.is_occupied)}
+                      className={cn(
+                        "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                        formData.is_occupied ? "bg-red-500" : "bg-green-500"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                          formData.is_occupied ? "translate-x-6" : "translate-x-1"
+                        )}
+                      />
+                    </button>
                   </div>
                 </div>
               </div>

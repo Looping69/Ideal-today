@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, ShieldCheck, User, Ban, MoreHorizontal, Bell, Pencil } from 'lucide-react';
+import { Search, ShieldCheck, User, Ban, MoreHorizontal, Bell, Pencil, Gift, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import SignedImage from '../ui/signed-image';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,6 +17,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface VerificationDocs {
   id_front?: string;
@@ -34,6 +42,7 @@ type Row = {
   verification_status?: 'none' | 'pending' | 'verified' | 'rejected';
   verification_docs?: VerificationDocs;
   host_plan?: 'free' | 'standard' | 'premium';
+  referral_tier?: 'founder' | 'pro' | 'standard';
 };
 
 export default function AdminUsers() {
@@ -65,7 +74,7 @@ export default function AdminUsers() {
       setLoading(true);
       const { data, error } = await supabase
         .from('profiles')
-        .select('id,email,full_name,is_admin,deactivated,points,verification_status,verification_docs,host_plan')
+        .select('id,email,full_name,is_admin,deactivated,points,verification_status,verification_docs,host_plan,referral_tier')
         .order('created_at', { ascending: false })
         .range(page * pageSize, page * pageSize + pageSize - 1);
 
@@ -82,7 +91,8 @@ export default function AdminUsers() {
           points: r.points,
           verification_status: r.verification_status || 'none',
           verification_docs: r.verification_docs,
-          host_plan: r.host_plan || 'free'
+          host_plan: r.host_plan || 'free',
+          referral_tier: r.referral_tier || 'standard'
         })));
       }
       setLoading(false);
@@ -173,7 +183,8 @@ export default function AdminUsers() {
         .update({
           full_name: editingUser.full_name,
           points: editingUser.points,
-          host_plan: editingUser.host_plan
+          host_plan: editingUser.host_plan,
+          referral_tier: editingUser.referral_tier
         })
         .eq('id', editingUser.id);
 
@@ -309,12 +320,20 @@ export default function AdminUsers() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${r.host_plan === 'premium' ? 'bg-purple-50 text-purple-700 border-purple-100' :
-                        r.host_plan === 'standard' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                          'bg-gray-50 text-gray-600 border-gray-100'
-                        }`}>
-                        {r.host_plan === 'premium' ? '★ Premium' : r.host_plan === 'standard' ? '✓ Standard' : 'Free'}
-                      </span>
+                      <div className="flex flex-col gap-1 items-start">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${r.host_plan === 'premium' ? 'bg-purple-50 text-purple-700 border-purple-100' :
+                          r.host_plan === 'standard' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                            'bg-gray-50 text-gray-600 border-gray-100'
+                          }`}>
+                          {r.host_plan === 'premium' ? '★ Premium' : r.host_plan === 'standard' ? '✓ Standard' : 'Free'}
+                        </span>
+                        {r.referral_tier && r.referral_tier !== 'standard' && (
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${r.referral_tier === 'founder' ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-green-50 text-green-700 border-green-100'}`}>
+                            {r.referral_tier === 'founder' ? <Gift className="w-3 h-3 mr-1" /> : <CheckCircle className="w-3 h-3 mr-1" />}
+                            {r.referral_tier}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       {r.verification_status === 'verified' ? (
@@ -383,36 +402,58 @@ export default function AdminUsers() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0 text-gray-500 hover:text-purple-600 hover:bg-purple-50"
-                          title={r.is_admin ? "Remove Admin" : "Make Admin"}
-                          onClick={() => toggleAdmin(r.id, !r.is_admin)}
-                        >
-                          <ShieldCheck className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0 text-gray-500 hover:text-blue-600 hover:bg-blue-50"
-                          title="Edit Profile"
-                          onClick={() => setEditingUser(r)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className={`h-8 w-8 p-0 ${r.deactivated ? 'text-green-600 hover:bg-green-50' : 'text-gray-500 hover:text-red-600 hover:bg-red-50'}`}
-                          title={r.deactivated ? "Activate" : "Deactivate"}
-                          onClick={() => toggleDeactivate(r.id, !r.deactivated)}
-                        >
-                          <Ban className="w-4 h-4" />
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-gray-500 hover:text-gray-900">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-gray-500 hover:text-gray-900">
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Account Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setEditingUser(r)}>
+                              <Pencil className="w-4 h-4 mr-2" />
+                              Edit Profile
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuLabel className="text-[10px] font-bold uppercase text-gray-400 px-2 py-1">Quick Tier Update</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={async () => {
+                              try {
+                                const { error } = await supabase.from('profiles').update({ referral_tier: 'founder' }).eq('id', r.id).select();
+                                if (error) throw error;
+                                setRows(rs => rs.map(row => row.id === r.id ? { ...row, referral_tier: 'founder' } : row));
+                                toast({ title: "Promoted to Founder", description: "User now earns 40% commissions." });
+                              } catch (e) {
+                                toast({ variant: "destructive", title: "Update Failed", description: getErrorMessage(e) });
+                              }
+                            }}>
+                              <Gift className="w-4 h-4 mr-2 text-amber-500" />
+                              Promote to Founder
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={async () => {
+                              try {
+                                const { error } = await supabase.from('profiles').update({ referral_tier: 'pro' }).eq('id', r.id).select();
+                                if (error) throw error;
+                                setRows(rs => rs.map(row => row.id === r.id ? { ...row, referral_tier: 'pro' } : row));
+                                toast({ title: "Updated to Pro", description: "User now earns 20% commissions." });
+                              } catch (e) {
+                                toast({ variant: "destructive", title: "Update Failed", description: getErrorMessage(e) });
+                              }
+                            }}>
+                              <CheckCircle className="w-4 h-4 mr-2 text-blue-500" />
+                              Set to Pro Tier
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => toggleAdmin(r.id, !r.is_admin)}>
+                              <ShieldCheck className="w-4 h-4 mr-2" />
+                              {r.is_admin ? 'Remove Admin' : 'Make Admin'}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => toggleDeactivate(r.id, !r.deactivated)} className={r.deactivated ? 'text-green-600' : 'text-red-600'}>
+                              <Ban className="w-4 h-4 mr-2" />
+                              {r.deactivated ? 'Activate Account' : 'Deactivate Account'}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                         <Dialog>
                           <DialogTrigger asChild>
                             <Button
@@ -507,6 +548,18 @@ export default function AdminUsers() {
                   <option value="free">Free</option>
                   <option value="standard">Standard</option>
                   <option value="premium">Premium</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Referral Tier</label>
+                <select
+                  value={editingUser.referral_tier || 'standard'}
+                  onChange={(e) => setEditingUser({ ...editingUser, referral_tier: e.target.value as Row['referral_tier'] })}
+                  className="w-full rounded-md border border-gray-200 p-2 text-sm"
+                >
+                  <option value="founder">Founder (40%/20%)</option>
+                  <option value="pro">Pro (20%/10%)</option>
+                  <option value="standard">Standard (10%/5%)</option>
                 </select>
               </div>
               <Button onClick={handleUpdateProfile} className="w-full">Save Changes</Button>
