@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronLeft, ChevronRight, Download, ZoomIn, ZoomOut, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "./button";
@@ -15,19 +15,42 @@ export function Lightbox({ images, initialIndex = 0, isOpen, onClose }: Lightbox
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
     const [zoom, setZoom] = useState(1);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+    const [prevInitialIndex, setPrevInitialIndex] = useState(initialIndex);
 
-    useEffect(() => {
+    // Reset index/zoom when the lightbox opens or initialIndex changes while open
+    // (React-recommended "adjusting state on prop changes" pattern)
+    if (prevIsOpen !== isOpen) {
+        setPrevIsOpen(isOpen);
+        setPrevInitialIndex(initialIndex);
         if (isOpen) {
             setCurrentIndex(initialIndex);
             setZoom(1);
-            document.body.style.overflow = "hidden";
-        } else {
-            document.body.style.overflow = "unset";
         }
+    } else if (isOpen && prevInitialIndex !== initialIndex) {
+        setPrevInitialIndex(initialIndex);
+        setCurrentIndex(initialIndex);
+        setZoom(1);
+    }
+
+    useEffect(() => {
+        document.body.style.overflow = isOpen ? "hidden" : "unset";
         return () => {
             document.body.style.overflow = "unset";
         };
-    }, [isOpen, initialIndex]);
+    }, [isOpen]);
+
+    const handleNext = useCallback((e?: React.MouseEvent) => {
+        e?.stopPropagation();
+        setCurrentIndex((prev) => (prev + 1) % images.length);
+        setZoom(1);
+    }, [images.length]);
+
+    const handlePrev = useCallback((e?: React.MouseEvent) => {
+        e?.stopPropagation();
+        setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+        setZoom(1);
+    }, [images.length]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -38,21 +61,12 @@ export function Lightbox({ images, initialIndex = 0, isOpen, onClose }: Lightbox
         };
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [isOpen, currentIndex, images.length]);
+    }, [isOpen, handleNext, handlePrev, onClose]);
 
     if (!isOpen) return null;
 
-    const handleNext = (e?: React.MouseEvent) => {
-        e?.stopPropagation();
-        setCurrentIndex((prev) => (prev + 1) % images.length);
-        setZoom(1);
-    };
-
-    const handlePrev = (e?: React.MouseEvent) => {
-        e?.stopPropagation();
-        setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
-        setZoom(1);
-    };
+    // Guard against currentIndex being out of bounds if the images array changes
+    const safeIndex = Math.min(currentIndex, images.length - 1);
 
     const handleZoomIn = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -94,7 +108,7 @@ export function Lightbox({ images, initialIndex = 0, isOpen, onClose }: Lightbox
                     onClick={(e) => e.stopPropagation()}
                 >
                     <div className="text-white/90 font-medium">
-                        {currentIndex + 1} / {images.length}
+                        {safeIndex + 1} / {images.length}
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -125,7 +139,7 @@ export function Lightbox({ images, initialIndex = 0, isOpen, onClose }: Lightbox
                         >
                             {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
                         </Button>
-                        <a href={images[currentIndex]} download target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                        <a href={images[safeIndex]} download target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
                             <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-full h-10 w-10 transition-colors" title="Download">
                                 <Download className="w-5 h-5" />
                             </Button>
@@ -168,13 +182,13 @@ export function Lightbox({ images, initialIndex = 0, isOpen, onClose }: Lightbox
                 {/* Image Container */}
                 <div className="relative w-full h-full flex items-center justify-center p-4 md:p-12 overflow-hidden select-none">
                     <motion.img
-                        key={currentIndex}
-                        layoutId={`lightbox-img-${currentIndex}`}
+                        key={safeIndex}
+                        layoutId={`lightbox-img-${safeIndex}`}
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: zoom }}
                         exit={{ opacity: 0, scale: 1.05 }}
                         transition={{ type: "spring", damping: 30, stiffness: 300, mass: 0.8 }}
-                        src={images[currentIndex]}
+                        src={images[safeIndex]}
                         className={cn(
                             "max-w-full max-h-full object-contain shadow-2xl rounded-sm cursor-default",
                             zoom > 1 ? "cursor-move" : ""
@@ -201,7 +215,7 @@ export function Lightbox({ images, initialIndex = 0, isOpen, onClose }: Lightbox
                                 }}
                                 className={cn(
                                     "relative w-14 h-14 rounded-lg overflow-hidden transition-all duration-300 border-2",
-                                    currentIndex === idx ? "border-primary scale-110 shadow-lg" : "border-transparent opacity-50 hover:opacity-100"
+                                    safeIndex === idx ? "border-primary scale-110 shadow-lg" : "border-transparent opacity-50 hover:opacity-100"
                                 )}
                             >
                                 <img src={img} className="w-full h-full object-cover" alt="" />
