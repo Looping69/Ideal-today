@@ -17,14 +17,14 @@ BEGIN
     END IF;
 END $$;
 
--- 3. Migrate existing founding member data
-UPDATE public.profiles 
-SET referral_tier = 'founder' 
-WHERE is_founding_member = true;
-
-UPDATE public.profiles 
-SET referral_tier = 'standard' 
-WHERE is_founding_member = false AND referral_tier IS NULL; -- Should default but just in case
+-- 3. Migrate existing founding member data (only if is_founding_member column exists)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'is_founding_member') THEN
+        UPDATE public.profiles SET referral_tier = 'founder' WHERE is_founding_member = true;
+        UPDATE public.profiles SET referral_tier = 'standard' WHERE is_founding_member = false AND referral_tier IS NULL;
+    END IF;
+END $$;
 
 -- 4. Update the commission calculation function
 CREATE OR REPLACE FUNCTION public.calculate_referral_commission()

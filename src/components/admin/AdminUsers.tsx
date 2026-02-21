@@ -72,30 +72,69 @@ export default function AdminUsers() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id,email,full_name,is_admin,deactivated,points,verification_status,verification_docs,host_plan,referral_tier')
-        .order('created_at', { ascending: false })
-        .range(page * pageSize, page * pageSize + pageSize - 1);
+      const selectStr = 'id,email,full_name,is_admin,deactivated,points,verification_status,verification_docs,host_plan,referral_tier';
 
-      if (error) {
-        console.error('Error loading profiles:', getErrorMessage(error));
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load users' });
-      } else {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select(selectStr)
+          .order('created_at', { ascending: false })
+          .range(page * pageSize, page * pageSize + pageSize - 1);
+
+        if (error) {
+          console.error('Supabase error loading profiles:', error);
+          const msg = getErrorMessage(error);
+
+          // If columns are missing (400), try a safer minimal query
+          if (msg.includes('400') || msg.toLowerCase().includes('column')) {
+            console.warn('Schema mismatch detected, falling back to minimal profile query');
+            const { data: fallbackData, error: fallbackError } = await supabase
+              .from('profiles')
+              .select('id,email,full_name,is_admin,deactivated,points')
+              .order('created_at', { ascending: false })
+              .range(page * pageSize, page * pageSize + pageSize - 1);
+
+            if (fallbackError) throw fallbackError;
+
+            setRows((fallbackData as unknown as Row[] || []).map(r => ({
+              id: r.id,
+              email: r.email,
+              full_name: r.full_name,
+              is_admin: !!r.is_admin,
+              deactivated: !!r.deactivated,
+              points: r.points || 0,
+              verification_status: 'none',
+              host_plan: 'free',
+              referral_tier: 'standard'
+            })));
+            toast({
+              variant: 'default',
+              title: 'Schema Mismatch',
+              description: 'Some profile details were omitted because they are missing from the database.'
+            });
+            return;
+          }
+          throw error;
+        }
+
         setRows((data as unknown as Row[] || []).map(r => ({
           id: r.id,
           email: r.email,
           full_name: r.full_name,
           is_admin: !!r.is_admin,
           deactivated: !!r.deactivated,
-          points: r.points,
+          points: r.points || 0,
           verification_status: r.verification_status || 'none',
           verification_docs: r.verification_docs,
           host_plan: r.host_plan || 'free',
           referral_tier: r.referral_tier || 'standard'
         })));
+      } catch (err) {
+        console.error('Error loading profiles:', getErrorMessage(err));
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load users' });
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     load();
   }, [page, filter, toast, pageSize]);
