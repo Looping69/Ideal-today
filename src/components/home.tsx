@@ -13,6 +13,7 @@ import { supabase } from "@/lib/supabase";
 import { CATEGORIES } from "@/constants/categories";
 import FeaturedCarousel from "./listings/FeaturedCarousel";
 import SEO from "./SEO";
+import AIChatPanel from "./ai/AIChatPanel";
 
 function Home() {
   const homeSchema = {
@@ -51,6 +52,7 @@ function Home() {
   const [showMap, setShowMap] = useState(false);
   const [loading, setLoading] = useState(true);
   const [chatActive, setChatActive] = useState(false);
+  const [aiInitialMessage, setAiInitialMessage] = useState("");
 
   // Pagination state
   const [page, setPage] = useState(0);
@@ -120,12 +122,12 @@ function Home() {
           is_occupied: p.is_occupied === true
         }));
 
-        // Sort by host plan priority: premium > standard > free
-        const planPriority = { premium: 0, standard: 1, free: 2 };
+        // Sort by host plan priority: premium > professional > standard > free
+        const planPriority = { premium: 0, professional: 1, standard: 2, free: 3 };
         const sortedProperties = mappedProperties.sort((a, b) => {
           const aPlan = (data.find((d) => d.id === a.id)?.host?.host_plan || 'free') as keyof typeof planPriority;
           const bPlan = (data.find((d) => d.id === b.id)?.host?.host_plan || 'free') as keyof typeof planPriority;
-          return (planPriority[aPlan] ?? 2) - (planPriority[bPlan] ?? 2);
+          return (planPriority[aPlan] ?? 3) - (planPriority[bPlan] ?? 3);
         });
 
         if (pageNumber === 0) {
@@ -216,6 +218,8 @@ function Home() {
     if (state.guests && state.guests > 0) {
       arr = arr.filter(p => (p.guests || 0) >= state.guests);
     }
+    // Date searching commented out for now
+    /*
     if (state.date?.from && state.date?.to) {
       const from = state.date.from;
       const to = state.date.to;
@@ -228,7 +232,7 @@ function Home() {
         (data || []).forEach((b) => {
           const bi = new Date(b.check_in);
           const bo = new Date(b.check_out);
-          if (bo > from && bi < to) {
+          if (bi > from && bi < to) {
             unavailable.add(b.property_id);
           }
         });
@@ -237,6 +241,7 @@ function Home() {
         console.error('Error checking availability:', err);
       }
     }
+    */
     setFilteredProperties(arr);
   };
 
@@ -246,8 +251,14 @@ function Home() {
 
   const handleSendMessage = (msg: string) => {
     if (msg && msg.trim()) {
+      setAiInitialMessage(msg);
       setChatActive(true);
     }
+  };
+
+  const handleCloseChat = () => {
+    setChatActive(false);
+    setAiInitialMessage("");
   };
 
   return (
@@ -262,9 +273,25 @@ function Home() {
 
       <main className="flex-1 pt-20 pb-12">
         <div className="container mx-auto px-4">
-          {/* Hero Search - Only visible on larger screens or when needed */}
-          <div className={`hidden md:block ${chatActive ? 'pb-[300px] transition-all duration-500' : 'mt-4 mb-4'}`}>
-            <SearchFilterBar onChange={handleSearchChange} onModeChange={handleModeChange} onSendMessage={handleSendMessage} />
+          {/* Hero Search & AI Chat Container */}
+          <div className="mt-4 mb-4 space-y-6">
+            <div className="hidden md:block">
+              <SearchFilterBar
+                onChange={handleSearchChange}
+                onModeChange={handleModeChange}
+                onSendMessage={handleSendMessage}
+                mode={chatActive ? 'chat' : 'search'}
+              />
+            </div>
+
+            {chatActive && (
+              <div className="w-full transition-all duration-500 ease-in-out">
+                <AIChatPanel
+                  initialMessage={aiInitialMessage}
+                  onClose={handleCloseChat}
+                />
+              </div>
+            )}
           </div>
 
           <FilterBar onFilterChange={handleFilterChange} />

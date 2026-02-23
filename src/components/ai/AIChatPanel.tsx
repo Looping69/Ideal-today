@@ -5,41 +5,77 @@ import { Button } from '@/components/ui/button';
 
 type Props = {
   initialMessage?: string;
+  onClose?: () => void;
 };
 
-export default function AIChatPanel({ initialMessage }: Props) {
+export default function AIChatPanel({ initialMessage, onClose }: Props) {
   const [messages, setMessages] = useState<AIMessage[]>(initialMessage ? [{ role: 'user', content: initialMessage }] : []);
   const [loading, setLoading] = useState(false);
   const viewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (initialMessage) send();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (initialMessage) {
+      // Avoid duplicate initial messages if component re-renders
+      setMessages([{ role: 'user', content: initialMessage }]);
+      send([{ role: 'user', content: initialMessage }]);
+    }
   }, [initialMessage]);
 
   useEffect(() => {
     viewRef.current?.scrollTo({ top: viewRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, loading]);
 
-  const send = async () => {
-    if (!messages.length) return;
+  const send = async (currentMessages = messages) => {
+    if (!currentMessages.length) return;
     setLoading(true);
-    const reply = await chat(messages);
-    setMessages((m) => [...m, reply]);
-    setLoading(false);
+    try {
+      const reply = await chat(currentMessages);
+      setMessages((m) => [...m, reply]);
+    } catch (err) {
+      console.error('AI Chat Error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="fixed bottom-24 left-0 right-0 z-[1500] px-4">
-      <Card className="mx-auto w-full max-w-4xl h-[45vh] rounded-2xl border shadow-lg overflow-hidden">
-        <div ref={viewRef} className="h-full overflow-auto p-4 space-y-3 bg-white">
-          {messages.map((m, i) => (
-            <div key={i} className={`text-sm ${m.role === 'assistant' ? 'bg-gray-50' : 'bg-blue-50'} border rounded-xl p-3`}>{m.content}</div>
-          ))}
-          {loading && <div className="text-sm text-gray-500">Thinking…</div>}
+    <div className="w-full animate-in fade-in slide-in-from-top-4 duration-500">
+      <Card className="mx-auto w-full max-w-4xl h-[50vh] rounded-3xl border border-gray-100 shadow-2xl overflow-hidden flex flex-col bg-white">
+        <div className="p-4 border-b bg-gray-50/50 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+            <span className="font-semibold text-gray-700">AI Assistant</span>
+          </div>
+          {onClose && (
+            <Button variant="ghost" size="sm" onClick={onClose} className="rounded-full hover:bg-gray-200">
+              Close
+            </Button>
+          )}
         </div>
-        <div className="p-3 border-t bg-white flex justify-end">
-          <Button size="sm" onClick={send} disabled={loading || messages.length === 0}>Ask AI</Button>
+
+        <div ref={viewRef} className="flex-1 overflow-auto p-6 space-y-4 bg-white scrollbar-hide">
+          {messages.map((m, i) => (
+            <div
+              key={i}
+              className={`max-w-[85%] text-sm p-4 rounded-2xl ${m.role === 'assistant'
+                  ? 'bg-gray-100 text-gray-800 self-start rounded-tl-none'
+                  : 'bg-blue-600 text-white self-end ml-auto rounded-tr-none'
+                }`}
+            >
+              {m.content}
+            </div>
+          ))}
+          {loading && (
+            <div className="bg-gray-100 text-gray-500 text-sm p-4 rounded-2xl w-20 flex justify-center items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
+              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" />
+            </div>
+          )}
+        </div>
+
+        <div className="p-4 border-t bg-gray-50/50 flex gap-2">
+          <p className="text-[10px] text-gray-400 italic">This AI assistant helps you find properties and answers questions about our network.</p>
         </div>
       </Card>
     </div>

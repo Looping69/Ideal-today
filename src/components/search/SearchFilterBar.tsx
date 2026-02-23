@@ -7,6 +7,7 @@ type Props = {
   onChange: (state: { query: string; guests: number; date?: { from?: Date; to?: Date } }) => void;
   onModeChange?: (mode: 'chat' | 'search') => void;
   onSendMessage?: (message: string) => void;
+  mode?: 'chat' | 'search';
 };
 
 // Popular destinations shown when user focuses the input
@@ -19,8 +20,8 @@ const POPULAR_DESTINATIONS = [
   { label: "Western Cape", type: "province" as const, icon: MapPin },
 ];
 
-export default function SearchFilterBar({ onChange, onModeChange, onSendMessage }: Props) {
-  const [isFlipped, setIsFlipped] = useState(true);
+export default function SearchFilterBar({ onChange, onModeChange, onSendMessage, mode = 'search' }: Props) {
+  const [isFlipped, setIsFlipped] = useState(mode === 'search');
   const [message, setMessage] = useState("");
   const [showCheckInCal, setShowCheckInCal] = useState(false);
   const [showCheckOutCal, setShowCheckOutCal] = useState(false);
@@ -35,11 +36,17 @@ export default function SearchFilterBar({ onChange, onModeChange, onSendMessage 
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Sync isFlipped with mode prop
+  useEffect(() => {
+    setIsFlipped(mode === 'search');
+  }, [mode]);
+
   const handleFlip = () => {
-    setIsFlipped(!isFlipped);
+    const nextFlipped = !isFlipped;
+    setIsFlipped(nextFlipped);
     setShowCheckInCal(false);
     setShowCheckOutCal(false);
-    onModeChange?.(!isFlipped ? 'chat' : 'search');
+    onModeChange?.(nextFlipped ? 'search' : 'chat');
   };
 
   const emit = (loc = location, g = guests, from = checkIn ?? undefined, to = checkOut ?? undefined) => {
@@ -225,7 +232,7 @@ export default function SearchFilterBar({ onChange, onModeChange, onSendMessage 
   return (
     <div className="min-h-0 flex items-center justify-center">
       <style>{`@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}`}</style>
-      <div className={`w-full max-w-3xl mx-auto mt-2 mb-2 ${!isFlipped ? 'fixed bottom-8 left-1/2 -translate-x-1/2 z-40' : ''}`}>
+      <div className="w-full max-w-3xl mx-auto mt-2 mb-2">
         <div className="bg-white rounded-full border border-gray-200 shadow-xl shadow-gray-200/50 p-1.5 relative z-30 transition-all hover:shadow-2xl hover:shadow-gray-200/60">
           <div className="relative h-14 z-30">
             <div
@@ -318,38 +325,12 @@ export default function SearchFilterBar({ onChange, onModeChange, onSendMessage 
                     )}
                   </div>
 
-                  <div className="relative px-4 hover:bg-gray-50 rounded-full transition-colors cursor-pointer min-w-[120px]" onClick={() => { setShowCheckInCal(!showCheckInCal); setShowCheckOutCal(false); }}>
-                    <div className="text-[10px] font-bold text-gray-800 uppercase tracking-wider mb-0.5">Check in</div>
-                    <div className={`text-sm ${checkIn ? "text-gray-900 font-medium" : "text-gray-400"}`}>{checkIn ? formatDate(checkIn) : "Add dates"}</div>
-                    {showCheckInCal && (
-                      <CalendarDropdown onSelect={(date) => handleDateSelect(date, "checkin")} selectedDate={checkIn} type="checkin" />
-                    )}
-                  </div>
+                  {/* Hidden Check-in, Check-out, and Who */}
+                  {/* 
+                  ...
+                  */}
 
-                  <div className="relative px-4 hover:bg-gray-50 rounded-full transition-colors cursor-pointer min-w-[120px]" onClick={() => { setShowCheckOutCal(!showCheckOutCal); setShowCheckInCal(false); }}>
-                    <div className="text-[10px] font-bold text-gray-800 uppercase tracking-wider mb-0.5">Check out</div>
-                    <div className={`text-sm ${checkOut ? "text-gray-900 font-medium" : "text-gray-400"}`}>{checkOut ? formatDate(checkOut) : "Add dates"}</div>
-                    {showCheckOutCal && (
-                      <CalendarDropdown onSelect={(date) => handleDateSelect(date, "checkout")} selectedDate={checkOut} type="checkout" />
-                    )}
-                  </div>
-
-                  <div className="relative px-4 hover:bg-gray-50 rounded-full transition-colors cursor-pointer flex-1">
-                    <div className="text-[10px] font-bold text-gray-800 uppercase tracking-wider mb-0.5">Who</div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm text-gray-900 font-medium">{guests} {guests === 1 ? "guest" : "guests"}</span>
-                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => { const g = Math.max(1, guests - 1); setGuests(g); emit(location, g); }} className="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center hover:border-gray-800 transition-colors">
-                          <Minus className="w-3 h-3 text-gray-600" />
-                        </button>
-                        <button onClick={() => { const g = guests + 1; setGuests(g); emit(location, g); }} className="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center hover:border-gray-800 transition-colors">
-                          <Plus className="w-3 h-3 text-gray-600" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pl-2 pr-1 flex items-center">
+                  <div className="pl-2 pr-1 flex items-center ml-auto">
                     <button className="p-3 rounded-full bg-gradient-to-r from-primary to-blue-600 hover:opacity-90 transition-all shadow-lg shadow-primary/30" onClick={() => emit()}>
                       <Search className="w-5 h-5 text-white" strokeWidth={2.5} />
                     </button>

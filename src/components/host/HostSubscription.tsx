@@ -9,7 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
 import { getErrorMessage } from "@/lib/errors";
 
-type PlanTier = 'free' | 'standard' | 'premium';
+type PlanTier = 'free' | 'standard' | 'professional' | 'premium';
 
 interface PlanFeature {
     text: string;
@@ -63,6 +63,23 @@ const plans: Plan[] = [
             { text: "Verified Host Badge", included: true },
             { text: "Holiday Campaign Priority", included: true },
             { text: "Access to Promotions", included: true },
+        ]
+    },
+    {
+        id: 'professional',
+        name: "Professional",
+        price: "R350",
+        description: "Scale your reach with advanced social & ranking tools.",
+        color: "bg-blue-50/50 border-blue-100",
+        cta: "Go Professional",
+        features: [
+            { text: "Everything in Standard", included: true },
+            { text: "2 Social Promos/mo", included: true },
+            { text: "Advanced Analytics", included: true },
+            { text: "Custom Marketing Templates", included: true },
+            { text: "Professional Video", included: false },
+            { text: "Featured in 'Top Picks'", included: false },
+            { text: "Direct WhatsApp Support", included: false },
         ]
     },
     {
@@ -267,7 +284,7 @@ export default function HostSubscription() {
                 </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-8">
+            <div className={`grid grid-cols-1 ${plans.length === 4 ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-6 pt-8`}>
                 {plans.map((plan) => {
                     const isCurrent = currentPlan === plan.id;
                     const isLoading = loadingPlan === plan.id;
@@ -319,8 +336,8 @@ export default function HostSubscription() {
                                 <Button
                                     onClick={() => handleUpgrade(plan.id)}
                                     disabled={loadingPlan !== null || isCurrent}
-                                    variant={isCurrent ? "outline" : plan.id === 'premium' ? "default" : "secondary"}
-                                    className={`w-full h-12 rounded-xl text-base font-semibold ${plan.id === 'premium' ? 'bg-primary hover:bg-primary/90' : ''
+                                    variant={isCurrent ? "outline" : plan.id === 'premium' || plan.id === 'professional' ? "default" : "secondary"}
+                                    className={`w-full h-12 rounded-xl text-base font-semibold ${plan.id === 'premium' ? 'bg-primary hover:bg-primary/90' : plan.id === 'professional' ? 'bg-indigo-600 hover:bg-indigo-700' : ''
                                         }`}
                                 >
                                     {isLoading ? (

@@ -87,7 +87,7 @@ export default function CreateListing() {
     is_occupied: false
   });
 
-  const [plan, setPlan] = useState<'free' | 'standard' | 'premium'>('free');
+  const [plan, setPlan] = useState<'free' | 'standard' | 'professional' | 'premium'>('free');
   const [checkingLimit, setCheckingLimit] = useState(true);
   const [canCreate, setCanCreate] = useState(true);
   const [verificationStatus, setVerificationStatus] = useState<'none' | 'pending' | 'verified' | 'rejected' | null>(null);
@@ -101,7 +101,7 @@ export default function CreateListing() {
       .eq('id', user.id)
       .single();
 
-    const currentPlan = (profileData?.host_plan as 'free' | 'standard' | 'premium') || 'free';
+    const currentPlan = (profileData?.host_plan as 'free' | 'standard' | 'professional' | 'premium') || 'free';
     setPlan(currentPlan);
     const startStatus = profileData?.verification_status || 'none';
     setVerificationStatus(startStatus);

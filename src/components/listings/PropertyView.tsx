@@ -4,7 +4,7 @@ import { Property } from "@/types/property";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Star, MapPin, Wifi, Car, Utensils, Wind, Share, Heart, Video } from "lucide-react";
+import { Star, MapPin, Wifi, Car, Utensils, Wind, Share, Heart, Video, Sparkles } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import ImageUpload from "@/components/ui/image-upload";
 import { Calendar } from "@/components/ui/calendar";
@@ -150,38 +150,11 @@ export default function PropertyView({ property, onBookingComplete }: PropertyVi
         }
     };
 
+    /* 
     const handleReserve = () => {
-        if (!user) {
-            toast({
-                title: "Please login",
-                description: "You need to be logged in to book a property.",
-                variant: "destructive",
-            });
-            return;
-        }
-
-        if (!date?.from || !date?.to) {
-            toast({
-                title: "Select dates",
-                description: "Please select check-in and check-out dates.",
-                variant: "destructive",
-            });
-            return;
-        }
-
-        // Navigate to payment page with booking details
-        navigate('/book', {
-            state: {
-                property,
-                date,
-                guests,
-                total,
-                nights,
-                user
-            }
-        });
-        if (onBookingComplete) onBookingComplete();
+        ...
     };
+    */
 
     const propertySchema = {
         "@context": "https://schema.org",
@@ -487,111 +460,61 @@ export default function PropertyView({ property, onBookingComplete }: PropertyVi
                     </div>
                 </div>
 
-                {/* Right Column: Booking Widget */}
+                {/* Right Column: Verification/Exposure Widget */}
                 <div className="md:col-span-1 relative z-10">
-                    <div className="sticky top-6 border border-gray-200 rounded-xl p-6 shadow-lg bg-white z-10">
-                        <div className="flex justify-between items-end mb-4">
-                            <div>
-                                {property.discount && property.discount > 0 ? (
-                                    <div className="flex flex-col">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-gray-400 line-through text-lg">R{property.price}</span>
-                                            <span className="bg-red-100 text-red-600 text-xs font-bold px-2 py-1 rounded">-{property.discount}% OFF</span>
-                                        </div>
-                                        <div className="flex items-baseline gap-1">
-                                            <span className="text-2xl font-bold">R{Math.round(property.price * (1 - (property.discount / 100)))}</span>
-                                            <span className="text-gray-600"> / night</span>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div>
-                                        <span className="text-2xl font-bold">R{property.price}</span>
-                                        <span className="text-gray-600"> / night</span>
-                                    </div>
-                                )}
+                    <div className="sticky top-24 border border-gray-200 rounded-2xl p-6 shadow-xl bg-white z-10">
+                        <div className="flex flex-col gap-4">
+                            <div className="flex items-center gap-3 p-3 bg-blue-50/50 rounded-xl border border-blue-100">
+                                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <Sparkles className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <div>
+                                    <div className="text-sm font-bold text-blue-900">Verified Network Exposure</div>
+                                    <div className="text-[10px] text-blue-700 font-medium font-primary">ESTIMATED REACH: 50K+ /mo</div>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-1 text-sm">
-                                <Star className="w-4 h-4 fill-black" />
-                                <span className="font-medium">{property.rating}</span>
-                                <span className="text-gray-500">({property.reviews} reviews)</span>
-                            </div>
-                        </div>
 
-                        <div className="border border-gray-400 rounded-lg mb-4 overflow-hidden">
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <div className="grid grid-cols-2 border-b border-gray-400 cursor-pointer hover:bg-gray-50 transition-colors">
-                                        <div className="p-3 border-r border-gray-400">
-                                            <div className="text-[10px] font-bold uppercase">Check-in</div>
-                                            <div className="text-sm truncate">{date?.from ? format(date.from, "dd MMM yyyy") : "Add date"}</div>
+                            <div className="py-2">
+                                <h3 className="text-lg font-bold mb-2">Host Verification</h3>
+                                <p className="text-xs text-gray-500 leading-relaxed mb-4">
+                                    To list your property in our premium advertising network (including Facebook and Instagram partner groups), you must complete the host verification process.
+                                </p>
+
+                                <div className="space-y-3">
+                                    <div className="flex items-start gap-2">
+                                        <div className="mt-0.5 w-4 h-4 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
                                         </div>
-                                        <div className="p-3">
-                                            <div className="text-[10px] font-bold uppercase">Check-out</div>
-                                            <div className="text-sm truncate">{date?.to ? format(date.to, "dd MMM yyyy") : "Add date"}</div>
+                                        <div className="text-[11px] text-gray-600 font-medium">Identity verification required</div>
+                                    </div>
+                                    <div className="flex items-start gap-2">
+                                        <div className="mt-0.5 w-4 h-4 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
                                         </div>
+                                        <div className="text-[11px] text-gray-600 font-medium">Property ownership validation</div>
                                     </div>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0 z-[200]" align="end">
-                                    <Calendar
-                                        initialFocus
-                                        mode="range"
-                                        defaultMonth={date?.from}
-                                        selected={date}
-                                        onSelect={setDate}
-                                        numberOfMonths={2}
-                                        disabled={[
-                                            { before: new Date() },
-                                            ...bookedDates
-                                        ]}
-                                    />
-                                </PopoverContent>
-                            </Popover>
-
-                            <div className="p-3">
-                                <div className="text-[10px] font-bold uppercase">Guests</div>
-                                <div className="text-sm">{guests} guest{guests > 1 ? 's' : ''}</div>
-                            </div>
-                        </div>
-
-                        <Button
-                            onClick={handleReserve}
-                            disabled={isBooking || !date?.from || !date?.to}
-                            className="w-full bg-gradient-to-r from-primary to-blue-400 hover:from-primary/90 hover:to-blue-400/90 text-white font-semibold py-6 text-lg mb-4"
-                        >
-                            Reserve
-                        </Button>
-
-                        <p className="text-center text-sm text-gray-500 mb-4">
-                            {user && date?.from && date?.to
-                                ? "You will be charged immediately"
-                                : "You won't be charged yet"}
-                        </p>
-
-                        {nights > 0 && (
-                            <>
-                                <div className="space-y-3 text-gray-600">
-                                    <div className="flex justify-between">
-                                        <span className="underline">R{property.discount ? Math.round(property.price * (1 - (property.discount / 100))) : property.price} x {nights} nights</span>
-                                        <span>R{(property.discount ? Math.round(property.price * (1 - (property.discount / 100))) : property.price) * nights}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="underline">Cleaning fee</span>
-                                        <span>R{cleaningFee}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="underline">Service fee</span>
-                                        <span>R{serviceFee}</span>
+                                    <div className="flex items-start gap-2">
+                                        <div className="mt-0.5 w-4 h-4 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                                        </div>
+                                        <div className="text-[11px] text-gray-600 font-medium">Inquiry funnel distribution</div>
                                     </div>
                                 </div>
+                            </div>
 
-                                <Separator className="my-4" />
+                            <Separator />
 
-                                <div className="flex justify-between font-bold text-lg">
-                                    <span>Total</span>
-                                    <span>R{total}</span>
-                                </div>
-                            </>
-                        )}
+                            <Button
+                                className="w-full bg-black text-white hover:bg-gray-800 font-bold py-6 rounded-xl"
+                                onClick={() => navigate("/host")}
+                            >
+                                Get Verified to Promote
+                            </Button>
+
+                            <p className="text-[10px] text-center text-gray-400 font-medium">
+                                *Verification usually takes 24-48 hours.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
