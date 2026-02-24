@@ -217,7 +217,7 @@ function Home() {
         (data || []).forEach((b) => {
           const bi = new Date(b.check_in);
           const bo = new Date(b.check_out);
-          if (bi > from && bi < to) {
+          if (bi < to && bo > from) {
             unavailable.add(b.property_id);
           }
         });
