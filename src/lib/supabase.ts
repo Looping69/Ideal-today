@@ -8,7 +8,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables: VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY');
 }
 if (!/^https:\/\/.+supabase\.co/.test(supabaseUrl)) {
-  throw new Error('Invalid SUPABASE_URL format');
+  throw new Error('Invalid VITE_SUPABASE_URL format');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
