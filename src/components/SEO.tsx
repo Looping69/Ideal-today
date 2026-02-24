@@ -22,7 +22,7 @@ export default function SEO({
 }: SEOProps) {
     const siteName = 'IdealStay';
     const fullTitle = title ? `${title} | ${siteName}` : 'IdealStay | Best Holiday Accommodation in South Africa';
-    const fullDescription = description || "Discover the perfect holiday accommodation in South Africa. Book verified stays, villas, and apartments on IdealStay.";
+    const fullDescription = description || "Discover the perfect holiday accommodation in South Africa. Explore verified stays, villas, and apartments on IdealStay.";
     const url = window.location.href;
 
     return (

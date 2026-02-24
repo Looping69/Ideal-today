@@ -4,15 +4,15 @@ import { Users, Home, Calendar, Star, MessageSquare, ArrowUpRight, ArrowDownRigh
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-type KPI = { users: number; listings: number; bookings: number; reviews: number; pendingReviews: number };
+type KPI = { users: number; listings: number; enquiries: number; reviews: number; pendingReviews: number };
 type TopListing = { id: string; title: string; location: string; rating: number; image?: string; price?: number };
-type RecentBooking = { id: string; status: string; check_in: string; check_out: string; property?: { title: string; image?: string }; user?: { full_name: string; email: string } };
+type RecentEnquiry = { id: string; status: string; check_in: string; check_out: string; property?: { title: string; image?: string }; user?: { full_name: string; email: string } };
 
 export default function AdminOverview() {
   const [kpi, setKpi] = useState<KPI | null>(null);
   const [chart, setChart] = useState<{ label: string; value: number }[]>([]);
   const [topListings, setTopListings] = useState<TopListing[]>([]);
-  const [recentBookings, setRecentBookings] = useState<RecentBooking[]>([]);
+  const [recentEnquiries, setRecentEnquiries] = useState<RecentEnquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const [health, setHealth] = useState({ dbLoad: 0, storage: 0, latency: 0 });
 
@@ -28,10 +28,10 @@ export default function AdminOverview() {
         // We use a query that gives us some idea of complexity/scale
         const { count: profileCount } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
         const { count: propertyCount } = await supabase.from('properties').select('count', { count: 'exact', head: true });
-        const { count: bookingCount } = await supabase.from('bookings').select('count', { count: 'exact', head: true });
+        const { count: enquiryCount } = await supabase.from('bookings').select('count', { count: 'exact', head: true });
 
         // Mocking relative storage for now based on scale, but in a real app we'd query pg_total_relation_size
-        const totalRows = (profileCount || 0) + (propertyCount || 0) + (bookingCount || 0);
+        const totalRows = (profileCount || 0) + (propertyCount || 0) + (enquiryCount || 0);
         const storageUsage = Math.min(Math.round((totalRows / 10000) * 100), 100) || 5; // Base 5% + scale
 
         // Calculate load based on latency (thresholds: < 50ms=good, 50-200ms=avg, >200ms=high)
@@ -41,13 +41,13 @@ export default function AdminOverview() {
 
         const users = await supabase.from('profiles').select('count', { count: 'exact', head: true });
         const listings = await supabase.from('properties').select('count', { count: 'exact', head: true });
-        const bookings = await supabase.from('bookings').select('count', { count: 'exact', head: true });
+        const enquiries = await supabase.from('bookings').select('count', { count: 'exact', head: true });
         const reviews = await supabase.from('reviews').select('count', { count: 'exact', head: true });
         const pending = await supabase.from('reviews').select('count', { count: 'exact', head: true }).eq('status', 'pending');
         setKpi({
           users: (users.count as number) || 0,
           listings: (listings.count as number) || 0,
-          bookings: (bookings.count as number) || 0,
+          enquiries: (enquiries.count as number) || 0,
           reviews: (reviews.count as number) || 0,
           pendingReviews: (pending.count as number) || 0,
         });
@@ -78,18 +78,18 @@ export default function AdminOverview() {
           .limit(5);
         setTopListings((tops as unknown as TopListing[]) || []);
 
-        const { data: rb } = await supabase
+        const { data: re } = await supabase
           .from('bookings')
           .select(`id,status,check_in,check_out,property:properties(title,image),user:profiles(full_name,email)`)
           .order('created_at', { ascending: false })
           .limit(5);
-        setRecentBookings((rb as unknown as RecentBooking[]) || []);
+        setRecentEnquiries((re as unknown as RecentEnquiry[]) || []);
       } catch (error: unknown) {
         console.error('Error loading dashboard stats:', error);
-        setKpi({ users: 0, listings: 0, bookings: 0, reviews: 0, pendingReviews: 0 });
+        setKpi({ users: 0, listings: 0, enquiries: 0, reviews: 0, pendingReviews: 0 });
         setChart([]);
         setTopListings([]);
-        setRecentBookings([]);
+        setRecentEnquiries([]);
       } finally {
         setLoading(false);
       }
@@ -100,7 +100,7 @@ export default function AdminOverview() {
   const stats = [
     { label: "Total Users", value: kpi?.users ?? 0, icon: Users, change: "+12%", trend: "up", color: "text-blue-600", bg: "bg-blue-50" },
     { label: "Active Listings", value: kpi?.listings ?? 0, icon: Home, change: "+5%", trend: "up", color: "text-purple-600", bg: "bg-purple-50" },
-    { label: "Total Bookings", value: kpi?.bookings ?? 0, icon: Calendar, change: "+18%", trend: "up", color: "text-green-600", bg: "bg-green-50" },
+    { label: "Total Enquiries", value: kpi?.enquiries ?? 0, icon: Calendar, change: "+18%", trend: "up", color: "text-green-600", bg: "bg-green-50" },
     { label: "Pending Reviews", value: kpi?.pendingReviews ?? 0, icon: MessageSquare, change: "-2%", trend: "down", color: "text-orange-600", bg: "bg-orange-50" },
   ];
 
@@ -139,7 +139,7 @@ export default function AdminOverview() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-gray-900">Booking Trends</h2>
+            <h2 className="text-xl font-bold text-gray-900">Enquiry Trends</h2>
             <Button variant="outline" size="sm" className="rounded-lg">View Report</Button>
           </div>
           <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
@@ -151,7 +151,7 @@ export default function AdminOverview() {
                     style={{ height: `${Math.max((c.value || 0) * 15, 4)}px` }}
                   >
                     <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                      {c.value} bookings
+                      {c.value} enquiries
                     </div>
                   </div>
                   <div className="text-xs text-gray-400 mt-3 text-center font-medium">{c.label.split('-')[1]}</div>
@@ -163,43 +163,43 @@ export default function AdminOverview() {
 
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">Recent Bookings</h2>
+              <h2 className="text-xl font-bold text-gray-900">Recent Enquiries</h2>
               <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80">View All</Button>
             </div>
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="overflow-x-auto no-scrollbar">
                 <div className="min-w-[600px]">
                   <div className="grid grid-cols-4 gap-4 p-5 border-b border-gray-100 bg-gray-50/50 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                    <div className="col-span-2">Property & Guest</div>
-                    <div>Dates</div>
+                    <div className="col-span-2">Property & User</div>
+                    <div>Requested Dates</div>
                     <div className="text-right">Status</div>
                   </div>
                   <div className="divide-y divide-gray-100">
-                    {recentBookings.map((booking) => (
-                      <div key={booking.id} className="grid grid-cols-4 gap-4 p-4 items-center hover:bg-gray-50/50 transition-colors">
+                    {recentEnquiries.map((enquiry) => (
+                      <div key={enquiry.id} className="grid grid-cols-4 gap-4 p-4 items-center hover:bg-gray-50/50 transition-colors">
                         <div className="col-span-2 flex items-center gap-4">
                           <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden shrink-0">
-                            <img src={booking.property?.image || "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&auto=format&fit=crop&q=60"} alt="" className="w-full h-full object-cover" />
+                            <img src={enquiry.property?.image || "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&auto=format&fit=crop&q=60"} alt="" className="w-full h-full object-cover" />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-sm font-semibold text-gray-900 truncate">{booking.property?.title}</p>
-                            <p className="text-xs text-gray-500 truncate">{booking.user?.full_name || booking.user?.email || 'Guest'}</p>
+                            <p className="text-sm font-semibold text-gray-900 truncate">{enquiry.property?.title}</p>
+                            <p className="text-xs text-gray-500 truncate">{enquiry.user?.full_name || enquiry.user?.email || 'User'}</p>
                           </div>
                         </div>
                         <div className="text-xs text-gray-600 font-medium">
-                          {new Date(booking.check_in).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - {new Date(booking.check_out).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                          {new Date(enquiry.check_in).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - {new Date(enquiry.check_out).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                         </div>
                         <div className="text-right">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold capitalize ${booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
-                            booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold capitalize ${enquiry.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                            enquiry.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                               'bg-gray-100 text-gray-700'
                             }`}>
-                            {booking.status}
+                            {enquiry.status}
                           </span>
                         </div>
                       </div>
                     ))}
-                    {recentBookings.length === 0 && <div className="p-8 text-center text-gray-500">No recent bookings</div>}
+                    {recentEnquiries.length === 0 && <div className="p-8 text-center text-gray-500">No recent enquiries</div>}
                   </div>
                 </div>
               </div>

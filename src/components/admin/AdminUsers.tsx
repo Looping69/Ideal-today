@@ -41,7 +41,7 @@ type Row = {
   points?: number;
   verification_status?: 'none' | 'pending' | 'verified' | 'rejected';
   verification_docs?: VerificationDocs;
-  host_plan?: 'free' | 'standard' | 'premium';
+  host_plan?: 'free' | 'standard' | 'professional' | 'premium';
   referral_tier?: 'founder' | 'pro' | 'standard';
 };
 
@@ -361,10 +361,11 @@ export default function AdminUsers() {
                     <td className="px-6 py-4">
                       <div className="flex flex-col gap-1 items-start">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${r.host_plan === 'premium' ? 'bg-purple-50 text-purple-700 border-purple-100' :
-                          r.host_plan === 'standard' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                            'bg-gray-50 text-gray-600 border-gray-100'
+                          r.host_plan === 'professional' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
+                            r.host_plan === 'standard' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                              'bg-gray-50 text-gray-600 border-gray-100'
                           }`}>
-                          {r.host_plan === 'premium' ? '★ Premium' : r.host_plan === 'standard' ? '✓ Standard' : 'Free'}
+                          {r.host_plan === 'premium' ? '★ Premium' : r.host_plan === 'professional' ? '💎 Pro' : r.host_plan === 'standard' ? '✓ Standard' : 'Free'}
                         </span>
                         {r.referral_tier && r.referral_tier !== 'standard' && (
                           <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${r.referral_tier === 'founder' ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-green-50 text-green-700 border-green-100'}`}>
@@ -586,6 +587,7 @@ export default function AdminUsers() {
                 >
                   <option value="free">Free</option>
                   <option value="standard">Standard</option>
+                  <option value="professional">Professional</option>
                   <option value="premium">Premium</option>
                 </select>
               </div>

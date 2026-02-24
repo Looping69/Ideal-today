@@ -122,14 +122,14 @@ export default function AdminBookings() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Bookings Management</h1>
-          <p className="text-gray-500 text-sm mt-1">Track and manage all property bookings.</p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Enquiry Management</h1>
+          <p className="text-gray-500 text-sm mt-1">Track and manage all property enquiries and leads.</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
-              placeholder="Search bookings..."
+              placeholder="Search enquiries..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 w-full sm:w-64 bg-white border-gray-200 focus:border-primary focus:ring-primary/20 rounded-xl"
@@ -162,8 +162,8 @@ export default function AdminBookings() {
             <thead className="bg-gray-50/50 border-b border-gray-100">
               <tr>
                 <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Property</th>
-                <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Guest</th>
-                <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Dates</th>
+                <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">User</th>
+                <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Requested Dates</th>
                 <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Status</th>
                 <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs text-right">Actions</th>
               </tr>
@@ -255,8 +255,8 @@ export default function AdminBookings() {
       <Dialog open={!!editingBooking} onOpenChange={(o) => !o && setEditingBooking(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Administrative Booking Correction</DialogTitle>
-            <DialogDescription>Override booking details to resolve disputes.</DialogDescription>
+            <DialogTitle>Administrative Enquiry Correction</DialogTitle>
+            <DialogDescription>Override enquiry details if necessary.</DialogDescription>
           </DialogHeader>
           {editingBooking && (
             <div className="space-y-4 py-4">

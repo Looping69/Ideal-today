@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { getErrorMessage } from "@/lib/errors";
 
 interface ActivityItem {
-  type: 'booking' | 'review';
+  type: 'enquiry' | 'review';
   title: string;
   desc: string;
   time: Date;
@@ -25,16 +25,9 @@ export default function HostDashboard() {
   const [loading, setLoading] = useState(true);
   const [activityFeed, setActivityFeed] = useState<ActivityItem[]>([]);
   const [stats, setStats] = useState({
-    revenue: 0,
-    bookings: 0,
+    enquiries: 0,
     rating: 0,
     occupancy: 0
-  });
-  const [todaysActivity, setTodaysActivity] = useState({
-    arrivals: 0,
-    departures: 0,
-    inHouse: 0,
-    available: 0
   });
 
   const fetchData = useCallback(async () => {
@@ -54,14 +47,14 @@ export default function HostDashboard() {
         return;
       }
 
-      // 2. Fetch bookings (all active ones)
-      const { data: bookingsData } = await supabase
+      // 2. Fetch enquiries (from bookings table)
+      const { data: enquiriesData } = await supabase
         .from("bookings")
-        .select("id, total_price, status, check_in, check_out, created_at, user:profiles(full_name)")
+        .select("id, status, check_in, check_out, created_at, user:profiles(full_name)")
         .in("property_id", propIds)
         .neq('status', 'canceled');
 
-      const allBookings = bookingsData || [];
+      const allEnquiries = enquiriesData || [];
 
       // 3. Fetch reviews
       const { data: reviewsData } = await supabase
@@ -72,44 +65,11 @@ export default function HostDashboard() {
         .limit(5);
 
       // --- Calculate Stats ---
-      const totalRevenue = allBookings
-        .filter(b => b.status === 'confirmed' || b.status === 'completed')
-        .reduce((sum, b) => sum + (b.total_price || 0), 0);
-
-      const activeBookingsCount = allBookings.filter(b => b.status === 'pending' || b.status === 'confirmed').length;
+      const activeEnquiriesCount = allEnquiries.filter(b => b.status === 'pending' || b.status === 'confirmed').length;
 
       const { data: ratingsData } = await supabase.from("reviews").select("rating").in("property_id", propIds);
       const totalRating = (ratingsData || []).reduce((sum, r) => sum + r.rating, 0);
       const avgRating = ratingsData?.length ? (totalRating / ratingsData.length).toFixed(1) : 0;
-
-      // --- Today's Activity ---
-      let arrivals = 0;
-      let departures = 0;
-      let inHouse = 0;
-
-      const isSameDate = (d1: Date, d2: Date) =>
-        d1.getDate() === d2.getDate() &&
-        d1.getMonth() === d2.getMonth() &&
-        d1.getFullYear() === d2.getFullYear();
-
-      allBookings.forEach(b => {
-        if (b.status !== 'confirmed' && b.status !== 'completed') return;
-        const checkIn = new Date(b.check_in);
-        const checkOut = new Date(b.check_out);
-
-        if (isSameDate(checkIn, today)) arrivals++;
-        if (isSameDate(checkOut, today)) departures++;
-        if (checkIn < today && checkOut > today) inHouse++;
-      });
-
-      const available = totalProperties - (inHouse + arrivals);
-
-      setTodaysActivity({
-        arrivals,
-        departures,
-        inHouse,
-        available: Math.max(0, available)
-      });
 
       // --- Occupancy Graph ---
       const next7Days = [];
@@ -118,7 +78,7 @@ export default function HostDashboard() {
       for (let i = 0; i < 7; i++) {
         const d = new Date(today);
         d.setDate(today.getDate() + i);
-        const occupiedCount = allBookings.filter(b => {
+        const occupiedCount = allEnquiries.filter(b => {
           const start = new Date(b.check_in);
           const end = new Date(b.check_out);
           return (b.status === 'confirmed' || b.status === 'completed' || b.status === 'blocked') &&
@@ -130,16 +90,16 @@ export default function HostDashboard() {
 
       // --- Activity Feed ---
       const feedItems: ActivityItem[] = [];
-      allBookings
+      allEnquiries
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, 5)
         .forEach((b) => {
           const userProfile = Array.isArray(b.user) ? b.user[0] : b.user;
           const userName = (userProfile as { full_name: string })?.full_name;
           feedItems.push({
-            type: 'booking',
-            title: b.status === 'pending' ? 'New Request' : 'New Booking',
-            desc: `${userName || 'Guest'} - ${new Date(b.check_in).toLocaleDateString()}`,
+            type: 'enquiry',
+            title: b.status === 'pending' ? 'New Enquiry Request' : 'New Enquiry',
+            desc: `${userName || 'User'} - ${new Date(b.check_in).toLocaleDateString()}`,
             time: new Date(b.created_at),
             icon: Calendar,
             color: 'text-blue-600',
@@ -153,7 +113,7 @@ export default function HostDashboard() {
         feedItems.push({
           type: 'review',
           title: 'New Review',
-          desc: `${r.rating} stars from ${userName || 'Guest'}`,
+          desc: `${r.rating} stars from ${userName || 'User'}`,
           time: new Date(r.created_at),
           icon: Star,
           color: 'text-yellow-600',
@@ -168,8 +128,7 @@ export default function HostDashboard() {
 
       setOccupancyData(next7Days);
       setStats({
-        revenue: totalRevenue,
-        bookings: activeBookingsCount,
+        enquiries: activeEnquiriesCount,
         rating: Number(avgRating),
         occupancy: avgOccupancy
       });
@@ -200,68 +159,17 @@ export default function HostDashboard() {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Front Desk</h1>
-          <p className="text-gray-500 mt-1">Overview of your daily operations.</p>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Host Dashboard</h1>
+          <p className="text-gray-500 mt-1">Manage your properties and visibility on Ideal Stay.</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="relative hidden md:block">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input placeholder="Search reservation..." className="pl-9 w-64 bg-white" />
-          </div>
           <Button onClick={() => navigate('/host/create')} className="bg-gray-900 text-white hover:bg-gray-800 shadow-lg shadow-gray-900/20">
             <Plus className="w-4 h-4 mr-2" />
-            New Booking
+            Create Listing
           </Button>
         </div>
       </div>
 
-      {/* Today's Operations Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="border-none shadow-sm bg-blue-50/50 hover:bg-blue-50 transition-colors cursor-pointer group">
-          <CardContent className="p-6 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-blue-600 mb-1">Arrivals</p>
-              <div className="text-3xl font-bold text-blue-900">{todaysActivity.arrivals}</div>
-            </div>
-            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <LogIn className="w-6 h-6 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-none shadow-sm bg-orange-50/50 hover:bg-orange-50 transition-colors cursor-pointer group">
-          <CardContent className="p-6 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-orange-600 mb-1">Departures</p>
-              <div className="text-3xl font-bold text-orange-900">{todaysActivity.departures}</div>
-            </div>
-            <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <LogOut className="w-6 h-6 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-none shadow-sm bg-purple-50/50 hover:bg-purple-50 transition-colors cursor-pointer group">
-          <CardContent className="p-6 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-purple-600 mb-1">In House</p>
-              <div className="text-3xl font-bold text-purple-900">{todaysActivity.inHouse}</div>
-            </div>
-            <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <BedDouble className="w-6 h-6 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-none shadow-sm bg-green-50/50 hover:bg-green-50 transition-colors cursor-pointer group">
-          <CardContent className="p-6 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-green-600 mb-1">Available</p>
-              <div className="text-3xl font-bold text-green-900">{todaysActivity.available}</div>
-            </div>
-            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Calendar className="w-6 h-6 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Refer-a-Host Promo */}
       <Card className="border-none bg-gradient-to-r from-indigo-600 to-blue-700 text-white overflow-hidden relative shadow-lg">
@@ -284,58 +192,23 @@ export default function HostDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          <Card className="border-gray-200 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-lg font-bold text-gray-900">Occupancy Forecast</CardTitle>
-              <select className="text-sm border-none bg-gray-50 rounded-lg px-2 py-1 font-medium text-gray-600 focus:ring-0">
-                <option>Next 7 Days</option>
-              </select>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px] w-full">
-                {occupancyData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={occupancyData}>
-                      <defs>
-                        <linearGradient id="colorOccupancy" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#0f172a" stopOpacity={0.1} />
-                          <stop offset="95%" stopColor="#0f172a" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}%`} />
-                      <Tooltip
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                      />
-                      <Area type="monotone" dataKey="occupancy" stroke="#0f172a" strokeWidth={3} fillOpacity={1} fill="url(#colorOccupancy)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex items-center justify-center h-full text-gray-400">
-                    No data available in forecast
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card className="border-gray-200 shadow-sm">
               <CardHeader>
-                <CardTitle className="text-base font-bold">Revenue</CardTitle>
+                <CardTitle className="text-base font-bold">Active Enquiries</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-gray-900">R{stats.revenue.toLocaleString()}</div>
+                <div className="text-3xl font-bold text-gray-900">{stats.enquiries}</div>
                 <p className="text-sm text-green-600 mt-1 flex items-center">
                   <TrendingUp className="w-4 h-4 mr-1" />
-                  +12.5% vs last month
+                  +12.5% lead conversion
                 </p>
               </CardContent>
             </Card>
             <Card className="border-gray-200 shadow-sm">
               <CardHeader>
-                <CardTitle className="text-base font-bold">Guest Satisfaction</CardTitle>
+                <CardTitle className="text-base font-bold">User Feedback</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-2">
@@ -380,7 +253,6 @@ export default function HostDashboard() {
                   </div>
                 ))
               )}
-              <Button variant="outline" className="w-full mt-4" onClick={() => navigate('/host/bookings')}>View All Bookings</Button>
             </CardContent>
           </Card>
         </div>

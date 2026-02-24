@@ -23,7 +23,8 @@ export default function HostVerification() {
         full_name: "",
         phone: "",
         bio: "",
-        business_address: ""
+        business_address: "",
+        join_advertising_network: true
     });
 
     // Step 2: Documents
@@ -53,7 +54,8 @@ export default function HostVerification() {
                     full_name: data.full_name || "",
                     phone: data.phone || "",
                     bio: data.bio || "",
-                    business_address: data.business_address || ""
+                    business_address: data.business_address || "",
+                    join_advertising_network: true // Default to true as it's the focus now
                 });
                 if (data.verification_docs) {
                     setDocuments(data.verification_docs);
@@ -263,6 +265,28 @@ export default function HostVerification() {
                             />
                         </div>
 
+                        <div className="space-y-4 pt-2">
+                            <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                                <div className="mt-1">
+                                    <input
+                                        type="checkbox"
+                                        id="ad-network"
+                                        checked={profileData.join_advertising_network}
+                                        onChange={(e) => setProfileData({ ...profileData, join_advertising_network: e.target.checked })}
+                                        className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="ad-network" className="text-sm font-bold text-blue-900 cursor-pointer">
+                                        Join our Premium Advertising Network
+                                    </Label>
+                                    <p className="text-xs text-blue-700 leading-relaxed">
+                                        By selecting this, your verified properties will be featured in our network of Facebook partner groups and Instagram pages, significantly increasing listing exposure.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="flex justify-end pt-4">
                             <Button onClick={handleNext}>
                                 Next Step
@@ -294,6 +318,7 @@ export default function HostVerification() {
                                         bucket="verification"
                                         maxFiles={1}
                                         isPrivate={true}
+                                        allowCamera={true}
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -305,6 +330,7 @@ export default function HostVerification() {
                                         bucket="verification"
                                         maxFiles={1}
                                         isPrivate={true}
+                                        allowCamera={true}
                                     />
                                 </div>
                             </CardContent>
@@ -328,6 +354,7 @@ export default function HostVerification() {
                                         bucket="verification"
                                         maxFiles={1}
                                         isPrivate={true}
+                                        allowCamera={true}
                                     />
                                 </div>
                                 <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-600">
