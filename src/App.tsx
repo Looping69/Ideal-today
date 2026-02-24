@@ -97,7 +97,7 @@ function App() {
                   <Footer />
                 </div>
               } />
-              <Route path="/inbox/:inquiryId" element={
+              <Route path="/inbox/:bookingId" element={
                 <div className="min-h-screen bg-white flex flex-col">
                   <Header />
                   <InboxPage />
