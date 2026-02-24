@@ -36,9 +36,9 @@ export default function AdminLayout() {
     { to: '/admin', label: 'Overview', icon: HomeIcon },
     { to: '/admin/pending', label: 'Pending Listings', icon: Clock },
     { to: '/admin/users', label: 'Users', icon: Users },
+    { to: '/admin/enquiries', label: 'Enquiries', icon: MessageSquare },
     { to: '/admin/listings', label: 'Listings', icon: ClipboardList },
     { to: '/admin/reviews', label: 'Reviews', icon: Star },
-    { to: '/admin/bookings', label: 'Bookings', icon: MessageSquare },
     { to: '/admin/referrals', label: 'Referrals', icon: Share2 },
     { to: '/admin/rewards', label: 'Rewards', icon: Gift },
     { to: '/admin/financials', label: 'Financials', icon: Wallet },
@@ -78,7 +78,7 @@ export default function AdminLayout() {
           <div className="mb-6 px-2">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Main Menu</p>
             <nav className="space-y-1">
-              {nav.slice(0, 6).map(({ to, label, icon: Icon }) => (
+              {nav.slice(0, 7).map(({ to, label, icon: Icon }) => (
                 <NavLink
                   key={to}
                   to={to}
@@ -96,7 +96,7 @@ export default function AdminLayout() {
           <div className="px-2">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Management</p>
             <nav className="space-y-1">
-              {nav.slice(6).map(({ to, label, icon: Icon }) => (
+              {nav.slice(7).map(({ to, label, icon: Icon }) => (
                 <NavLink
                   key={to}
                   to={to}

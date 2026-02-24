@@ -79,27 +79,14 @@ export default function Header() {
               }`}
             onClick={scrollToTop}
           >
-            {/* Where */}
-            <div className="px-6 h-full flex flex-col justify-center border-r border-gray-200 hover:bg-gray-50 rounded-l-full min-w-[140px]">
+            {/* Only Search by Location for now */}
+            <div className="px-6 h-full flex flex-col justify-center hover:bg-gray-50 rounded-full min-w-[240px] flex-1">
               <div className="text-[10px] font-bold text-gray-800 leading-tight">Where</div>
               <div className="text-xs text-gray-500 font-medium truncate">Search destinations</div>
             </div>
-
-            {/* When */}
-            <div className="px-6 h-full flex flex-col justify-center border-r border-gray-200 hover:bg-gray-50 min-w-[120px]">
-              <div className="text-[10px] font-bold text-gray-800 leading-tight">When</div>
-              <div className="text-xs text-gray-500 font-medium truncate">Add dates</div>
-            </div>
-
-            {/* Who */}
-            <div className="pl-6 pr-2 h-full flex items-center gap-4 hover:bg-gray-50 rounded-r-full min-w-[180px]">
-              <div className="flex flex-col justify-center">
-                <div className="text-[10px] font-bold text-gray-800 leading-tight">Who</div>
-                <div className="text-xs text-gray-500 font-medium truncate">Add guests</div>
-              </div>
-              <div className="bg-primary hover:bg-primary/90 text-white rounded-full px-4 py-2 flex items-center gap-2 transition-colors ml-auto shadow-sm">
-                <Search className="w-3.5 h-3.5 stroke-[3px]" />
-                <span className="text-xs font-bold">Search</span>
+            <div className="pr-2 h-full flex items-center">
+              <div className="bg-primary hover:bg-primary/90 text-white rounded-full p-2 flex items-center justify-center transition-colors shadow-sm">
+                <Search className="w-4 h-4 stroke-[3px]" />
               </div>
             </div>
           </div>
@@ -144,7 +131,7 @@ export default function Header() {
                       <Trophy className="w-4 h-4 mr-2" />
                       My Rewards
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/trips")} className="rounded-lg cursor-pointer">Trips</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/inquiries")} className="rounded-lg cursor-pointer">My Inquiries</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate("/wishlists")} className="rounded-lg cursor-pointer">Wishlists</DropdownMenuItem>
                     <DropdownMenuSeparator className="my-2" />
                     <DropdownMenuItem onClick={() => navigate("/host")} className="rounded-lg cursor-pointer">Manage listings</DropdownMenuItem>

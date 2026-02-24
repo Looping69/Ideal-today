@@ -2,7 +2,7 @@ import { Suspense, lazy } from "react";
 import { Routes, Route } from "react-router-dom";
 const Home = lazy(() => import("./components/home"));
 const RewardsDashboard = lazy(() => import("./components/rewards/RewardsDashboard"));
-const TripsPage = lazy(() => import("./components/trips/TripsPage"));
+const InquiriesPage = lazy(() => import("./components/trips/InquiriesPage"));
 const WishlistsPage = lazy(() => import("./components/wishlists/WishlistsPage"));
 const HostLayout = lazy(() => import("./components/host/HostLayout"));
 const HostDashboard = lazy(() => import("./components/host/HostDashboard"));
@@ -20,7 +20,7 @@ import ReferralTracker from "./components/ReferralTracker";
 import { Analytics } from "@vercel/analytics/react";
 
 const HostListings = lazy(() => import("./components/host/HostListings"));
-const HostBookings = lazy(() => import("./components/host/HostBookings"));
+const HostEnquiries = lazy(() => import("./components/host/HostEnquiries"));
 const HostSettings = lazy(() => import("./components/host/HostSettings"));
 const HostGuests = lazy(() => import("./components/host/HostGuests"));
 const HostOperations = lazy(() => import("./components/host/HostOperations"));
@@ -45,7 +45,7 @@ const AdminUsers = lazy(() => import("./components/admin/AdminUsers"));
 const AdminListings = lazy(() => import("./components/admin/AdminListings"));
 const AdminPendingListings = lazy(() => import("./components/admin/AdminPendingListings"));
 const AdminReviews = lazy(() => import("./components/admin/AdminReviews"));
-const AdminBookings = lazy(() => import("./components/admin/AdminBookings"));
+const AdminEnquiries = lazy(() => import("./components/admin/AdminEnquiries"));
 const AdminReferrals = lazy(() => import("./components/admin/AdminReferrals"));
 const AdminRewards = lazy(() => import("./components/admin/AdminRewards"));
 const AdminFinancials = lazy(() => import("./components/admin/AdminFinancials"));
@@ -69,8 +69,6 @@ function App() {
               <Route path="/properties/:id" element={<PropertyPage />} />
               <Route path="/health" element={<Health />} />
               <Route path="/diagnose" element={<Diagnose />} />
-              <Route path="/book" element={<PaymentPage />} />
-              <Route path="/book/success" element={<PaymentSuccess />} />
               <Route path="/rewards" element={
                 <div className="min-h-screen bg-white flex flex-col">
                   <Header />
@@ -78,10 +76,10 @@ function App() {
                   <Footer />
                 </div>
               } />
-              <Route path="/trips" element={
+              <Route path="/inquiries" element={
                 <div className="min-h-screen bg-white flex flex-col">
                   <Header />
-                  <TripsPage />
+                  <InquiriesPage />
                   <Footer />
                 </div>
               } />
@@ -133,7 +131,7 @@ function App() {
                 <Route path="pending" element={<AdminPendingListings />} />
                 <Route path="listings" element={<AdminListings />} />
                 <Route path="reviews" element={<AdminReviews />} />
-                <Route path="bookings" element={<AdminBookings />} />
+                <Route path="enquiries" element={<AdminEnquiries />} />
                 <Route path="referrals" element={<AdminReferrals />} />
                 <Route path="rewards" element={<AdminRewards />} />
                 <Route path="financials" element={<AdminFinancials />} />
@@ -147,13 +145,13 @@ function App() {
                 <Route path="create" element={<CreateListing />} />
                 <Route path="edit/:id" element={<CreateListing />} />
                 <Route path="listings" element={<HostListings />} />
-                <Route path="bookings" element={<HostBookings />} />
+                <Route path="enquiries" element={<HostEnquiries />} />
                 <Route path="calendar" element={<HostCalendar />} />
                 <Route path="guests" element={<HostGuests />} />
                 <Route path="operations" element={<HostOperations />} />
                 <Route path="reports" element={<HostReports />} />
                 <Route path="inbox" element={<HostInbox />} />
-                <Route path="inbox/:bookingId" element={<HostInbox />} />
+                <Route path="inbox/:inquiryId" element={<HostInbox />} />
                 <Route path="verification" element={<HostVerification />} />
                 <Route path="referrals" element={<HostReferrals />} />
                 <Route path="settings" element={<HostSettings />} />

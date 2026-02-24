@@ -301,7 +301,7 @@ export default function AdminListings() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => window.open(`/listings/${r.id}`, '_blank')}>
+                          <DropdownMenuItem onClick={() => window.open(`/properties/${r.id}`, '_blank')}>
                             View Listing
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setEditingListing(r)}>

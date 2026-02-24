@@ -77,7 +77,7 @@ export default function TripsPage() {
 
   return (
     <div className="min-h-screen pt-20 pb-12 container mx-auto px-4">
-      <h1 className="text-3xl font-bold mb-6">Trips</h1>
+      <h1 className="text-3xl font-bold mb-6">My Inquiries</h1>
       <div className="border-b border-gray-200 mb-8">
         <div className="flex gap-8">
           <button
@@ -109,14 +109,14 @@ export default function TripsPage() {
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
             ✈️
           </div>
-          <h3 className="text-xl font-semibold mb-2">No {activeTab} trips</h3>
+          <h3 className="text-xl font-semibold mb-2">No {activeTab} inquiries</h3>
           <p className="text-gray-500 mb-6 max-w-md mx-auto">
             {activeTab === "upcoming"
-              ? "Time to dust off your bags and start planning your next adventure."
-              : "You haven't completed any trips yet."}
+              ? "Your inquiries will appear here once you contact a host."
+              : "You haven't made any inquiries yet."}
           </p>
           <Button onClick={() => navigate("/")} className="bg-primary hover:bg-primary/90">
-            Start searching
+            Explore properties
           </Button>
         </div>
       ) : (

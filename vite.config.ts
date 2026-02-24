@@ -13,7 +13,7 @@ export default defineConfig({
   plugins: [
     react(),
   ],
-  envPrefix: ["SUPABASE_", "SITE_", "GOOGLE_", "YOCO_PUBLIC_"],
+  envPrefix: ["VITE_", "SUPABASE_", "SITE_", "GOOGLE_", "YOCO_PUBLIC_"],
   resolve: {
     preserveSymlinks: true,
     alias: {
