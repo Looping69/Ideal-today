@@ -57,11 +57,8 @@ export default function HostLayout() {
   const sidebarItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/host" },
     { icon: MessageSquare, label: "Inbox", path: "/host/inbox" },
-    { icon: Calendar, label: "Calendar", path: "/host/calendar" },
-    { icon: ClipboardList, label: "Bookings", path: "/host/bookings" },
-    { icon: CheckSquare, label: "Operations", path: "/host/operations" },
+    { icon: ClipboardList, label: "Enquiries", path: "/host/enquiries" },
     { icon: Building2, label: "Listings", path: "/host/listings" },
-    { icon: Users, label: "Guests", path: "/host/guests" },
     { icon: CreditCard, label: "Plan & Billing", path: "/host/subscription" },
     { icon: BarChart3, label: "Reports", path: "/host/reports" },
     { icon: Trophy, label: "Referrals", path: "/host/referrals" },
@@ -196,7 +193,7 @@ export default function HostLayout() {
               onClick={() => navigate("/")}
               className="hidden md:flex rounded-full border-gray-200 hover:bg-gray-50 hover:text-primary transition-colors"
             >
-              Switch to Traveling
+              Switch to Marketplace
             </Button>
 
             <NotificationBell />

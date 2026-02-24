@@ -193,7 +193,7 @@ export default function PropertyView({ property, onBookingComplete }: PropertyVi
         <div className="p-6">
             <SEO
                 title={property.title}
-                description={`Book ${property.title} in ${property.location}. ${property.description.substring(0, 150)}...`}
+                description={`Explore ${property.title} in ${property.location}. ${property.description.substring(0, 150)}...`}
                 keywords={`${property.type}, holiday accommodation ${property.location}, ${property.title} rental`}
                 ogImage={property.image}
                 schema={propertySchema}
@@ -431,7 +431,7 @@ export default function PropertyView({ property, onBookingComplete }: PropertyVi
                         <div className="mt-6">
                             <h4 className="font-semibold mb-2">Write a review</h4>
                             {!canReview ? (
-                                <p className="text-sm text-gray-500">Reviews are available after a confirmed booking. You may have already reviewed this stay.</p>
+                                <p className="text-sm text-gray-500">Reviews are available after a verified stay. You may have already reviewed this stay.</p>
                             ) : (
                                 <div className="space-y-3">
                                     <div className="flex items-center gap-2">

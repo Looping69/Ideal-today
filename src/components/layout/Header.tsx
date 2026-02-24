@@ -127,14 +127,12 @@ export default function Header() {
                       <p className="text-xs text-gray-500 font-medium">Signed in as</p>
                       <p className="text-sm font-semibold truncate">{user.email}</p>
                     </div>
-                    {/* 
                     <DropdownMenuItem onClick={() => navigate("/rewards")} className="text-blue-600 font-medium focus:bg-blue-50 focus:text-blue-700 rounded-lg cursor-pointer">
                       <Trophy className="w-4 h-4 mr-2" />
                       My Rewards
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/trips")} className="rounded-lg cursor-pointer">Trips</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/wishlists")} className="rounded-lg cursor-pointer">Wishlists</DropdownMenuItem> 
-                    */}
+                    <DropdownMenuItem onClick={() => navigate("/inquiries")} className="rounded-lg cursor-pointer">My Inquiries</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/wishlists")} className="rounded-lg cursor-pointer">Wishlists</DropdownMenuItem>
                     <DropdownMenuSeparator className="my-2" />
                     <DropdownMenuItem onClick={() => navigate("/host")} className="rounded-lg cursor-pointer">Manage listings</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate("/account")} className="rounded-lg cursor-pointer">Account</DropdownMenuItem>

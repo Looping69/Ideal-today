@@ -28,21 +28,6 @@ function Home() {
       "addressLocality": "Cape Town",
       "addressRegion": "Western Cape",
       "addressCountry": "ZA"
-    },
-    "potentialAction": {
-      "@type": "ReserveAction",
-      "target": {
-        "@type": "EntryPoint",
-        "urlTemplate": "https://idealstay.co.za",
-        "actionPlatform": [
-          "http://schema.org/DesktopWebPlatform",
-          "http://schema.org/MobileWebPlatform"
-        ]
-      },
-      "result": {
-        "@type": "LodgingReservation",
-        "name": "Holiday Stay Reservation"
-      }
     }
   };
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
@@ -264,8 +249,8 @@ function Home() {
   return (
     <div className="min-h-screen bg-white flex flex-col overflow-x-hidden">
       <SEO
-        title="Find Perfect Holiday Accommodation"
-        description="Browse thousands of verified holiday rentals, self-catering apartments, and luxury villas across South Africa. Best price guaranteed on IdealStay."
+        title="Explore Perfect Holiday Accommodation"
+        description="Browse thousands of verified rentals and luxury villas across South Africa. Connect with verified hosts through IdealStay."
         keywords="holiday accommodation, self catering, vacation rentals, stays south africa, cape town stays"
         schema={homeSchema}
       />

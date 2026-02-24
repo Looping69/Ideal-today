@@ -1,30 +1,60 @@
-# React + TypeScript + Vite
+# Ideal Stay - South Africa's Premium Property Marketplace
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Ideal Stay is a premium property listing and discovery platform tailored for the South African holiday and vacation rental market. It connects travelers with verified hosts through a high-performance, AI-driven interface.
 
-Currently, two official plugins are available:
+## 🚀 The Pivot: Marketplace & Lead Gen
+**Important Note:** Ideal Stay has transitioned from a direct booking engine to a **Premium Property Marketplace**. 
+- **Direct Bookings are no longer a feature.**
+- The platform now focuses on **Property Visibility**, **Host Promotion**, and **Lead Generation**.
+- Communication is handled via the integrated AI Chat and direct host contact channels, allowing for more flexible guest-host interactions.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## ✨ Key Features
 
-## Expanding the ESLint configuration
+### For Travelers
+- **AI-Powered Discovery**: An intelligent chat interface that helps users find the perfect stay based on natural language requirements (e.g., "Find me a pet-friendly villa in Camps Bay with a pool").
+- **Smart Filtering**: Category-based exploration (Hotels, Guest Houses, Self-Catering, etc.) with province-specific navigation.
+- **Rich Media**: High-quality property galleries, video slots for premium listings, and integrated Google Maps for location accuracy.
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+### For Hosts
+- **Tiered Subscriptions**: Flexibly scale your visibility with Free, Standard, Professional, and Premium tiers.
+- **Verified Host Status**: Build trust with travelers through our robust verification system.
+- **Advanced Analytics**: (Professional/Premium) Track listing performance and viewer engagement.
+- **Priority Sorting**: Premium tiers are automatically promoted to the top of search results and featured carousels.
 
-- Configure the top-level `parserOptions` property like this:
+## 🛠️ Tech Stack
+- **Frontend**: React 18, TypeScript, Vite
+- **Styling**: Tailwind CSS, Framer Motion (for animations), Lucide React (icons)
+- **Backend / Auth**: Supabase (PostgreSQL, Auth, Storage, Realtime)
+- **Maps**: Google Maps Platform (@react-google-maps/api)
+- **AI**: Integrated AI Assistant for property matching
 
-```js
-export default {
-  // other rules...
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json'],
-    tsconfigRootDir: __dirname,
-  },
-}
-```
+## ⚙️ Getting Started
 
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+### Prerequisites
+- Node.js (v18+)
+- Supabase account
+
+### Installation
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Set up environment variables:
+   Copy `.env.example` to `.env` and fill in your Supabase configuration, Google Maps key, and other required tokens.
+4. Run the development server:
+   ```bash
+   npm run dev
+   ```
+
+## 🏗️ Project Structure
+- `/src/components`: UI components organized by feature (auth, host, listings, search).
+- `/src/contexts`: Global state management for Auth and Notifications.
+- `/src/lib`: Core utility instances (Supabase client, shared helpers).
+- `/supabase`: Database migrations and edge functions.
+
+## 🛡️ Administrative Access
+Admins can manage users, approve/reject listings, and monitor platform health through the `/admin` dashboard. 
+
+---
+© 2026 Ideal Stay. Built for the future of South African travel.

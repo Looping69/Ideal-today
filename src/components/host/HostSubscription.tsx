@@ -40,7 +40,7 @@ const plans: Plan[] = [
             { text: "Basic Photos", included: true },
             { text: "Basic Description + Amenities", included: true },
             { text: "Listed in Search Results", included: true },
-            { text: "Self-managed Bookings", included: true },
+            { text: "Direct Enquiries", included: true },
             { text: "No Commission", included: true },
             { text: "Showcase Video Slot", included: false },
             { text: "Verified Host Badge", included: false },
