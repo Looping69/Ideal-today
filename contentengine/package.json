@@ -1,0 +1,17 @@
+{
+  "name": "contentengine",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "ISC",
+  "scripts": {
+    "dev": "encore run",
+    "test": "encore test"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "encore.dev": "^1.54.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

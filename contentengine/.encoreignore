@@ -1,0 +1,26 @@
+# Exclude EVERYTHING except backend services
+*
+!backend/
+!backend/**/*
+!encore.app
+!package.json
+!node_modules/
+
+# Specifically ignore problematic areas even inside backend if they exist
+referenceonly/
+scripts/
+frontend/
+shared/
+scrape-site.js
+scrape-site-retry.js
+scrape-visual.js
+homepage_screenshot.png
+analyze_content_engine_site_retry.webm
+analyze_content_engine_site.webm
+Screenshot*
+*.png
+*.webm
+*.js
+*.mjs
+*.ts
+!backend/**/*.ts
