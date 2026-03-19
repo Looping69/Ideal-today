@@ -18,6 +18,7 @@ import { useToast } from "@/components/ui/use-toast";
 import SEO from "../SEO";
 import PropertyMap from "./PropertyMap";
 import { Lightbox } from "@/components/ui/lightbox";
+import { invokeEngagementAction } from "@/lib/backend";
 
 interface PropertyViewProps {
     property: Property;
@@ -132,10 +133,13 @@ export default function PropertyView({ property, onBookingComplete }: PropertyVi
         }
         setIsSubmittingReview(true);
         try {
-            const { error } = await supabase
-                .from('reviews')
-                .insert({ property_id: property.id, user_id: user.id, rating: myRating, content: myText, photo_url: reviewPhotos[0] || null });
-            if (error) throw error;
+            await invokeEngagementAction({
+                action: 'submit-review',
+                propertyId: property.id,
+                rating: myRating,
+                content: myText,
+                photoUrl: reviewPhotos[0] || null,
+            });
             toast({ title: 'Review submitted', description: 'Your review is pending approval.' });
             setMyText("");
             setReviewPhotos([]);

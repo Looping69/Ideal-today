@@ -22,6 +22,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { geocodeAddress } from "@/lib/geocoding";
 import { getErrorMessage } from "@/lib/errors";
+import { invokePropertiesApi } from "@/lib/backend";
 
 import { CATEGORIES } from "@/constants/categories";
 import { CATEGORY_ICONS } from "@/components/icons/CategoryIcons";
@@ -282,11 +283,11 @@ export default function CreateListing() {
         approval_status: 'pending' // Always require re-approval on edit/create
       };
 
-      const { error } = isEditMode
-        ? await supabase.from("properties").update(propertyPayload).eq("id", id)
-        : await supabase.from("properties").insert(propertyPayload);
-
-      if (error) throw error;
+      await invokePropertiesApi({
+        action: 'save-host-listing',
+        id: isEditMode ? id : undefined,
+        ...propertyPayload,
+      });
 
       toast({
         title: isEditMode ? "Listing Updated!" : "Listing Submitted!",

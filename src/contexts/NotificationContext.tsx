@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { getErrorMessage } from '@/lib/errors';
+import { invokeAdminUserAction, invokeEngagementAction } from '@/lib/backend';
 
 export type Notification = {
     id: string;
@@ -112,12 +113,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             // Optimistic update
             setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
 
-            const { error } = await supabase
-                .from('notifications')
-                .update({ read: true })
-                .eq('id', id);
-
-            if (error) throw error;
+            await invokeEngagementAction({
+                action: 'mark-notification-read',
+                notificationId: id,
+            });
         } catch (error: unknown) {
             console.error('Error marking notification as read:', getErrorMessage(error));
             // Revert on error could be implemented here
@@ -128,13 +127,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         try {
             setNotifications(prev => prev.map(n => ({ ...n, read: true })));
 
-            const { error } = await supabase
-                .from('notifications')
-                .update({ read: true })
-                .eq('user_id', user?.id)
-                .eq('read', false);
-
-            if (error) throw error;
+            await invokeEngagementAction({
+                action: 'mark-all-notifications-read',
+            });
         } catch (error: unknown) {
             console.error('Error marking all as read:', getErrorMessage(error));
         }
@@ -144,12 +139,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         try {
             setNotifications(prev => prev.filter(n => n.id !== id));
 
-            const { error } = await supabase
-                .from('notifications')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
+            await invokeEngagementAction({
+                action: 'delete-notification',
+                notificationId: id,
+            });
         } catch (error: unknown) {
             console.error('Error deleting notification:', getErrorMessage(error));
         }
@@ -157,15 +150,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     const sendNotification = async (userId: string, notification: Omit<Notification, 'id' | 'user_id' | 'read' | 'created_at'>) => {
         try {
-            const { error } = await supabase
-                .from('notifications')
-                .insert({
-                    user_id: userId,
-                    ...notification,
-                    read: false
-                });
-
-            if (error) throw error;
+            await invokeAdminUserAction({
+                action: 'send-notification',
+                userId,
+                ...notification,
+            });
         } catch (error: unknown) {
             console.error('Error sending notification:', getErrorMessage(error));
             throw error;

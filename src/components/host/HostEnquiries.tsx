@@ -10,7 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/errors";
 import { useCallback } from "react";
+import { invokeBookingAction } from "@/lib/backend";
 
 interface Enquiry {
     id: string;
@@ -89,12 +91,11 @@ export default function HostBookings() {
 
     const handleUpdateStatus = useCallback(async (enquiryId: string, newStatus: string) => {
         try {
-            const { error } = await supabase
-                .from("bookings")
-                .update({ status: newStatus })
-                .eq("id", enquiryId);
-
-            if (error) throw error;
+            await invokeBookingAction({
+                action: "host-update-booking-status",
+                bookingId: enquiryId,
+                status: newStatus,
+            });
 
             toast({
                 title: newStatus === 'confirmed' ? "Enquiry Accepted" : "Enquiry Updated",
@@ -106,12 +107,12 @@ export default function HostBookings() {
                 e.id === enquiryId ? { ...e, status: newStatus as Enquiry['status'] } : e
             ));
 
-        } catch (error) {
+        } catch (error: unknown) {
             console.error("Error updating status:", error);
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: "Failed to update enquiry status.",
+                description: getErrorMessage(error),
             });
         }
     }, [toast]);

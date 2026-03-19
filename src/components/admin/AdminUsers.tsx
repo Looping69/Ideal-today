@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { useToast } from '@/components/ui/use-toast';
 import { getErrorMessage } from '@/lib/errors';
+import { invokeAdminUserAction } from '@/lib/backend';
 import {
   Dialog,
   DialogContent,
@@ -141,9 +142,11 @@ export default function AdminUsers() {
 
   const toggleAdmin = async (id: string, next: boolean) => {
     try {
-      const { data, error } = await supabase.from('profiles').update({ is_admin: next }).eq('id', id).select();
-      if (error) throw error;
-      if (!data || data.length === 0) throw new Error("Update failed: No rows affected. Access denied by database policy.");
+      await invokeAdminUserAction({
+        action: 'update-role-status',
+        userId: id,
+        isAdmin: next,
+      });
       setRows(rs => rs.map(r => (r.id === id ? { ...r, is_admin: next } : r)));
       toast({ title: "Role Updated", description: `User is now ${next ? 'an admin' : 'a regular user'}.` });
     } catch (e: unknown) {
@@ -154,9 +157,11 @@ export default function AdminUsers() {
 
   const toggleDeactivate = async (id: string, next: boolean) => {
     try {
-      const { data, error } = await supabase.from('profiles').update({ deactivated: next }).eq('id', id).select();
-      if (error) throw error;
-      if (!data || data.length === 0) throw new Error("Update failed: No rows affected. Access denied by database policy.");
+      await invokeAdminUserAction({
+        action: 'update-role-status',
+        userId: id,
+        deactivated: next,
+      });
       setRows(rs => rs.map(r => (r.id === id ? { ...r, deactivated: next } : r)));
       toast({ title: "Account Status Updated", description: `User account has been ${next ? 'deactivated' : 'activated'}.` });
     } catch (e: unknown) {
@@ -167,31 +172,12 @@ export default function AdminUsers() {
 
   const updateVerification = async (id: string, status: 'verified' | 'rejected') => {
     try {
-      // 1. Update Profile Status
-      const { data, error: updateError } = await supabase
-        .from('profiles')
-        .update({ verification_status: status })
-        .eq('id', id)
-        .select();
-
-      if (updateError) throw updateError;
-      if (!data || data.length === 0) throw new Error("Update failed: No rows affected. Access denied by database policy.");
-
-      // 2. Notify the User
-      const title = status === 'verified' ? 'Verification Approved' : 'Verification Rejected';
-      const message = status === 'verified'
-        ? 'Congratulations! Your host verification has been approved. You now have full access to host features.'
-        : 'Your verification documents were rejected. Please review our guidelines and try again.';
-
-      await supabase.from('notifications').insert({
-        user_id: id,
-        title,
-        message,
-        type: status === 'verified' ? 'success' : 'error',
-        link: '/host/verification'
+      await invokeAdminUserAction({
+        action: 'review-verification',
+        userId: id,
+        status,
       });
 
-      // 3. Update Local State
       setRows(rs => rs.map(r => (r.id === id ? { ...r, verification_status: status } : r)));
 
       toast({
@@ -217,17 +203,14 @@ export default function AdminUsers() {
   const handleUpdateProfile = async () => {
     if (!editingUser) return;
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          full_name: editingUser.full_name,
-          points: editingUser.points,
-          host_plan: editingUser.host_plan,
-          referral_tier: editingUser.referral_tier
-        })
-        .eq('id', editingUser.id);
-
-      if (error) throw error;
+      await invokeAdminUserAction({
+        action: 'update-profile',
+        userId: editingUser.id,
+        fullName: editingUser.full_name,
+        points: editingUser.points,
+        hostPlan: editingUser.host_plan,
+        referralTier: editingUser.referral_tier,
+      });
 
       setRows(rs => rs.map(r => r.id === editingUser.id ? editingUser : r));
       setEditingUser(null);
@@ -242,24 +225,15 @@ export default function AdminUsers() {
     if (!broadcastData.title || !broadcastData.message) return;
     setLoading(true);
     try {
-      // This is a heavy operation, in production this should be a background job
-      const { data: users } = await supabase.from('profiles').select('id');
-      if (users) {
-        const notifications = users.map(u => ({
-          user_id: u.id,
-          title: broadcastData.title,
-          message: broadcastData.message,
-          type: 'info'
-        }));
-
-        // Batch insert in chunks of 100 to avoid issues
-        for (let i = 0; i < notifications.length; i += 100) {
-          await supabase.from('notifications').insert(notifications.slice(i, i + 100));
-        }
-      }
+      const result = await invokeAdminUserAction<{ count: number }>({
+        action: 'broadcast',
+        title: broadcastData.title,
+        message: broadcastData.message,
+        type: 'info',
+      });
       setBroadcasting(false);
       setBroadcastData({ title: '', message: '' });
-      toast({ title: "Broadcast Sent", description: `Notification sent to ${users?.length || 0} users.` });
+      toast({ title: "Broadcast Sent", description: `Notification sent to ${result?.count || 0} users.` });
     } catch (e: unknown) {
       console.error('Error during broadcast:', getErrorMessage(e));
       toast({ variant: "destructive", title: "Broadcast Failed", description: getErrorMessage(e) });
@@ -459,8 +433,11 @@ export default function AdminUsers() {
                             <DropdownMenuLabel className="text-[10px] font-bold uppercase text-gray-400 px-2 py-1">Quick Tier Update</DropdownMenuLabel>
                             <DropdownMenuItem onClick={async () => {
                               try {
-                                const { error } = await supabase.from('profiles').update({ referral_tier: 'founder' }).eq('id', r.id).select();
-                                if (error) throw error;
+                                await invokeAdminUserAction({
+                                  action: 'update-profile',
+                                  userId: r.id,
+                                  referralTier: 'founder',
+                                });
                                 setRows(rs => rs.map(row => row.id === r.id ? { ...row, referral_tier: 'founder' } : row));
                                 toast({ title: "Promoted to Founder", description: "User now earns 40% commissions." });
                               } catch (e) {
@@ -472,8 +449,11 @@ export default function AdminUsers() {
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={async () => {
                               try {
-                                const { error } = await supabase.from('profiles').update({ referral_tier: 'pro' }).eq('id', r.id).select();
-                                if (error) throw error;
+                                await invokeAdminUserAction({
+                                  action: 'update-profile',
+                                  userId: r.id,
+                                  referralTier: 'pro',
+                                });
                                 setRows(rs => rs.map(row => row.id === r.id ? { ...row, referral_tier: 'pro' } : row));
                                 toast({ title: "Updated to Pro", description: "User now earns 20% commissions." });
                               } catch (e) {

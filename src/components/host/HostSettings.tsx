@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/use-toast";
 import ImageUpload from "@/components/ui/image-upload";
 import { Loader2 } from "lucide-react";
 import { getErrorMessage } from "@/lib/errors";
+import { saveUserProfile } from "@/lib/backend";
 
 export default function HostSettings() {
   const { user } = useAuth();
@@ -53,17 +54,10 @@ export default function HostSettings() {
   const updateProfile = useCallback(async () => {
     try {
       setLoading(true);
-
-      const updates = {
-        id: user?.id,
-        full_name: formData.full_name,
-        avatar_url: formData.avatar_url,
-        updated_at: new Date(),
-      };
-
-      const { error } = await supabase.from("profiles").upsert(updates);
-
-      if (error) throw error;
+      await saveUserProfile({
+        fullName: formData.full_name,
+        avatarUrl: formData.avatar_url,
+      });
       toast({
         title: "Profile updated",
         description: "Your host profile has been updated successfully.",
