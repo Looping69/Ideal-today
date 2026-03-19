@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { CheckCircle, Loader2, Home, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
-import { useToast } from "@/components/ui/use-toast";
 
 interface BookingDetails {
     id: string;
@@ -24,12 +23,13 @@ interface BookingDetails {
 export default function PaymentSuccess() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const { toast } = useToast();
     const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
     const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(null);
     const verifiedRef = useRef(false);
 
     useEffect(() => {
+        let interval: number | undefined;
+
         const verifyPayment = async () => {
             if (verifiedRef.current) return;
             verifiedRef.current = true;
@@ -45,7 +45,7 @@ export default function PaymentSuccess() {
                 // 1. Fetch the booking
                 const { data: booking, error: fetchError } = await supabase
                     .from('bookings')
-                    .select('*, property:properties(title, image, location), user:profiles(email, full_name)')
+                    .select('*, property:properties(title, image, location), user:profiles(email, full_name), payment_status')
                     .eq('id', bookingId)
                     .single();
 
@@ -56,52 +56,45 @@ export default function PaymentSuccess() {
 
                 setBookingDetails(booking);
 
-                // 2. If already confirmed, just show success
                 if (booking.status === 'confirmed') {
                     setStatus('success');
                     return;
                 }
 
-                // 3. Update status to confirmed
-                const { error: updateError } = await supabase
-                    .from('bookings')
-                    .update({ status: 'confirmed' })
-                    .eq('id', bookingId);
-
-                if (updateError) {
-                    console.error("Update failed", updateError);
-                    throw new Error("Failed to confirm booking status");
+                if ((booking as BookingDetails & { payment_status?: string }).payment_status === 'failed') {
+                    setStatus('error');
+                    return;
                 }
 
-                setStatus('success');
-                toast({
-                    title: "Booking Confirmed!",
-                    description: "Your trip is all set.",
-                    duration: 5000,
-                });
+                let attempts = 0;
+                interval = window.setInterval(async () => {
+                    attempts += 1;
 
-                // 4. Send Confirmation Email
-                // We don't await this to keep UI snappy, but we log errors
-                supabase.functions.invoke('send-email', {
-                    body: {
-                        to: booking.user?.email || 'user@example.com',
-                        subject: `Booking Confirmed: ${booking.property?.title}`,
-                        html: `
-                            <div style="font-family: sans-serif; color: #333;">
-                                <h1>Your Trip is Confirmed!</h1>
-                                <p>Hi ${booking.user?.full_name || 'there'},</p>
-                                <p>You are going to <strong>${booking.property?.title}</strong> in ${booking.property?.location}.</p>
-                                <p><strong>Check-in:</strong> ${new Date(booking.check_in).toDateString()}</p>
-                                <p><strong>Check-out:</strong> ${new Date(booking.check_out).toDateString()}</p>
-                                <p>Total Paid: R${booking.total_price}</p>
-                                <br/>
-                                <a href="${window.location.origin}/trips" style="background: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Trip</a>
-                            </div>
-                        `
+                    const { data: refreshed, error: refreshedError } = await supabase
+                        .from('bookings')
+                        .select('*, property:properties(title, image, location), user:profiles(email, full_name), payment_status')
+                        .eq('id', bookingId)
+                        .single();
+
+                    if (refreshedError || !refreshed) {
+                        window.clearInterval(interval);
+                        setStatus('error');
+                        return;
                     }
-                }).then(({ error }) => {
-                    if (error) console.error("Failed to send email:", error);
-                });
+
+                    setBookingDetails(refreshed);
+
+                    if (refreshed.status === 'confirmed') {
+                        window.clearInterval(interval);
+                        setStatus('success');
+                        return;
+                    }
+
+                    if (refreshed.payment_status === 'failed' || attempts >= 10) {
+                        if (interval) window.clearInterval(interval);
+                        setStatus('error');
+                    }
+                }, 3000);
 
             } catch (err) {
                 console.error("Verification error:", err);
@@ -110,7 +103,10 @@ export default function PaymentSuccess() {
         };
 
         verifyPayment();
-    }, [searchParams, toast]);
+        return () => {
+            if (interval) window.clearInterval(interval);
+        };
+    }, [searchParams]);
 
     if (status === 'verifying') {
         return (
@@ -158,7 +154,7 @@ export default function PaymentSuccess() {
 
                 <h1 className="text-3xl font-bold text-gray-900 mb-4">You're all set!</h1>
                 <p className="text-lg text-gray-600 mb-8 leading-relaxed">
-                    Your booking at <span className="font-semibold text-gray-900">{bookingDetails?.property?.title}</span> has been confirmed. A receipt was sent to your email.
+                    Your booking at <span className="font-semibold text-gray-900">{bookingDetails?.property?.title}</span> has been confirmed. You can view it in your trips dashboard.
                 </p>
 
                 <div className="bg-gray-50 rounded-xl p-6 mb-8 text-left border border-gray-100">

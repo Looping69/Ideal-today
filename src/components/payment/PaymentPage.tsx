@@ -2,10 +2,10 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Calendar, Users, MapPin, ShieldCheck, Star, CreditCard, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
 import { useState } from 'react';
 import { Property } from '@/types/property';
+import { createCheckout } from '@/lib/backend';
 
 interface BookingState {
     property: Property;
@@ -50,40 +50,12 @@ export default function PaymentPage() {
         try {
             setIsProcessing(true);
 
-            // 1. Create the booking in Supabase with 'pending' status
-            const { data: booking, error: bookingError } = await supabase
-                .from('bookings')
-                .insert({
-                    property_id: property.id,
-                    user_id: user.id,
-                    check_in: date.from,
-                    check_out: date.to,
-                    total_price: total,
-                    status: 'pending' // Initial status
-                })
-                .select()
-                .single();
-
-            if (bookingError) throw bookingError;
-
-            // 2. Create Yoco Checkout Session via Edge Function
-            const { data: checkout, error: checkoutError } = await supabase.functions.invoke('create-checkout', {
-                body: {
-                    amount: Math.round(total * 100), // Amount in cents, rounded to avoid floating point issues
-                    currency: 'ZAR',
-                    metadata: {
-                        bookingId: booking.id,
-                        type: 'booking'
-                    },
-                    successUrl: `${window.location.origin}/book/success?bookingId=${booking.id}`,
-                    cancelUrl: `${window.location.origin}/book?canceled=true`,
-                    failureUrl: `${window.location.origin}/book?failed=true`
-                }
+            const checkout = await createCheckout<{ redirectUrl?: string }>({
+                kind: 'booking',
+                propertyId: property.id,
+                checkIn: date.from.toISOString(),
+                checkOut: date.to.toISOString(),
             });
-
-            if (checkoutError) throw checkoutError;
-
-            // 3. Redirect user to Yoco
             if (checkout?.redirectUrl) {
                 window.location.href = checkout.redirectUrl;
             } else {
@@ -91,7 +63,6 @@ export default function PaymentPage() {
             }
 
         } catch (error: unknown) {
-            console.error(error);
             const message = error instanceof Error ? error.message : "Could not start payment. Please try again.";
             toast({
                 title: "Payment Initialization Failed",

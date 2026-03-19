@@ -23,6 +23,7 @@ import {
 import { CATEGORIES } from '@/constants/categories';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { invokePropertiesApi } from '@/lib/backend';
 
 type Row = { id: string; title: string; location: string; price: number; type: string; image?: string; is_featured?: boolean; video_url?: string | null; approval_status: string };
 
@@ -96,26 +97,17 @@ export default function AdminListings() {
 
   const toggleFeatured = async (id: string, currentStatus: boolean) => {
     const newStatus = !currentStatus;
-    const { data, error } = await supabase
-      .from('properties')
-      .update({ is_featured: newStatus })
-      .eq('id', id)
-      .select();
-
-    if (error) {
+    try {
+      await invokePropertiesApi({
+        action: 'admin-set-featured',
+        id,
+        isFeatured: newStatus,
+      });
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error',
         description: 'Failed to update featured status.',
-      });
-      return;
-    }
-
-    if (!data || data.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Update failed',
-        description: 'No rows affected. Access denied by database policy.',
       });
       return;
     }
@@ -132,18 +124,15 @@ export default function AdminListings() {
   const handleUpdateListing = async () => {
     if (!editingListing) return;
     try {
-      const { error } = await supabase
-        .from('properties')
-        .update({
-          title: editingListing.title,
-          location: editingListing.location,
-          price: editingListing.price,
-          type: editingListing.type,
-          video_url: editingListing.video_url
-        })
-        .eq('id', editingListing.id);
-
-      if (error) throw error;
+      await invokePropertiesApi({
+        action: 'admin-update-listing',
+        id: editingListing.id,
+        title: editingListing.title,
+        location: editingListing.location,
+        price: editingListing.price,
+        type: editingListing.type,
+        video_url: editingListing.video_url,
+      });
 
       setRows(prev => prev.map(r => r.id === editingListing.id ? editingListing : r));
       setEditingListing(null);
@@ -157,9 +146,10 @@ export default function AdminListings() {
   const deleteListing = async (id: string) => {
     if (!confirm("Are you sure? This will remove the listing permanently.")) return;
     try {
-      const { data, error } = await supabase.from('properties').delete().eq('id', id).select();
-      if (error) throw error;
-      if (!data || data.length === 0) throw new Error("Deletion failed: No rows affected. Access denied by database policy.");
+      await invokePropertiesApi({
+        action: 'admin-delete-listing',
+        id,
+      });
       setRows(prev => prev.filter(r => r.id !== id));
       toast({ title: "Deleted", description: "Listing removed." });
     } catch (e: unknown) {
@@ -421,4 +411,3 @@ export default function AdminListings() {
     </div>
   );
 }
-

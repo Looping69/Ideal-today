@@ -9,6 +9,7 @@ import { Send, User, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { invokeEngagementAction } from "@/lib/backend";
 
 interface Message {
   id: string;
@@ -85,18 +86,19 @@ export default function ChatWindow({ bookingId, otherUserName, otherUserAvatar, 
     const messageContent = newMessage.trim();
     setNewMessage(""); // Optimistic clear
 
-    const { error } = await supabase.from("messages").insert({
-      booking_id: bookingId,
-      sender_id: user.id,
-      content: messageContent,
-    });
-
-    if (error) {
+    try {
+      await invokeEngagementAction({
+        action: "send-message",
+        bookingId,
+        content: messageContent,
+      });
+    } catch (error: unknown) {
       console.error("Error sending message:", error);
+      setNewMessage(messageContent);
       toast({
         variant: "destructive",
         title: "Failed to send",
-        description: error.message || "Please try again.",
+        description: error instanceof Error ? error.message : "Please try again.",
       });
     }
   };

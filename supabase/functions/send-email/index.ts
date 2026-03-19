@@ -1,14 +1,10 @@
 
+import { buildCorsHeaders } from "../_shared/cors.ts";
+import { requireAdmin } from "../_shared/supabase.ts";
 
 export { }
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-
-const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 // Email templates for different auth actions
 const emailTemplates = {
@@ -90,11 +86,17 @@ const emailTemplates = {
 
 Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") {
-        return new Response("ok", { headers: corsHeaders });
+        return new Response("ok", { headers: buildCorsHeaders(req) });
     }
 
     try {
         const payload = await req.json();
+
+        const isAuthHookPayload = payload.user && payload.email_data;
+
+        if (!isAuthHookPayload) {
+            await requireAdmin(req);
+        }
 
         // Handle both direct calls and Auth Hook calls
         let to: string;
@@ -102,7 +104,7 @@ Deno.serve(async (req: Request) => {
         let html: string;
 
         // Auth Hook format from Supabase
-        if (payload.user && payload.email_data) {
+        if (isAuthHookPayload) {
             const { user, email_data } = payload;
             const email = user.email;
             const token = email_data.token_hash || email_data.token;
@@ -152,13 +154,13 @@ Deno.serve(async (req: Request) => {
         }
 
         return new Response(JSON.stringify({ success: true, data }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            headers: buildCorsHeaders(req, { "Content-Type": "application/json" }),
             status: 200,
         });
     } catch (error: any) {
         console.error("Email function error:", error);
         return new Response(JSON.stringify({ error: error.message }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            headers: buildCorsHeaders(req, { "Content-Type": "application/json" }),
             status: 500,
         });
     }

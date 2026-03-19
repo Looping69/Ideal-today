@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
+import { invokeEngagementAction } from "@/lib/backend";
 
 interface PropertyCardProps {
   property: Property;
@@ -73,24 +74,26 @@ export default function PropertyCard({ property, onClick, showBorder = false }: 
       return;
     }
     if (saved) {
-      const { error } = await supabase
-        .from("wishlists")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("property_id", property.id);
-      if (error) {
-        toast({ variant: "destructive", title: "Error", description: "Failed to remove from wishlist." });
-      } else {
+      try {
+        await invokeEngagementAction({
+          action: "toggle-wishlist",
+          propertyId: property.id,
+          saved: false,
+        });
         setSaved(false);
+      } catch {
+        toast({ variant: "destructive", title: "Error", description: "Failed to remove from wishlist." });
       }
     } else {
-      const { error } = await supabase
-        .from("wishlists")
-        .insert({ user_id: user.id, property_id: property.id });
-      if (error) {
-        toast({ variant: "destructive", title: "Error", description: "Failed to add to wishlist." });
-      } else {
+      try {
+        await invokeEngagementAction({
+          action: "toggle-wishlist",
+          propertyId: property.id,
+          saved: true,
+        });
         setSaved(true);
+      } catch {
+        toast({ variant: "destructive", title: "Error", description: "Failed to add to wishlist." });
       }
     }
   };
@@ -192,4 +195,3 @@ export default function PropertyCard({ property, onClick, showBorder = false }: 
     </div>
   );
 }
-

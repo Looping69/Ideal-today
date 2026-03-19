@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabase";
 import { Loader2, Send, Users } from "lucide-react";
 import { getErrorMessage } from "@/lib/errors";
+import { invokeAdminUserAction } from "@/lib/backend";
 
 export default function AdminNotifications() {
     const { sendNotification } = useNotifications();
@@ -48,23 +49,13 @@ export default function AdminNotifications() {
             setLoading(true);
 
             if (selectedUser === "all") {
-                // In a real app, this should be a backend function to avoid 1000s of inserts from client
-                // For this demo, we'll fetch all users and loop (not scalable but works for demo)
-                const { data: allUsers } = await supabase.from('profiles').select('id');
-
-                if (allUsers) {
-                    const notifications = allUsers.map(u => ({
-                        user_id: u.id,
-                        title: formData.title,
-                        message: formData.message,
-                        type: formData.type,
-                        link: formData.link,
-                        read: false
-                    }));
-
-                    const { error } = await supabase.from('notifications').insert(notifications);
-                    if (error) throw error;
-                }
+                await invokeAdminUserAction({
+                    action: 'broadcast',
+                    title: formData.title,
+                    message: formData.message,
+                    type: formData.type,
+                    link: formData.link,
+                });
             } else {
                 await sendNotification(selectedUser, {
                     title: formData.title,

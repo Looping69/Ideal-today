@@ -17,6 +17,7 @@ import { format, parseISO, addDays, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/errors";
 import { DateRange } from "react-day-picker";
+import { invokeBookingAction } from "@/lib/backend";
 
 interface Property {
   id: string;
@@ -109,18 +110,12 @@ export default function HostCalendar() {
     }
 
     try {
-      const { error } = await supabase
-        .from("bookings")
-        .insert({
-          property_id: selectedPropertyId,
-          user_id: user.id,
-          check_in: blockRange.from.toISOString(),
-          check_out: blockRange.to.toISOString(),
-          total_price: 0,
-          status: 'blocked'
-        });
-
-      if (error) throw error;
+      await invokeBookingAction({
+        action: "host-block-dates",
+        propertyId: selectedPropertyId,
+        checkIn: blockRange.from.toISOString(),
+        checkOut: blockRange.to.toISOString(),
+      });
 
       toast({
         title: "Dates Blocked",
@@ -140,12 +135,11 @@ export default function HostCalendar() {
 
   const handleUpdateStatus = useCallback(async (bookingId: string, newStatus: string) => {
     try {
-      const { error } = await supabase
-        .from("bookings")
-        .update({ status: newStatus })
-        .eq("id", bookingId);
-
-      if (error) throw error;
+      await invokeBookingAction({
+        action: "host-update-booking-status",
+        bookingId,
+        status: newStatus,
+      });
 
       toast({
         title: "Status Updated",
