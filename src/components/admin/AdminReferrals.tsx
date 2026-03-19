@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { useCallback } from 'react';
+import { invokeEngagementAction } from '@/lib/backend';
 
 type RefRow = { id: string; referrer_id: string; referee_id: string; status: 'pending' | 'confirmed' | 'rewarded'; created_at: string; rewarded_at?: string };
 
@@ -78,28 +79,35 @@ export default function AdminReferrals() {
 
   const updateStatus = async (id: string, next: 'pending' | 'confirmed' | 'rewarded') => {
     const table = tab === 'guest' ? 'referrals' : 'host_referrals';
-    await supabase.from(table).update({ status: next, rewarded_at: next === 'rewarded' ? new Date().toISOString() : null }).eq('id', id);
+    await invokeEngagementAction({
+      action: 'admin-update-referral-status',
+      table,
+      id,
+      status: next,
+    });
     setRows(rs => rs.map(r => (r.id === id ? { ...r, status: next, rewarded_at: next === 'rewarded' ? new Date().toISOString() : undefined } : r)));
   };
 
   const removeRow = async (id: string) => {
     const table = tab === 'guest' ? 'referrals' : 'host_referrals';
-    await supabase.from(table).delete().eq('id', id);
+    await invokeEngagementAction({
+      action: 'admin-delete-referral',
+      table,
+      id,
+    });
     setRows(rs => rs.filter(r => r.id !== id));
   };
 
   const createManual = async () => {
     if (!referrerEmail || !refereeEmail) return;
-    const { data: referrer } = await supabase.from('profiles').select('id').eq('email', referrerEmail).single();
-    const { data: referee } = await supabase.from('profiles').select('id').eq('email', refereeEmail).single();
-    if (!referrer?.id || !referee?.id) return;
     const table = tab === 'guest' ? 'referrals' : 'host_referrals';
-    const { data, error: insertError } = await supabase.from(table).insert({ referrer_id: referrer.id, referee_id: referee.id, status: 'pending' }).select('id,referrer_id,referee_id,status,created_at').single();
-    if (insertError) {
-      console.error('Error creating manual referral:', getErrorMessage(insertError));
-      return;
-    }
-    setRows(rs => [data as unknown as RefRow, ...rs]);
+    const result = await invokeEngagementAction<{ referral: RefRow }>({
+      action: 'admin-create-referral',
+      table,
+      referrerEmail,
+      refereeEmail,
+    });
+    setRows(rs => [result.referral, ...rs]);
     setReferrerEmail('');
     setRefereeEmail('');
     await load();
@@ -113,7 +121,12 @@ export default function AdminReferrals() {
     const ids = Object.keys(selected).filter(k => selected[k]);
     if (ids.length === 0) return;
     const table = tab === 'guest' ? 'referrals' : 'host_referrals';
-    await supabase.from(table).update({ status: next, rewarded_at: next === 'rewarded' ? new Date().toISOString() : null }).in('id', ids);
+    await invokeEngagementAction({
+      action: 'admin-bulk-update-referrals',
+      table,
+      ids,
+      status: next,
+    });
     setRows(rs => rs.map(r => (selected[r.id] ? { ...r, status: next, rewarded_at: next === 'rewarded' ? new Date().toISOString() : r.rewarded_at } : r)));
     setSelected({});
   };
@@ -122,7 +135,11 @@ export default function AdminReferrals() {
     const ids = Object.keys(selected).filter(k => selected[k]);
     if (ids.length === 0) return;
     const table = tab === 'guest' ? 'referrals' : 'host_referrals';
-    await supabase.from(table).delete().in('id', ids);
+    await invokeEngagementAction({
+      action: 'admin-bulk-delete-referrals',
+      table,
+      ids,
+    });
     setRows(rs => rs.filter(r => !selected[r.id]));
     setSelected({});
   };

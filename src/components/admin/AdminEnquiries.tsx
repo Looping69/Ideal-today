@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
+import { invokeBookingAction } from '@/lib/backend';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,13 +70,17 @@ export default function AdminBookings() {
   }, [rows, search]);
 
   const updateStatus = useCallback(async (id: string, next: 'pending' | 'confirmed' | 'completed' | 'canceled') => {
-    const { error } = await supabase.from('bookings').update({ status: next }).eq('id', id);
-    if (error) {
-      console.error('Error updating status:', getErrorMessage(error));
-      toast({ variant: 'destructive', title: 'Error', description: error.message });
-    } else {
+    try {
+      await invokeBookingAction({
+        action: 'admin-update-booking-status',
+        bookingId: id,
+        status: next,
+      });
       setRows(rs => rs.map(r => (r.id === id ? { ...r, status: next } : r)));
       toast({ title: 'Success', description: `Booking marked as ${next}` });
+    } catch (error: unknown) {
+      console.error('Error updating status:', getErrorMessage(error));
+      toast({ variant: 'destructive', title: 'Error', description: getErrorMessage(error) });
     }
   }, [toast]);
 
@@ -84,17 +89,13 @@ export default function AdminBookings() {
   const handleUpdateBooking = async () => {
     if (!editingBooking) return;
     try {
-      const { error } = await supabase
-        .from('bookings')
-        .update({
-          check_in: editingBooking.check_in,
-          check_out: editingBooking.check_out,
-          status: editingBooking.status
-          // Add total_price here once schema confirms column name, assuming it's total_price
-        })
-        .eq('id', editingBooking.id);
-
-      if (error) throw error;
+      await invokeBookingAction({
+        action: 'admin-update-booking',
+        bookingId: editingBooking.id,
+        checkIn: editingBooking.check_in,
+        checkOut: editingBooking.check_out,
+        status: editingBooking.status,
+      });
 
       setRows(prev => prev.map(r => r.id === editingBooking.id ? editingBooking : r));
       setEditingBooking(null);
@@ -108,8 +109,10 @@ export default function AdminBookings() {
   const deleteBooking = async (id: string) => {
     if (!confirm("Permanently delete this booking record? This cannot be undone.")) return;
     try {
-      const { error } = await supabase.from('bookings').delete().eq('id', id);
-      if (error) throw error;
+      await invokeBookingAction({
+        action: 'admin-delete-booking',
+        bookingId: id,
+      });
       setRows(prev => prev.filter(r => r.id !== id));
       toast({ title: "Deleted", description: "Booking record removed." });
     } catch (e: unknown) {

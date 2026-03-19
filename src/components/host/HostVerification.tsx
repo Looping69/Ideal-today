@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/use-toast";
 import ImageUpload from "@/components/ui/image-upload";
 import { Loader2, ShieldCheck, AlertCircle, CheckCircle2, Clock, ChevronRight, ChevronLeft, User, FileText } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { submitHostVerification } from "@/lib/backend";
 
 export default function HostVerification() {
     const { user } = useAuth();
@@ -98,41 +99,13 @@ export default function HostVerification() {
 
         try {
             setLoading(true);
-            const { error } = await supabase
-                .from("profiles")
-                .update({
-                    // Profile fields
-                    full_name: profileData.full_name,
-                    phone: profileData.phone,
-                    bio: profileData.bio,
-                    business_address: profileData.business_address,
-
-                    // Verification fields
-                    verification_status: 'pending',
-                    verification_docs: documents,
-                    verification_submitted_at: new Date().toISOString(),
-                })
-                .eq("id", user?.id);
-
-            if (error) throw error;
-
-            // Notify Admins
-            const { data: admins } = await supabase
-                .from('profiles')
-                .select('id')
-                .eq('is_admin', true);
-
-            if (admins && admins.length > 0) {
-                const notifications = admins.map(admin => ({
-                    user_id: admin.id,
-                    title: 'New Host Verification',
-                    message: `${profileData.full_name} has submitted verification documents.`,
-                    type: 'system',
-                    link: '/admin/users'
-                }));
-
-                await supabase.from('notifications').insert(notifications);
-            }
+            await submitHostVerification({
+                fullName: profileData.full_name,
+                phone: profileData.phone,
+                bio: profileData.bio,
+                businessAddress: profileData.business_address,
+                documents,
+            });
 
             setStatus('pending');
             toast({

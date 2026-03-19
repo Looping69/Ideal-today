@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Copy, Share2, Users, Trophy, ExternalLink, Gift, ArrowRight, Wallet, Crown } from "lucide-react";
 import { getErrorMessage } from "@/lib/errors";
+import { invokeEngagementAction } from "@/lib/backend";
 
 type ReferralTier = 'founder' | 'pro' | 'standard';
 type HostRef = { referee_id: string; status: 'pending' | 'confirmed' | 'rewarded'; created_at: string; rewarded_at?: string | null };
@@ -59,14 +60,10 @@ export default function HostReferrals() {
     const generateHostCode = useCallback(async () => {
         try {
             setLoading(true);
-            const code = Math.random().toString(36).substring(2, 10).toUpperCase();
-            const { error } = await supabase
-                .from('profiles')
-                .update({ host_referral_code: code })
-                .eq('id', user?.id)
-                .select();
-
-            if (error) throw error;
+            const result = await invokeEngagementAction<{ code: string }>({
+                action: 'generate-host-referral-code',
+            });
+            const code = result.code;
             setHostReferralCode(code);
             toast({
                 title: "Referral code generated!",

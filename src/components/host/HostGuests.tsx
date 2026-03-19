@@ -26,6 +26,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { getErrorMessage } from '@/lib/errors';
+import { invokeEngagementAction } from '@/lib/backend';
 
 interface GuestNote {
     id: string;
@@ -158,13 +159,11 @@ export default function HostGuests() {
 
         setSavingNote(true);
         try {
-            const { error } = await supabase.from('guest_notes').insert({
-                host_id: user.id,
-                guest_id: selectedGuest.id,
-                content: noteContent.trim()
+            await invokeEngagementAction({
+                action: 'add-guest-note',
+                guestId: selectedGuest.id,
+                content: noteContent.trim(),
             });
-
-            if (error) throw error;
 
             toast({ title: "Note saved", description: "Your note has been added to this guest's profile." });
             setNoteContent('');
@@ -179,8 +178,10 @@ export default function HostGuests() {
 
     const handleDeleteNote = async (noteId: string) => {
         try {
-            const { error } = await supabase.from('guest_notes').delete().eq('id', noteId);
-            if (error) throw error;
+            await invokeEngagementAction({
+                action: 'delete-guest-note',
+                noteId,
+            });
             fetchGuests();
         } catch (err: unknown) {
             toast({ title: "Error deleting note", description: getErrorMessage(err), variant: "destructive" });

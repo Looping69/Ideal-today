@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { invokePropertiesApi } from "@/lib/backend";
 
 interface PendingProperty {
     id: string;
@@ -83,17 +84,11 @@ export default function AdminPendingListings() {
     async function handleApprove(id: string) {
         try {
             setProcessing(true);
-            const { data, error } = await supabase
-                .from('properties')
-                .update({ approval_status: 'approved' })
-                .eq('id', id)
-                .select();
-
-            if (error) throw error;
-
-            if (!data || data.length === 0) {
-                throw new Error("Update failed: No rows affected. This might be due to database permissions (RLS). Please ensure you have admin rights.");
-            }
+            await invokePropertiesApi({
+                action: 'admin-review-listing',
+                id,
+                status: 'approved',
+            });
 
             toast({
                 title: 'Listing Approved',
@@ -119,20 +114,12 @@ export default function AdminPendingListings() {
         if (!rejectId) return;
         try {
             setProcessing(true);
-            const { data, error } = await supabase
-                .from('properties')
-                .update({
-                    approval_status: 'rejected',
-                    rejection_reason: rejectReason
-                })
-                .eq('id', rejectId)
-                .select();
-
-            if (error) throw error;
-
-            if (!data || data.length === 0) {
-                throw new Error("Rejection failed: No rows affected. Access denied by database policy.");
-            }
+            await invokePropertiesApi({
+                action: 'admin-review-listing',
+                id: rejectId,
+                status: 'rejected',
+                rejectionReason: rejectReason,
+            });
 
             toast({
                 title: 'Listing Rejected',

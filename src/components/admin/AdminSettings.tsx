@@ -17,6 +17,7 @@ import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
 import { SETUP_SQL } from '@/lib/setup_sql';
 import { getErrorMessage } from '@/lib/errors';
+import { invokeEngagementAction } from '@/lib/backend';
 
 export default function AdminSettings() {
   const [loading, setLoading] = useState(false);
@@ -96,12 +97,11 @@ export default function AdminSettings() {
   const handleSave = async () => {
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('admin_settings')
-        .update(settings)
-        .eq('id', 1);
-
-      if (error) throw error;
+      const result = await invokeEngagementAction<{ settings: typeof settings }>({
+        action: 'admin-save-settings',
+        ...settings,
+      });
+      setSettings(result.settings);
 
       toast({
         title: "Settings saved",

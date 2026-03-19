@@ -4,13 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, Gift, Download, Trash2, Medal } from 'lucide-react';
 import { useCallback } from 'react';
+import { invokeEngagementAction } from '@/lib/backend';
 
-type Row = { id: string; user_id: string; reward_code: string; created_at: string };
-
-const REWARD_POINTS: Record<string, number> = {
-  coastal_explorer: 500,
-  photo_finisher: 200,
-};
+type Row = { rowId: string; user_id: string; reward_code: string; created_at: string };
 
 export default function AdminRewards() {
   const [rows, setRows] = useState<Row[]>([]);
@@ -25,10 +21,13 @@ export default function AdminRewards() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    let query = supabase.from('rewards_completions').select('id,user_id,reward_code,created_at').order('created_at', { ascending: false }).range(page * pageSize, page * pageSize + pageSize - 1);
+    let query = supabase.from('rewards_completions').select('user_id,reward_code,created_at').order('created_at', { ascending: false }).range(page * pageSize, page * pageSize + pageSize - 1);
     if (codeFilter !== 'all') query = query.eq('reward_code', codeFilter);
     const { data } = await query;
-    setRows((data as Row[]) || []);
+    setRows((((data as Omit<Row, 'rowId'>[]) || []).map((row) => ({
+      ...row,
+      rowId: `${row.user_id}:${row.reward_code}`,
+    }))));
     setSelected({});
     setLoading(false);
   }, [page, codeFilter, pageSize]);
@@ -48,37 +47,23 @@ export default function AdminRewards() {
 
   const awardManual = async () => {
     if (!userEmail) return;
-    const { data: profile } = await supabase.from('profiles').select('id').eq('email', userEmail).single();
-    if (!profile?.id) return;
-    const points = REWARD_POINTS[manualCode] || 0;
-    const { data: existing } = await supabase.from('rewards_completions').select('id').eq('user_id', profile.id).eq('reward_code', manualCode).limit(1);
-    if (existing && existing.length > 0) return;
-    await supabase.from('rewards_completions').insert({ user_id: profile.id, reward_code: manualCode });
-    if (points) {
-      // Fetch current points first to update
-      const { data: currentProfile } = await supabase.from('profiles').select('points').eq('id', profile.id).single();
-      const newPoints = (currentProfile?.points || 0) + points;
-      await supabase.from('profiles').update({ points: newPoints }).eq('id', profile.id);
-    }
-
-    const { data: refresh } = await supabase
-      .from('rewards_completions')
-      .select('id,user_id,reward_code,created_at')
-      .eq('user_id', profile.id)
-      .eq('reward_code', manualCode)
-      .limit(1);
-
-    if (refresh && refresh.length > 0) {
-      setRows(rs => [refresh[0] as Row, ...rs]);
-    }
+    await invokeEngagementAction({
+      action: 'admin-award-reward',
+      userEmail,
+      rewardCode: manualCode,
+    });
+    await load();
     setUserEmail('');
   };
 
   const bulkDelete = async () => {
     const ids = Object.keys(selected).filter(k => selected[k]);
     if (ids.length === 0) return;
-    await supabase.from('rewards_completions').delete().in('id', ids);
-    setRows(rs => rs.filter(r => !selected[r.id]));
+    await invokeEngagementAction({
+      action: 'admin-delete-rewards',
+      ids,
+    });
+    setRows(rs => rs.filter(r => !selected[r.rowId]));
     setSelected({});
   };
 
@@ -95,8 +80,8 @@ export default function AdminRewards() {
     URL.revokeObjectURL(url);
   };
 
-  const toggleSelect = (id: string) => {
-    setSelected(s => ({ ...s, [id]: !s[id] }));
+  const toggleSelect = (rowId: string) => {
+    setSelected(s => ({ ...s, [rowId]: !s[rowId] }));
   };
 
   return (
@@ -173,7 +158,7 @@ export default function AdminRewards() {
                 <th className="px-6 py-4 w-12">
                   <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" onChange={(e) => {
                     const all: Record<string, boolean> = {};
-                    filtered.forEach(r => { all[r.id] = e.target.checked; });
+                    filtered.forEach(r => { all[r.rowId] = e.target.checked; });
                     setSelected(all);
                   }} />
                 </th>
@@ -189,9 +174,9 @@ export default function AdminRewards() {
                 <tr><td className="px-6 py-12 text-center text-gray-500" colSpan={4}>No rewards found</td></tr>
               ) : (
                 filtered.map((r) => (
-                  <tr key={r.id} className="hover:bg-gray-50/50 transition-colors group">
+                  <tr key={r.rowId} className="hover:bg-gray-50/50 transition-colors group">
                     <td className="px-6 py-4">
-                      <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" checked={!!selected[r.id]} onChange={() => toggleSelect(r.id)} />
+                      <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" checked={!!selected[r.rowId]} onChange={() => toggleSelect(r.rowId)} />
                     </td>
                     <td className="px-6 py-4 font-mono text-xs text-gray-600">
                       {r.user_id}

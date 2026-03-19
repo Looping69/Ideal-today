@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
 import { getErrorMessage } from "@/lib/errors";
+import { createCheckout } from "@/lib/backend";
 
 type PlanTier = 'free' | 'standard' | 'professional' | 'premium';
 
@@ -111,69 +112,6 @@ export default function HostSubscription() {
     const [currentPlan, setCurrentPlan] = useState<PlanTier>('free');
     const [searchParams] = useSearchParams();
 
-    const performUpgrade = useCallback(async (planId: PlanTier) => {
-        if (!user) return;
-        setLoadingPlan(planId);
-        try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({ host_plan: planId })
-                .eq('id', user.id);
-
-            if (error) throw error;
-
-            setCurrentPlan(planId);
-            toast({
-                title: "Plan Updated!",
-                description: `You are now on the ${planId.charAt(0).toUpperCase() + planId.slice(1)} plan.`,
-            });
-        } catch (err: unknown) {
-            toast({
-                variant: "destructive",
-                title: "Update Failed",
-                description: getErrorMessage(err),
-            });
-        } finally {
-            setLoadingPlan(null);
-        }
-    }, [user, toast]);
-
-    // Check for Upgrade Status on Return
-    useEffect(() => {
-        const checkPaymentStatus = async () => {
-            const status = searchParams.get('status');
-            const pendingPlan = sessionStorage.getItem('pending_plan_upgrade') as PlanTier | null;
-
-            if (status === 'success' && pendingPlan) {
-                // Clear immediately to prevent double processing
-                sessionStorage.removeItem('pending_plan_upgrade');
-
-                toast({
-                    title: "Payment Successful",
-                    description: "Finalizing your subscription upgrade...",
-                });
-
-                await performUpgrade(pendingPlan);
-            } else if (status === 'cancelled') {
-                sessionStorage.removeItem('pending_plan_upgrade');
-                toast({
-                    variant: "destructive",
-                    title: "Payment Cancelled",
-                    description: "You have not been charged.",
-                });
-            } else if (status === 'failed') {
-                sessionStorage.removeItem('pending_plan_upgrade');
-                toast({
-                    variant: "destructive",
-                    title: "Payment Failed",
-                    description: "The payment could not be completed.",
-                });
-            }
-        };
-
-        checkPaymentStatus();
-    }, [searchParams, performUpgrade, toast]);
-
     const fetchPlan = useCallback(async () => {
         if (!user) return;
         try {
@@ -194,6 +132,35 @@ export default function HostSubscription() {
         }
     }, [user]);
 
+    // Check for Upgrade Status on Return
+    useEffect(() => {
+        const checkPaymentStatus = async () => {
+            const status = searchParams.get('status');
+
+            if (status === 'success') {
+                toast({
+                    title: "Payment Successful",
+                    description: "Your upgrade is being confirmed. This page will refresh your plan shortly.",
+                });
+                await fetchPlan();
+            } else if (status === 'cancelled') {
+                toast({
+                    variant: "destructive",
+                    title: "Payment Cancelled",
+                    description: "You have not been charged.",
+                });
+            } else if (status === 'failed') {
+                toast({
+                    variant: "destructive",
+                    title: "Payment Failed",
+                    description: "The payment could not be completed.",
+                });
+            }
+        };
+
+        checkPaymentStatus();
+    }, [fetchPlan, searchParams, toast]);
+
     useEffect(() => {
         fetchPlan();
     }, [fetchPlan]);
@@ -209,7 +176,10 @@ export default function HostSubscription() {
 
         // If free plan, just update directly
         if (priceAmount === 0) {
-            await performUpgrade(planId);
+            toast({
+                title: "No Payment Required",
+                description: "Free plan stays active without checkout.",
+            });
             return;
         }
 
@@ -217,24 +187,10 @@ export default function HostSubscription() {
         setLoadingPlan(planId);
 
         try {
-            // Store plan intention
-            sessionStorage.setItem('pending_plan_upgrade', planId);
-
-            const { data, error } = await supabase.functions.invoke('create-checkout', {
-                body: {
-                    amount: priceAmount * 100, // Cents
-                    currency: 'ZAR',
-                    metadata: {
-                        userId: user.id,
-                        planId: planId
-                    },
-                    successUrl: window.location.href, // Return to this page
-                    cancelUrl: window.location.href,
-                    failureUrl: window.location.href
-                }
+            const data = await createCheckout<{ redirectUrl?: string }>({
+                kind: 'host_plan',
+                planId,
             });
-
-            if (error) throw error;
 
             if (data?.redirectUrl) {
                 // Redirect user to Yoco
@@ -245,7 +201,6 @@ export default function HostSubscription() {
 
         } catch (error: unknown) {
             setLoadingPlan(null);
-            sessionStorage.removeItem('pending_plan_upgrade');
             console.error("Payment setup error:", getErrorMessage(error));
 
             // Helpful error message if function fails (e.g. locally without serving)
@@ -265,7 +220,7 @@ export default function HostSubscription() {
                 console.error("Payment error full details:", JSON.stringify(error, null, 2));
             }
         }
-    }, [user, performUpgrade, toast]);
+    }, [toast, user]);
 
     if (fetchingPlan) {
         return (
