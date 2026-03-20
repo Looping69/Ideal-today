@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,286 +7,397 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Copy, Share2, Users, Trophy, ExternalLink, Gift, ArrowRight, Wallet, Crown } from "lucide-react";
+import { Loader2, Copy, Share2, Users, ArrowRight, Megaphone, Sparkles, Wallet, LineChart } from "lucide-react";
 import { getErrorMessage } from "@/lib/errors";
-import { invokeEngagementAction } from "@/lib/backend";
+import { invokeEngagementAction, invokeReferralAction } from "@/lib/backend";
 
-type ReferralTier = 'founder' | 'pro' | 'standard';
-type HostRef = { referee_id: string; status: 'pending' | 'confirmed' | 'rewarded'; created_at: string; rewarded_at?: string | null };
+type HostRef = {
+  referee_id: string;
+  status: "pending" | "confirmed" | "rewarded";
+  created_at: string;
+  rewarded_at?: string | null;
+};
+
+type VisibilityCredit = {
+  id: string;
+  credit_type: "regional_feature" | "homepage_boost" | "holiday_spotlight" | "content_launch_pack";
+  quantity: number;
+  source: string;
+  expires_at?: string | null;
+  consumed_at?: string | null;
+  created_at: string;
+};
+
+const CREDIT_LABELS: Record<VisibilityCredit["credit_type"], string> = {
+  regional_feature: "Regional Feature",
+  homepage_boost: "Homepage Boost",
+  holiday_spotlight: "Holiday Spotlight",
+  content_launch_pack: "Content Launch Pack",
+};
+
+function getStageLabel(status: HostRef["status"]) {
+  if (status === "rewarded") return "Activated";
+  if (status === "confirmed") return "Signed up";
+  return "Clicked / captured";
+}
+
+function getStageTone(status: HostRef["status"]) {
+  if (status === "rewarded") return "bg-emerald-100 text-emerald-700 hover:bg-emerald-100";
+  if (status === "confirmed") return "bg-blue-100 text-blue-700 hover:bg-blue-100";
+  return "bg-slate-100 text-slate-600 hover:bg-slate-100";
+}
 
 export default function HostReferrals() {
-    const { user } = useAuth();
-    const { toast } = useToast();
-    const [loading, setLoading] = useState(false);
-    const [hostReferralCode, setHostReferralCode] = useState<string | null>(null);
-    const [hostRefs, setHostRefs] = useState<HostRef[]>([]);
-    const [referralTier, setReferralTier] = useState<ReferralTier>('standard');
-    const [balance, setBalance] = useState(0);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [hostReferralCode, setHostReferralCode] = useState<string | null>(null);
+  const [hostRefs, setHostRefs] = useState<HostRef[]>([]);
+  const [balance, setBalance] = useState(0);
+  const [visibilityCredits, setVisibilityCredits] = useState<VisibilityCredit[]>([]);
 
-    const fetchReferralData = useCallback(async () => {
-        try {
-            setLoading(true);
-            const { data, error } = await supabase
-                .from("profiles")
-                .select("host_referral_code, referral_tier, balance")
-                .eq("id", user?.id)
-                .single();
+  const fetchReferralData = useCallback(async () => {
+    if (!user) return;
 
-            if (error) throw error;
-            setHostReferralCode(data.host_referral_code || null);
-            setReferralTier((data.referral_tier as ReferralTier) || 'standard');
-            setBalance(data.balance || 0);
+    try {
+      setLoading(true);
+      const [{ data: profile, error: profileError }, { data: refs, error: refsError }, creditsResult] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("host_referral_code, balance")
+          .eq("id", user.id)
+          .single(),
+        supabase
+          .from("host_referrals")
+          .select("referee_id, status, created_at, rewarded_at")
+          .eq("referrer_id", user.id)
+          .order("created_at", { ascending: false }),
+        invokeReferralAction<{ credits: VisibilityCredit[] }>({
+          action: "get-my-visibility-credits",
+        }),
+      ]);
 
-            const { data: refs } = await supabase
-                .from('host_referrals')
-                .select('referee_id, status, created_at, rewarded_at')
-                .eq('referrer_id', user?.id)
-                .order('created_at', { ascending: false });
-            setHostRefs((refs || []) as HostRef[]);
-        } catch (error: unknown) {
-            console.error("Error loading referral data!", getErrorMessage(error));
-        } finally {
-            setLoading(false);
-        }
-    }, [user]);
+      if (profileError) throw profileError;
+      if (refsError) throw refsError;
 
-    useEffect(() => {
-        if (user) {
-            fetchReferralData();
-        }
-    }, [user, fetchReferralData]);
+      setHostReferralCode(profile?.host_referral_code || null);
+      setBalance(profile?.balance || 0);
+      setHostRefs((refs || []) as HostRef[]);
+      setVisibilityCredits(creditsResult.credits || []);
+    } catch (error: unknown) {
+      console.error("Error loading host referrals", getErrorMessage(error));
+      toast({
+        variant: "destructive",
+        title: "Could not load referral data",
+        description: getErrorMessage(error),
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast, user]);
 
-    const generateHostCode = useCallback(async () => {
-        try {
-            setLoading(true);
-            const result = await invokeEngagementAction<{ code: string }>({
-                action: 'generate-host-referral-code',
-            });
-            const code = result.code;
-            setHostReferralCode(code);
-            toast({
-                title: "Referral code generated!",
-                description: "You can now start inviting other hosts.",
-            });
-        } catch (error: unknown) {
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: getErrorMessage(error),
-            });
-        } finally {
-            setLoading(false);
-        }
-    }, [user, toast]);
+  useEffect(() => {
+    void fetchReferralData();
+  }, [fetchReferralData]);
 
-    const copyToClipboard = (text: string) => {
-        navigator.clipboard.writeText(text);
-        toast({
-            title: "Copied!",
-            description: "Referral link copied to clipboard.",
-        });
-    };
+  const generateHostCode = useCallback(async () => {
+    try {
+      setLoading(true);
+      const result = await invokeEngagementAction<{ code: string }>({
+        action: "generate-host-referral-code",
+      });
 
-    const shareWhatsApp = (code: string) => {
-        const url = `${window.location.origin}?host_ref=${code}`;
-        const text = `Hey! Join me as a host on IdealStay and earn more from your property. List your stay here: ${url}`;
-        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-    };
+      setHostReferralCode(result.code);
+      toast({
+        title: "Referral link ready",
+        description: "You can now invite other hosts with a trackable link.",
+      });
+    } catch (error: unknown) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: getErrorMessage(error),
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
 
-    return (
-        <div className="max-w-4xl mx-auto space-y-8">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Refer & Earn</h1>
-                        {referralTier === 'founder' && (
-                            <Badge className="bg-amber-100 text-amber-800 border-amber-200 gap-1 px-3 py-1">
-                                <Crown className="w-3 h-3 fill-amber-800" /> Founding Member
-                            </Badge>
-                        )}
-                        {referralTier === 'pro' && (
-                            <Badge className="bg-blue-100 text-blue-800 border-blue-200 gap-1 px-3 py-1">
-                                <Trophy className="w-3 h-3 fill-blue-800" /> Pro Partner
-                            </Badge>
-                        )}
-                    </div>
-                    <p className="text-gray-500 mt-1">Invite fellow hosts and grow the IdealStay community.</p>
-                </div>
-                <div className="flex gap-3">
-                    <div className="flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100">
-                        <Trophy className="w-5 h-5 text-indigo-600" />
-                        <span className="font-bold text-indigo-900">{hostRefs.filter(r => r.status === 'rewarded').length * 1000} Points</span>
-                    </div>
-                    <div className="flex items-center gap-2 bg-green-50 px-4 py-2 rounded-xl border border-green-100">
-                        <Wallet className="w-5 h-5 text-green-600" />
-                        <span className="font-bold text-green-900">R{balance.toLocaleString()}</span>
-                    </div>
-                </div>
-            </div>
+  const referralLink = hostReferralCode ? `${window.location.origin}?host_ref=${hostReferralCode}` : "";
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="md:col-span-2 border-indigo-100 bg-white shadow-sm overflow-hidden relative">
-                    <div className="absolute top-0 right-0 p-8 opacity-5">
-                        <Gift className="w-32 h-32 text-indigo-600" />
-                    </div>
-                    <CardHeader>
-                        <CardTitle className="text-xl">How it works</CardTitle>
-                        <CardDescription>
-                            {referralTier === 'founder'
-                                ? "Exclusive Founding Member Rewards Active"
-                                : referralTier === 'pro'
-                                    ? "Pro Partner Benefits Active"
-                                    : "Simple steps to earn rewards"}
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                                <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">1</div>
-                                <p className="text-sm font-semibold">Share your link</p>
-                                <p className="text-xs text-gray-500">Send your unique host referral link to friends.</p>
-                            </div>
-                            <div className="space-y-2">
-                                <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">2</div>
-                                <p className="text-sm font-semibold">They join & list</p>
-                                <p className="text-xs text-gray-500">Wait for them to sign up and start hosting.</p>
-                            </div>
-                            <div className="space-y-2">
-                                <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">3</div>
-                                <p className="text-sm font-semibold">Earn Revenue Share</p>
-                                <p className="text-xs text-gray-500">
-                                    {referralTier === 'founder'
-                                        ? "Earn 40% of platform fees for Year 1, then 20% forever."
-                                        : referralTier === 'pro'
-                                            ? "Earn 20% of platform fees for Year 1, then 10% forever."
-                                            : "Earn 10% of platform fees for Year 1, then 5% forever."}
-                                </p>
-                            </div>
-                        </div>
+  const copyToClipboard = useCallback((text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied",
+      description: "Your host referral link is in the clipboard.",
+    });
+  }, [toast]);
 
-                        {hostReferralCode ? (
-                            <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100 space-y-4">
-                                <Label className="text-indigo-900 text-sm font-bold">Your Referral Link</Label>
-                                <div className="flex flex-col sm:flex-row items-center gap-3">
-                                    <div className="relative flex-1 w-full">
-                                        <Input
-                                            readOnly
-                                            value={`${window.location.origin}?host_ref=${hostReferralCode}`}
-                                            className="h-12 pr-10 bg-white border-indigo-200 focus:ring-indigo-500 rounded-xl"
-                                        />
-                                        <ExternalLink className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                    </div>
-                                    <div className="flex gap-2 w-full sm:w-auto">
-                                        <Button
-                                            className="flex-1 sm:flex-initial gap-2 bg-indigo-600 hover:bg-indigo-700 h-12 rounded-xl shadow-md"
-                                            onClick={() => copyToClipboard(`${window.location.origin}?host_ref=${hostReferralCode}`)}
-                                        >
-                                            <Copy className="w-4 h-4" />
-                                            Copy Link
-                                        </Button>
-                                        <Button
-                                            className="flex-1 sm:flex-initial gap-2 bg-[#25D366] hover:bg-[#20bd5c] text-white border-none h-12 rounded-xl shadow-md"
-                                            onClick={() => shareWhatsApp(hostReferralCode)}
-                                        >
-                                            <Share2 className="w-4 h-4" />
-                                            WhatsApp
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="bg-gray-50 p-8 rounded-2xl border border-dashed border-gray-300 text-center space-y-4">
-                                <p className="text-gray-600">You haven't generated your referral code yet.</p>
-                                <Button onClick={generateHostCode} className="bg-indigo-600 hover:bg-indigo-700 h-12 px-8 rounded-xl">
-                                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Activate My Referral Link
-                                </Button>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+  const shareWhatsApp = useCallback((code: string) => {
+    const url = `${window.location.origin}?host_ref=${code}`;
+    const text =
+      `Join Ideal Stay as a host. You will get a cleaner launch path, content support, and a better listing setup from day one: ${url}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+  }, []);
 
-                <Card className="border-gray-200 shadow-sm flex flex-col">
-                    <CardHeader>
-                        <CardTitle className="text-xl">Your Stats</CardTitle>
-                        <CardDescription>Track your referral progress</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex-1 flex flex-col justify-center space-y-8">
-                        <div className="text-center">
-                            <div className="text-4xl font-bold text-gray-900">{hostRefs.length}</div>
-                            <p className="text-sm text-gray-500">Total Invites</p>
-                        </div>
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-gray-500">Joined</span>
-                                <span className="font-bold">{hostRefs.filter(r => r.status === 'pending' || r.status === 'confirmed').length}</span>
-                            </div>
-                            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                                <div
-                                    className="h-full bg-indigo-500 rounded-full"
-                                    style={{ width: `${hostRefs.length > 0 ? (hostRefs.filter(r => r.status === 'rewarded').length / hostRefs.length) * 100 : 0}%` }}
-                                />
-                            </div>
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-gray-500">Active Hosts</span>
-                                <span className="font-bold text-green-600">{hostRefs.filter(r => r.status === 'rewarded').length}</span>
-                            </div>
-                        </div>
-                        <Button variant="outline" className="w-full mt-auto" onClick={() => window.location.href = '/rewards'}>
-                            View My Rewards <ArrowRight className="w-4 h-4 ml-2" />
-                        </Button>
-                    </CardContent>
-                </Card>
-            </div>
+  const activatedCount = useMemo(
+    () => hostRefs.filter((ref) => ref.status === "rewarded").length,
+    [hostRefs],
+  );
+  const signedUpCount = useMemo(
+    () => hostRefs.filter((ref) => ref.status === "confirmed" || ref.status === "rewarded").length,
+    [hostRefs],
+  );
+  const availableCredits = useMemo(
+    () => visibilityCredits.filter((credit) => !credit.consumed_at).reduce((sum, credit) => sum + credit.quantity, 0),
+    [visibilityCredits],
+  );
 
-            <Card className="border-gray-200 shadow-sm">
-                <CardHeader>
-                    <div className="flex items-center gap-2">
-                        <Users className="w-5 h-5 text-gray-400" />
-                        <CardTitle className="text-xl">Referral History</CardTitle>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    {hostRefs.length === 0 ? (
-                        <div className="text-center py-12 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
-                            <p className="text-gray-500">No activity yet. Your invited hosts will appear here.</p>
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left">
-                                <thead>
-                                    <tr className="text-xs uppercase text-gray-400 font-semibold border-b border-gray-100">
-                                        <th className="px-4 py-3">Host ID</th>
-                                        <th className="px-4 py-3">Date Joined</th>
-                                        <th className="px-4 py-3">Status</th>
-                                        <th className="px-4 py-3 text-right">Commission Tier</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-50">
-                                    {hostRefs.map((r) => (
-                                        <tr key={r.referee_id} className="hover:bg-gray-50/50 transition-colors">
-                                            <td className="px-4 py-4 font-mono text-xs text-gray-600">{r.referee_id.slice(0, 12)}...</td>
-                                            <td className="px-4 py-4 text-sm text-gray-500">{new Date(r.created_at).toLocaleDateString()}</td>
-                                            <td className="px-4 py-4">
-                                                <Badge variant={r.status === 'rewarded' ? 'default' : 'secondary'} className={r.status === 'rewarded' ? 'bg-green-100 text-green-700 hover:bg-green-100' : 'bg-gray-100 text-gray-600 hover:bg-gray-100'}>
-                                                    {r.status === 'rewarded' ? 'Active Host' : 'Joined'}
-                                                </Badge>
-                                            </td>
-                                            <td className="px-4 py-4 text-right">
-                                                <span className={r.status === 'rewarded' ? 'text-indigo-600 font-bold' : 'text-gray-300 font-medium'}>
-                                                    {r.status === 'rewarded'
-                                                        ? (referralTier === 'founder' ? "40% / 20%" : referralTier === 'pro' ? "20% / 10%" : "10% / 5%")
-                                                        : '—'}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+  return (
+    <div className="max-w-5xl mx-auto space-y-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Host Growth</h1>
+          <p className="text-gray-500 mt-1">
+            Invite good hosts, track qualified activation, and earn rewards that actually help your visibility.
+          </p>
         </div>
-    );
+        <div className="flex flex-wrap gap-3">
+          <div className="flex items-center gap-2 bg-cyan-50 px-4 py-2 rounded-xl border border-cyan-100">
+            <Megaphone className="w-5 h-5 text-cyan-700" />
+            <span className="font-bold text-cyan-900">{availableCredits} Visibility Credits</span>
+          </div>
+          <div className="flex items-center gap-2 bg-green-50 px-4 py-2 rounded-xl border border-green-100">
+            <Wallet className="w-5 h-5 text-green-600" />
+            <span className="font-bold text-green-900">R{balance.toLocaleString()}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6">
+        <Card className="border-cyan-100 bg-white shadow-sm overflow-hidden relative">
+          <div className="absolute top-0 right-0 p-8 opacity-5">
+            <Sparkles className="w-32 h-32 text-cyan-600" />
+          </div>
+          <CardHeader>
+            <CardTitle className="text-xl">How this works now</CardTitle>
+            <CardDescription>
+              We are no longer treating host referral like a vague points game.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <div className="w-8 h-8 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center font-bold text-sm">1</div>
+                <p className="text-sm font-semibold">Share your link</p>
+                <p className="text-xs text-gray-500">Invite hosts who are actually likely to list and activate.</p>
+              </div>
+              <div className="space-y-2">
+                <div className="w-8 h-8 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center font-bold text-sm">2</div>
+                <p className="text-sm font-semibold">They sign up & launch</p>
+                <p className="text-xs text-gray-500">We track them through signup, listing, and real activation.</p>
+              </div>
+              <div className="space-y-2">
+                <div className="w-8 h-8 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center font-bold text-sm">3</div>
+                <p className="text-sm font-semibold">Earn useful rewards</p>
+                <p className="text-xs text-gray-500">Visibility credits, content perks, and selective cash rewards beat empty points.</p>
+              </div>
+            </div>
+
+            {hostReferralCode ? (
+              <div className="bg-cyan-50/50 p-6 rounded-2xl border border-cyan-100 space-y-4">
+                <Label className="text-cyan-900 text-sm font-bold">Your Host Referral Link</Label>
+                <div className="flex flex-col sm:flex-row items-center gap-3">
+                  <div className="relative flex-1 w-full">
+                    <Input
+                      readOnly
+                      value={referralLink}
+                      className="h-12 pr-10 bg-white border-cyan-200 focus:ring-cyan-500 rounded-xl"
+                    />
+                  </div>
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <Button
+                      className="flex-1 sm:flex-initial gap-2 bg-cyan-700 hover:bg-cyan-800 h-12 rounded-xl shadow-md"
+                      onClick={() => copyToClipboard(referralLink)}
+                    >
+                      <Copy className="w-4 h-4" />
+                      Copy Link
+                    </Button>
+                    <Button
+                      className="flex-1 sm:flex-initial gap-2 bg-[#25D366] hover:bg-[#20bd5c] text-white border-none h-12 rounded-xl shadow-md"
+                      onClick={() => shareWhatsApp(hostReferralCode)}
+                    >
+                      <Share2 className="w-4 h-4" />
+                      WhatsApp
+                    </Button>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-cyan-100 bg-white/80 p-4 text-sm leading-6 text-slate-600">
+                  Use this when you are sending hosts who are not already coming through Ideal Stay’s owned media. The point is incremental supply, not double-claiming traffic we already own.
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gray-50 p-8 rounded-2xl border border-dashed border-gray-300 text-center space-y-4">
+                <p className="text-gray-600">You have not generated your host referral link yet.</p>
+                <Button onClick={generateHostCode} className="bg-cyan-700 hover:bg-cyan-800 h-12 px-8 rounded-xl">
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Activate My Referral Link
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-gray-200 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-xl">Your Snapshot</CardTitle>
+            <CardDescription>Qualified host growth matters more than raw clicks.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
+                <div className="text-3xl font-bold text-slate-950">{hostRefs.length}</div>
+                <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">Tracked Hosts</p>
+              </div>
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center">
+                <div className="text-3xl font-bold text-emerald-700">{activatedCount}</div>
+                <p className="mt-1 text-xs uppercase tracking-[0.18em] text-emerald-700">Activated</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Signed up</span>
+                <span className="font-bold">{signedUpCount}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Visibility credits ready</span>
+                <span className="font-bold text-cyan-700">{availableCredits}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Legacy cash balance</span>
+                <span className="font-bold text-green-700">R{balance.toLocaleString()}</span>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+              The best rewards here should eventually be feature slots, launch packs, and visibility inventory. Cash should be selective, not the whole story.
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] gap-6">
+        <Card className="border-gray-200 shadow-sm">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <LineChart className="w-5 h-5 text-gray-400" />
+              <CardTitle className="text-xl">Qualification Stages</CardTitle>
+            </div>
+            <CardDescription>We care about activation, not vanity metrics.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-slate-600">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="font-semibold text-slate-900">Clicked / captured</div>
+              <p className="mt-1">The host came through your link and entered the pipeline.</p>
+            </div>
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+              <div className="font-semibold text-blue-900">Signed up</div>
+              <p className="mt-1">The host created an account and attribution held.</p>
+            </div>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="font-semibold text-emerald-900">Activated</div>
+              <p className="mt-1">The host published, upgraded, or otherwise qualified as real supply.</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-gray-200 shadow-sm">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-gray-400" />
+              <CardTitle className="text-xl">Referral History</CardTitle>
+            </div>
+            <CardDescription>
+              This table now reflects stage progression instead of pretending everyone is worth the same.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {hostRefs.length === 0 ? (
+              <div className="text-center py-12 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+                <p className="text-gray-500">No tracked hosts yet. When good referrals move through the funnel, they will show up here.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="text-xs uppercase text-gray-400 font-semibold border-b border-gray-100">
+                      <th className="px-4 py-3">Host ID</th>
+                      <th className="px-4 py-3">Captured</th>
+                      <th className="px-4 py-3">Stage</th>
+                      <th className="px-4 py-3 text-right">Reward Direction</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {hostRefs.map((ref) => (
+                      <tr key={ref.referee_id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-4 py-4 font-mono text-xs text-gray-600">{ref.referee_id.slice(0, 12)}...</td>
+                        <td className="px-4 py-4 text-sm text-gray-500">{new Date(ref.created_at).toLocaleDateString()}</td>
+                        <td className="px-4 py-4">
+                          <Badge className={getStageTone(ref.status)}>
+                            {getStageLabel(ref.status)}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-4 text-right text-sm">
+                          <span className={ref.status === "rewarded" ? "font-bold text-cyan-700" : "text-slate-400"}>
+                            {ref.status === "rewarded" ? "Eligible for visibility reward" : "Waiting for qualification"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border-gray-200 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-xl">Visibility Credits</CardTitle>
+          <CardDescription>
+            This is the reward currency that actually matches the business we are building.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {visibilityCredits.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center text-gray-500">
+              No visibility credits have been issued yet.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {visibilityCredits.map((credit) => (
+                <div key={credit.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-bold text-slate-900">{CREDIT_LABELS[credit.credit_type]}</div>
+                    <Badge className={credit.consumed_at ? "bg-slate-100 text-slate-600 hover:bg-slate-100" : "bg-cyan-50 text-cyan-700 hover:bg-cyan-50"}>
+                      {credit.consumed_at ? "Used" : `${credit.quantity} available`}
+                    </Badge>
+                  </div>
+                  <div className="mt-3 text-sm leading-6 text-slate-600">
+                    Source: <span className="font-medium text-slate-900">{credit.source}</span>
+                  </div>
+                  <div className="mt-2 text-xs text-slate-400">
+                    Issued {new Date(credit.created_at).toLocaleDateString()}
+                    {credit.expires_at ? ` · Expires ${new Date(credit.expires_at).toLocaleDateString()}` : ""}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
 }

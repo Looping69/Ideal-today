@@ -3,11 +3,11 @@ import { createAdminClient, requireUser } from "../_shared/supabase.ts";
 import { assert, asIsoDate, isNonEmptyString } from "../_shared/validation.ts";
 import { createYocoCheckout } from "../_shared/yoco.ts";
 
-const HOST_PLAN_PRICES: Record<string, number> = {
-  free: 0,
-  standard: 14900,
-  professional: 35000,
-  premium: 39900,
+const HOST_PLAN_PRICES: Record<string, Record<string, number>> = {
+  free: { monthly: 0, annual: 0 },
+  standard: { monthly: 14900, annual: 149000 },
+  professional: { monthly: 35000, annual: 350000 },
+  premium: { monthly: 39900, annual: 399000 },
 };
 
 function json(req: Request, body: unknown, status = 200) {
@@ -139,7 +139,8 @@ Deno.serve(async (req: Request) => {
     if (body.kind === "host_plan") {
       assert(isNonEmptyString(body.planId), "Missing planId");
       assert(body.planId in HOST_PLAN_PRICES, "Unsupported plan");
-      const amount = HOST_PLAN_PRICES[body.planId];
+      const billingInterval = body.billingInterval === "annual" ? "annual" : "monthly";
+      const amount = HOST_PLAN_PRICES[body.planId][billingInterval];
       assert(amount > 0, "Free plan does not require checkout");
 
       const { data: session, error: sessionError } = await admin
@@ -148,6 +149,7 @@ Deno.serve(async (req: Request) => {
           user_id: user.id,
           kind: "host_plan",
           target_plan: body.planId,
+          target_plan_interval: billingInterval,
           amount_cents: amount,
           currency: "ZAR",
           status: "pending",
@@ -169,6 +171,7 @@ Deno.serve(async (req: Request) => {
           metadata: {
             type: "host_plan",
             planId: body.planId,
+            billingInterval,
             paymentSessionId: session.id,
           },
         },

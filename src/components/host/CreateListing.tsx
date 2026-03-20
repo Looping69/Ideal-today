@@ -349,7 +349,7 @@ export default function CreateListing() {
           To publish more listings and unlock video features, please upgrade.
         </p>
         <div className="pt-6">
-          <Button onClick={() => navigate('/host/subscription')} className="h-12 px-8 text-base bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
+                      <Button onClick={() => navigate('/pricing?audience=host')} className="h-12 px-8 text-base bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
             Upgrade My Plan
           </Button>
           <div className="mt-4">

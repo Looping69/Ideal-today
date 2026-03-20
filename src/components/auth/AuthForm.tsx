@@ -48,14 +48,34 @@ export default function AuthForm({ view, onSuccess, onViewChange }: AuthFormProp
         const urlParams = new URLSearchParams(window.location.search);
         const ref = urlParams.get('ref') || sessionStorage.getItem('referral_code') || undefined;
         const hostRef = urlParams.get('host_ref') || sessionStorage.getItem('host_referral_code') || undefined;
+        const pendingAttribution = sessionStorage.getItem('pending_attribution');
         const siteUrl = (import.meta.env.SITE_URL as string | undefined) || undefined;
         const computedRedirect = (siteUrl && siteUrl.length > 0 ? siteUrl : window.location.origin).replace('127.0.0.1', 'localhost');
+        let attributionData: Record<string, unknown> | undefined;
+
+        if (pendingAttribution) {
+          try {
+            attributionData = JSON.parse(pendingAttribution) as Record<string, unknown>;
+          } catch {
+            sessionStorage.removeItem('pending_attribution');
+          }
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email: values.email,
           password: values.password,
           options: {
             emailRedirectTo: computedRedirect,
-            data: ref || hostRef ? { referral_code: ref, host_referral_code: hostRef } : undefined,
+            data: ref || hostRef || attributionData
+              ? {
+                referral_code: ref,
+                host_referral_code: hostRef,
+                attribution_source_type: attributionData?.sourceType,
+                attribution_source_key: attributionData?.sourceKey,
+                attribution_source_label: attributionData?.sourceLabel,
+                attribution_metadata: attributionData?.metadata,
+              }
+              : undefined,
           },
         });
         if (error) throw error;

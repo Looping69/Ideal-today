@@ -30,7 +30,7 @@ Deno.serve(async (req: Request) => {
     const admin = createAdminClient();
     const { data: session, error: sessionError } = await admin
       .from("payment_sessions")
-      .select("id, kind, user_id, target_booking_id, target_plan, yoco_event_id")
+      .select("id, kind, user_id, target_booking_id, target_plan, target_plan_interval, yoco_event_id")
       .eq("yoco_checkout_id", checkoutId)
       .single();
 
@@ -66,9 +66,20 @@ Deno.serve(async (req: Request) => {
       }
 
       if (session.kind === "host_plan" && session.target_plan) {
+        const completedAt = new Date().toISOString();
+        const annualExpiry =
+          session.target_plan_interval === "annual"
+            ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+            : null;
+
         await admin
           .from("profiles")
-          .update({ host_plan: session.target_plan })
+          .update({
+            host_plan: session.target_plan,
+            host_plan_interval: session.target_plan_interval ?? "monthly",
+            host_plan_started_at: completedAt,
+            host_plan_expires_at: annualExpiry,
+          })
           .eq("id", session.user_id);
       }
 

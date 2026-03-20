@@ -41,3 +41,9 @@ export async function invokeEngagementAction<T = unknown>(body: Record<string, u
   if (error) throw error;
   return data as T;
 }
+
+export async function invokeReferralAction<T = unknown>(body: Record<string, unknown>) {
+  const { data, error } = await supabase.functions.invoke("referral-actions", { body });
+  if (error) throw error;
+  return data as T;
+}

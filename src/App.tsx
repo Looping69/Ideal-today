@@ -1,5 +1,5 @@
 import { Suspense, lazy } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 const Home = lazy(() => import("./components/home"));
 const RewardsDashboard = lazy(() => import("./components/rewards/RewardsDashboard"));
 const InquiriesPage = lazy(() => import("./components/trips/InquiriesPage"));
@@ -26,10 +26,12 @@ const HostGuests = lazy(() => import("./components/host/HostGuests"));
 const HostOperations = lazy(() => import("./components/host/HostOperations"));
 const HostReports = lazy(() => import("./components/host/HostReports"));
 const HostVerification = lazy(() => import("./components/host/HostVerification"));
-const HostSubscription = lazy(() => import("./components/host/HostSubscription"));
+const PricingPage = lazy(() => import("./components/host/PricingPage"));
+const RegionalHostLanding = lazy(() => import("./components/host/RegionalHostLanding"));
 
 const HostCalendar = lazy(() => import("./components/host/HostCalendar"));
 const HostReferrals = lazy(() => import("./components/host/HostReferrals"));
+const HostContentStudio = lazy(() => import("./components/host/HostContentStudio"));
 const InboxPage = lazy(() => import("./components/inbox/InboxPage"));
 const HostInbox = lazy(() => import("./components/host/HostInbox"));
 const AccountPage = lazy(() => import("./components/account/AccountPage"));
@@ -90,6 +92,21 @@ function App() {
                   <Footer />
                 </div>
               } />
+              <Route path="/pricing" element={
+                <div className="min-h-screen bg-white flex flex-col">
+                  <Header />
+                  <PricingPage />
+                  <Footer />
+                </div>
+              } />
+              <Route path="/host-with-us/:regionSlug" element={
+                <div className="min-h-screen bg-white flex flex-col">
+                  <Header />
+                  <RegionalHostLanding />
+                  <Footer />
+                </div>
+              } />
+              <Route path="/host/subscription" element={<Navigate to="/pricing?audience=host" replace />} />
               <Route path="/inbox" element={
                 <div className="min-h-screen bg-white flex flex-col">
                   <Header />
@@ -154,8 +171,8 @@ function App() {
                 <Route path="inbox/:inquiryId" element={<HostInbox />} />
                 <Route path="verification" element={<HostVerification />} />
                 <Route path="referrals" element={<HostReferrals />} />
+                <Route path="content" element={<HostContentStudio />} />
                 <Route path="settings" element={<HostSettings />} />
-                <Route path="subscription" element={<HostSubscription />} />
               </Route>
 
               {/* 404 Catch-all */}
