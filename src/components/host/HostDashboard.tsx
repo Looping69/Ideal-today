@@ -171,21 +171,23 @@ export default function HostDashboard() {
       </div>
 
 
-      {/* Refer-a-Host Promo */}
-      <Card className="border-none bg-gradient-to-r from-indigo-600 to-blue-700 text-white overflow-hidden relative shadow-lg">
+      {/* Host Growth Promo */}
+      <Card className="border-none bg-gradient-to-r from-cyan-700 to-blue-800 text-white overflow-hidden relative shadow-lg">
         <div className="absolute top-0 right-0 p-8 opacity-10">
           <Trophy className="w-32 h-32" />
         </div>
         <CardContent className="p-8 flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
           <div className="space-y-2 text-center md:text-left">
-            <h2 className="text-2xl font-bold">Earn 1,000 Points with Refer-a-Host</h2>
-            <p className="text-indigo-100 max-w-lg">Invite other hosts to IdealStay. When they publish their first listing, you'll receive 1,000 reward points!</p>
+            <h2 className="text-2xl font-bold">Grow Supply, Earn Visibility</h2>
+            <p className="text-cyan-100 max-w-lg">
+              Invite strong hosts, track qualified activation, and earn rewards that actually help your reach instead of just inflating a points counter.
+            </p>
           </div>
           <Button
             onClick={() => navigate('/host/referrals')}
-            className="bg-white text-indigo-600 hover:bg-indigo-50 font-bold px-8 h-12 rounded-xl transition-transform hover:scale-105"
+            className="bg-white text-cyan-700 hover:bg-cyan-50 font-bold px-8 h-12 rounded-xl transition-transform hover:scale-105"
           >
-            Get My Link <ArrowRight className="w-4 h-4 ml-2" />
+            Open Host Growth <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </CardContent>
       </Card>

@@ -131,6 +131,9 @@ export default function Header() {
                       <Trophy className="w-4 h-4 mr-2" />
                       My Rewards
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/pricing?audience=host")} className="rounded-lg cursor-pointer">
+                      Plans & Billing
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate("/inquiries")} className="rounded-lg cursor-pointer">My Inquiries</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate("/wishlists")} className="rounded-lg cursor-pointer">Wishlists</DropdownMenuItem>
                     <DropdownMenuSeparator className="my-2" />
@@ -157,6 +160,7 @@ export default function Header() {
                     </DropdownMenuItem>
                     <DropdownMenuSeparator className="my-2" />
                     <DropdownMenuItem onClick={() => navigate("/host")} className="rounded-lg cursor-pointer">List your property</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/pricing?audience=host")} className="rounded-lg cursor-pointer">Host Pricing</DropdownMenuItem>
                     <DropdownMenuItem className="rounded-lg cursor-pointer">Help Center</DropdownMenuItem>
                   </>
                 )}

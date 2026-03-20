@@ -13,7 +13,7 @@ import {
   Users,
   CheckSquare,
   BarChart3,
-  CreditCard,
+  Sparkles,
   AlertCircle,
   Trophy
 } from "lucide-react";
@@ -32,12 +32,14 @@ export default function HostLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const { toast } = useToast();
   const [verificationStatus, setVerificationStatus] = useState<'none' | 'pending' | 'verified' | 'rejected'>('none');
+  const [hostPlan, setHostPlan] = useState<'free' | 'standard' | 'professional' | 'premium'>('free');
 
   const checkStatus = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase.from('profiles').select('verification_status').eq('id', user.id).single();
+    const { data } = await supabase.from('profiles').select('verification_status, host_plan').eq('id', user.id).single();
     if (data) {
       setVerificationStatus(data.verification_status || 'none');
+      setHostPlan(data.host_plan || 'free');
     }
   }, [user]);
 
@@ -59,11 +61,17 @@ export default function HostLayout() {
     { icon: MessageSquare, label: "Inbox", path: "/host/inbox" },
     { icon: ClipboardList, label: "Enquiries", path: "/host/enquiries" },
     { icon: Building2, label: "Listings", path: "/host/listings" },
-    { icon: CreditCard, label: "Plan & Billing", path: "/host/subscription" },
     { icon: BarChart3, label: "Reports", path: "/host/reports" },
     { icon: Trophy, label: "Referrals", path: "/host/referrals" },
     { icon: Settings, label: "Settings", path: "/host/settings" },
   ];
+  const visibleSidebarItems = hostPlan === 'free'
+    ? sidebarItems
+    : [
+      ...sidebarItems.slice(0, 4),
+      { icon: Sparkles, label: "Content Studio", path: "/host/content" },
+      ...sidebarItems.slice(4),
+    ];
 
   return (
     <div className="min-h-screen bg-gray-50/50 flex flex-col lg:flex-row">
@@ -123,7 +131,7 @@ export default function HostLayout() {
           </Button>
 
           <div className="space-y-1">
-            {sidebarItems.map((item) => (
+            {visibleSidebarItems.map((item) => (
               <button
                 key={item.path}
                 onClick={() => {
@@ -183,7 +191,7 @@ export default function HostLayout() {
               <Menu className="w-5 h-5" />
             </Button>
             <h2 className="text-lg font-semibold text-gray-800 hidden sm:block">
-              {sidebarItems.find(i => i.path === location.pathname)?.label || (location.pathname === '/host/verification' ? 'Host Verification' : 'Dashboard')}
+              {visibleSidebarItems.find(i => i.path === location.pathname)?.label || (location.pathname === '/host/verification' ? 'Host Verification' : 'Dashboard')}
             </h2>
           </div>
 
