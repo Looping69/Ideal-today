@@ -16,8 +16,6 @@ import AuthModal from "@/components/auth/AuthModal";
 import { useNavigate } from "react-router-dom";
 import { NotificationBell } from "@/components/ui/notification-bell";
 
-import PreLaunchBanner from "./PreLaunchBanner";
-
 export default function Header() {
   const { user, signOut } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -59,7 +57,6 @@ export default function Header() {
 
   return (
     <header className="fixed top-0 w-full z-[100] flex flex-col transition-all duration-300">
-      <PreLaunchBanner isScrolled={isScrolled} />
       <div className="bg-white/80 backdrop-blur-md border-b border-gray-100 w-full">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between relative">
           {/* Logo */}

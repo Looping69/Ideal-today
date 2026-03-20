@@ -61,7 +61,7 @@ export default function HostReferrals() {
 
     try {
       setLoading(true);
-      const [{ data: profile, error: profileError }, { data: refs, error: refsError }, creditsResult] = await Promise.all([
+      const [profileResult, refsResult, creditsResult] = await Promise.allSettled([
         supabase
           .from("profiles")
           .select("host_referral_code, balance")
@@ -77,13 +77,25 @@ export default function HostReferrals() {
         }),
       ]);
 
+      if (profileResult.status === "rejected") throw profileResult.reason;
+      if (refsResult.status === "rejected") throw refsResult.reason;
+
+      const { data: profile, error: profileError } = profileResult.value;
+      const { data: refs, error: refsError } = refsResult.value;
+
       if (profileError) throw profileError;
       if (refsError) throw refsError;
 
       setHostReferralCode(profile?.host_referral_code || null);
       setBalance(profile?.balance || 0);
       setHostRefs((refs || []) as HostRef[]);
-      setVisibilityCredits(creditsResult.credits || []);
+
+      if (creditsResult.status === "fulfilled") {
+        setVisibilityCredits(creditsResult.value.credits || []);
+      } else {
+        setVisibilityCredits([]);
+        console.warn("Visibility credits unavailable", getErrorMessage(creditsResult.reason));
+      }
     } catch (error: unknown) {
       console.error("Error loading host referrals", getErrorMessage(error));
       toast({
