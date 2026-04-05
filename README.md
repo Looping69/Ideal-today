@@ -1,111 +1,83 @@
-# Ideal Today
+# Ideal Stay
 
-Ideal Today is a Vite + React marketplace app backed by Supabase Auth, Postgres, Storage, and Edge Functions.
+Holiday accommodation marketplace built with:
 
-The codebase now follows a hybrid model:
+- `Vite + React + TypeScript` for the frontend
+- `Supabase` for auth, database, storage, realtime, and Edge Functions
+- `Yoco` for checkout and payment webhooks
+- `Gemini` behind server-side content generation endpoints
 
-- Direct client Supabase access is limited to auth/session handling and safe public reads.
-- Sensitive reads and all business mutations flow through Supabase Edge Functions.
-- Payments and host-plan upgrades are confirmed server-side through webhook-backed `payment_sessions`, not from browser redirects.
+## Backend Shape
 
-## Architecture
+The frontend is not trusted with privileged writes.
 
-### Frontend
+Canonical backend entrypoints live in:
 
-- `src/components/*`: product UI
-- `src/contexts/*`: auth and app context
-- `src/lib/api/*`: typed browser wrappers over Edge Functions
-- `src/lib/supabase.ts`: browser Supabase client
+- `supabase/functions/create-checkout`
+- `supabase/functions/yoco-webhook`
+- `supabase/functions/admin-users`
+- `supabase/functions/properties-api`
+- `supabase/functions/user-profile`
+- `supabase/functions/booking-actions`
+- `supabase/functions/engagement-actions`
+- `supabase/functions/content-engine`
 
-### Backend
+Client wrappers for those functions live in:
 
-- `supabase/migrations/*`: database schema and policy source of truth
-- `supabase/functions/properties-api`: public property reads, host listing CRUD, admin listing moderation
-- `supabase/functions/bookings-api`: guest/host booking flows, blocked dates, messaging
-- `supabase/functions/billing-api`: checkout session creation and payment session status
-- `supabase/functions/host-api`: host profile, dashboard, verification, signed upload URLs
-- `supabase/functions/admin-api`: admin dashboards, moderation, notifications, referrals, rewards, settings
-- `supabase/functions/engagement-api`: wishlists, reviews, rewards dashboard, reward claims, referrals
-- `supabase/functions/yoco-webhook`: verified payment confirmation and idempotent booking/plan finalization
+- `src/lib/backend.ts`
+- `src/lib/ai.ts`
 
-## Security Direction
+## Content System
 
-This repo was previously trusting the browser with things it had no business deciding. The current rescue work moves authority back to the server:
+The content engine is now a first-class part of the main repo.
 
-- The public `bookings` read policy is removed.
-- Availability is exposed through `properties-api`, not raw table reads.
-- Host verification documents live in a private bucket and are accessed via signed URLs.
-- Host plan upgrades and booking confirmation are driven by webhook-confirmed `payment_sessions`.
-- Admin notifications and moderation actions now go through admin-only APIs.
+Canonical content files:
 
-## Local Development
+- `supabase/functions/content-engine/index.ts`
+- `supabase/functions/_shared/content.ts`
 
-### Prerequisites
+Supported content scope is intentionally narrow:
 
-- Node 20+
-- npm
-- Supabase project access if you need to deploy functions or regenerate DB types
+- holiday accommodation assistant chat
+- listing social post generation
+- listing quality audits
 
-### Install
+The old Encore-based `contentengine/` backend has been retired and is not a deploy target.
 
-```bash
-npm install
-```
+## Setup
 
-### Run the app
+1. Install app dependencies:
+   `npm install`
+2. Run the frontend locally:
+   `npm run dev`
+3. Apply database changes:
+   `supabase db push`
+4. Deploy edge functions after secrets are set:
+   `supabase functions deploy create-checkout yoco-webhook admin-users properties-api user-profile booking-actions engagement-actions content-engine host-verification send-email`
 
-```bash
-npm run dev
-```
-
-### Quality checks
-
-```bash
-npm run lint
-npm run build
-```
-
-## Environment
-
-The frontend expects the usual Vite env vars:
-
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
-- `VITE_GOOGLE_MAPS_KEY`
-- `VITE_YOCO_PUBLIC_KEY`
-
-Supabase Edge Functions also require project secrets such as:
+Required Edge Function secrets:
 
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `YOCO_SECRET_KEY`
 - `YOCO_WEBHOOK_SECRET`
-- `RESEND_API_KEY` if email delivery is enabled
+- `GEMINI_API_KEY`
 
-## Supabase Types
+Optional content tuning:
 
-`src/types/supabase.ts` is now a checked-in fallback, not the source of truth.
+- `GEMINI_MODEL`
 
-To regenerate real types for the linked project, you need Supabase CLI auth and the project ref:
+## Payment Flow
 
-```bash
-npm run types:supabase
-```
+- Checkout sessions are created by `create-checkout`
+- Payment confirmation is finalized by `yoco-webhook`
+- The frontend never confirms bookings or upgrades on its own
 
-If that command returns `Unauthorized`, authenticate the Supabase CLI first. Do not hand-edit DB truth into random app files.
+## Verify
 
-## Migration Policy
-
-- Database truth lives in `supabase/migrations`.
-- `src/lib/setup_sql.ts` is diagnostic-only and should not become a shadow migration system again.
-- Risky schema changes should stay additive and backfillable.
-
-## Current Status
-
-The highest-risk client-side mutation flows have been moved behind APIs, but this is still a live refactor, not a finished platform rewrite. Before pushing to production, make sure:
-
-- the new migrations are applied
-- all new Edge Functions are deployed
-- Yoco webhook secrets are configured
-- payment success/cancel URLs point to the deployed frontend
+- `npx tsc --noEmit`
+- `npx vite build`
+- `deno check supabase/functions/content-engine/index.ts`
+- `deno check supabase/functions/booking-actions/index.ts`
+- `deno check supabase/functions/engagement-actions/index.ts`

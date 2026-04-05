@@ -23,7 +23,7 @@ export const CATEGORIES: Category[] = [
     },
     {
         id: "guesthouses-bnbs",
-        label: "Guesthouses & BnB’s",
+        label: "Guesthouse & BnB",
         icon: "🛌",
         subcategories: [
             { id: "guesthouses", label: "Guesthouses" },
@@ -33,13 +33,13 @@ export const CATEGORIES: Category[] = [
     },
     {
         id: "safari-bush",
-        label: "Safari and Bush",
+        label: "Safari & Bush",
         icon: "🦁",
         subcategories: [
-            { id: "bush-lodges", label: "Bush Lodges" },
+            { id: "bush-lodges", label: "Bush Lodge" },
             { id: "game-lodge", label: "Game Lodge" },
             { id: "bush-camps", label: "Bush Camps" },
-            { id: "luxury-safary-lodges", label: "Luxury Safary Lodges" },
+            { id: "luxury-safari-lodges", label: "Luxury Safari Lodge" },
             { id: "kruger-park", label: "Kruger Park and Surrounding Area" }
         ]
     },

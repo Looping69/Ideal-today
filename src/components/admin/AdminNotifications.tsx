@@ -6,15 +6,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, Send, Users, Search } from "lucide-react";
-import { adminApi } from "@/lib/api/admin";
+import { supabase } from "@/lib/supabase";
+import { Loader2, Send, Users } from "lucide-react";
+import { getErrorMessage } from "@/lib/errors";
+import { invokeAdminUserAction } from "@/lib/backend";
 
 export default function AdminNotifications() {
     const { sendNotification } = useNotifications();
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
-    const [users, setUsers] = useState<any[]>([]);
-    const [search, setSearch] = useState("");
+    const [users, setUsers] = useState<{ id: string; email: string; full_name: string | null }[]>([]);
     const [selectedUser, setSelectedUser] = useState<string>("all");
     const [formData, setFormData] = useState({
         title: "",
@@ -25,8 +26,11 @@ export default function AdminNotifications() {
 
     useEffect(() => {
         const fetchUsers = async () => {
-            const data = await adminApi.listNotificationRecipients();
-            setUsers(data || []);
+            const { data } = await supabase
+                .from('profiles')
+                .select('id, email, full_name')
+                .limit(50);
+            setUsers((data || []) as { id: string; email: string; full_name: string | null }[]);
         };
         fetchUsers();
     }, []);
@@ -45,8 +49,8 @@ export default function AdminNotifications() {
             setLoading(true);
 
             if (selectedUser === "all") {
-                await adminApi.sendNotification({
-                    broadcast: true,
+                await invokeAdminUserAction({
+                    action: 'broadcast',
                     title: formData.title,
                     message: formData.message,
                     type: formData.type,
@@ -72,11 +76,11 @@ export default function AdminNotifications() {
                 type: "info",
                 link: ""
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
             toast({
                 variant: "destructive",
                 title: "Error sending notification",
-                description: error.message,
+                description: getErrorMessage(error),
             });
         } finally {
             setLoading(false);
@@ -125,10 +129,10 @@ export default function AdminNotifications() {
                                 {['info', 'success', 'warning', 'error', 'system'].map((type) => (
                                     <button
                                         key={type}
-                                        onClick={() => setFormData({ ...formData, type: type as any })}
+                                        onClick={() => setFormData({ ...formData, type: type as typeof formData.type })}
                                         className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors capitalize ${formData.type === type
-                                                ? 'bg-gray-900 text-white border-gray-900'
-                                                : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                                            ? 'bg-gray-900 text-white border-gray-900'
+                                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
                                             }`}
                                     >
                                         {type}

@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
-import { Search, Filter, Calendar, MoreHorizontal, CheckCircle, XCircle, Clock, ArrowRight, Pencil, Trash2, DollarSign } from 'lucide-react';
+import { Search, Filter, Calendar, MoreHorizontal, CheckCircle, XCircle, Clock, ArrowRight, Pencil, Trash2 } from 'lucide-react';
+import { getErrorMessage } from '@/lib/errors';
 import {
   Dialog,
   DialogContent,
@@ -11,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
+import { invokeBookingAction } from '@/lib/backend';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,7 +22,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { adminApi } from '@/lib/api/admin';
 
 type Row = { id: string; property_id: string; user_id: string; status: string; check_in: string; check_out: string; user?: { email?: string; full_name?: string }; property?: { title?: string } };
 
@@ -32,19 +34,29 @@ export default function AdminBookings() {
   const pageSize = 50;
   const { toast } = useToast();
 
+  const load = useCallback(async () => {
+    setLoading(true);
+    let query = supabase
+      .from('bookings')
+      .select('id,property_id,user_id,status,check_in,check_out,user:profiles!bookings_user_id_fkey(email,full_name),property:properties(title)')
+      .order('created_at', { ascending: false })
+      .range(page * pageSize, page * pageSize + pageSize - 1);
+
+    if (tab !== 'all') query = query.eq('status', tab);
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('Error loading bookings:', getErrorMessage(error));
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to load bookings' });
+    } else {
+      setRows((data as unknown as Row[]) || []);
+    }
+    setLoading(false);
+  }, [tab, page, toast, pageSize]);
+
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      const data = await adminApi.listBookings({
-        page,
-        pageSize,
-        status: tab === 'all' ? undefined : tab,
-      });
-      setRows((data as any[]) || []);
-      setLoading(false);
-    };
     load();
-  }, [tab, page]);
+  }, [load]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return rows;
@@ -57,46 +69,55 @@ export default function AdminBookings() {
     ));
   }, [rows, search]);
 
-  const updateStatus = async (id: string, next: 'pending' | 'confirmed' | 'completed' | 'canceled') => {
+  const updateStatus = useCallback(async (id: string, next: 'pending' | 'confirmed' | 'completed' | 'canceled') => {
     try {
-      await adminApi.editBooking({ bookingId: id, patch: { status: next } });
+      await invokeBookingAction({
+        action: 'admin-update-booking-status',
+        bookingId: id,
+        status: next,
+      });
       setRows(rs => rs.map(r => (r.id === id ? { ...r, status: next } : r)));
       toast({ title: 'Success', description: `Booking marked as ${next}` });
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    } catch (error: unknown) {
+      console.error('Error updating status:', getErrorMessage(error));
+      toast({ variant: 'destructive', title: 'Error', description: getErrorMessage(error) });
     }
-  };
+  }, [toast]);
 
   const [editingBooking, setEditingBooking] = useState<Row | null>(null);
 
   const handleUpdateBooking = async () => {
     if (!editingBooking) return;
     try {
-      await adminApi.editBooking({
+      await invokeBookingAction({
+        action: 'admin-update-booking',
         bookingId: editingBooking.id,
-        patch: {
-          check_in: editingBooking.check_in,
-          check_out: editingBooking.check_out,
-          status: editingBooking.status
-        }
+        checkIn: editingBooking.check_in,
+        checkOut: editingBooking.check_out,
+        status: editingBooking.status,
       });
 
       setRows(prev => prev.map(r => r.id === editingBooking.id ? editingBooking : r));
       setEditingBooking(null);
       toast({ title: "Booking Updated", description: "Changes saved successfully." });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Update Failed", description: e.message });
+    } catch (e: unknown) {
+      console.error('Error saving booking override:', getErrorMessage(e));
+      toast({ variant: "destructive", title: "Update Failed", description: getErrorMessage(e) });
     }
   };
 
   const deleteBooking = async (id: string) => {
     if (!confirm("Permanently delete this booking record? This cannot be undone.")) return;
     try {
-      await adminApi.editBooking({ bookingId: id, patch: {}, delete: true });
+      await invokeBookingAction({
+        action: 'admin-delete-booking',
+        bookingId: id,
+      });
       setRows(prev => prev.filter(r => r.id !== id));
       toast({ title: "Deleted", description: "Booking record removed." });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Action Failed", description: e.message });
+    } catch (e: unknown) {
+      console.error('Error deleting booking:', getErrorMessage(e));
+      toast({ variant: "destructive", title: "Action Failed", description: getErrorMessage(e) });
     }
   };
 
@@ -104,14 +125,14 @@ export default function AdminBookings() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Bookings Management</h1>
-          <p className="text-gray-500 text-sm mt-1">Track and manage all property bookings.</p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Enquiry Management</h1>
+          <p className="text-gray-500 text-sm mt-1">Track and manage all property enquiries and leads.</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
-              placeholder="Search bookings..."
+              placeholder="Search enquiries..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 w-full sm:w-64 bg-white border-gray-200 focus:border-primary focus:ring-primary/20 rounded-xl"
@@ -124,10 +145,10 @@ export default function AdminBookings() {
       </div>
 
       <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
-        {['all', 'pending', 'confirmed', 'completed', 'canceled'].map((s) => (
+        {(['all', 'pending', 'confirmed', 'completed', 'canceled'] as const).map((s) => (
           <button
             key={s}
-            onClick={() => setTab(s as any)}
+            onClick={() => setTab(s)}
             className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${tab === s
               ? 'bg-gray-900 text-white shadow-md shadow-gray-900/20'
               : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
@@ -144,8 +165,8 @@ export default function AdminBookings() {
             <thead className="bg-gray-50/50 border-b border-gray-100">
               <tr>
                 <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Property</th>
-                <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Guest</th>
-                <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Dates</th>
+                <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">User</th>
+                <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Requested Dates</th>
                 <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Status</th>
                 <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs text-right">Actions</th>
               </tr>
@@ -237,8 +258,8 @@ export default function AdminBookings() {
       <Dialog open={!!editingBooking} onOpenChange={(o) => !o && setEditingBooking(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Administrative Booking Correction</DialogTitle>
-            <DialogDescription>Override booking details to resolve disputes.</DialogDescription>
+            <DialogTitle>Administrative Enquiry Correction</DialogTitle>
+            <DialogDescription>Override enquiry details if necessary.</DialogDescription>
           </DialogHeader>
           {editingBooking && (
             <div className="space-y-4 py-4">

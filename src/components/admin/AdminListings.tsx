@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, MapPin, MoreHorizontal, Filter, Star, StarOff, Pencil, Trash2, Video } from 'lucide-react';
+import { Search, MapPin, MoreHorizontal, Filter, Star, StarOff, Video } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { getErrorMessage } from '@/lib/errors';
 import {
   Dialog,
   DialogContent,
@@ -12,7 +14,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,47 +22,86 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { CATEGORIES } from '@/constants/categories';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { adminApi } from '@/lib/api/admin';
-import { propertiesApi } from '@/lib/api/properties';
+import { cn } from '@/lib/utils';
+import { invokePropertiesApi } from '@/lib/backend';
 
-type Row = { id: string; title: string; location: string; price: number; type: string; image?: string; is_featured?: boolean; video_url?: string | null };
+type Row = { id: string; title: string; location: string; price: number; type: string; image?: string; is_featured?: boolean; video_url?: string | null; approval_status: string };
 
 export default function AdminListings() {
   const [rows, setRows] = useState<Row[]>([]);
   const [bookedIds, setBookedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const pageSize = 50;
   const { toast } = useToast();
 
   useEffect(() => {
     const load = async () => {
-      setLoading(true);
-      const [data, bookings] = await Promise.all([
-        adminApi.listListings({ limit: 50 }),
-        adminApi.listBookings({ page: 0, pageSize: 500 }),
-      ]);
-      const list = ((data as any[]) || []).map(r => ({ id: r.id, title: r.title, location: r.location, price: r.price, type: r.type || '', image: r.image, is_featured: r.is_featured ?? false, video_url: r.video_url }));
-      setRows(list);
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('properties')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(page * pageSize, page * pageSize + pageSize - 1);
 
-      const todayIso = new Date().toISOString();
-      const ids = new Set<string>();
-      (bookings || []).forEach((b: any) => {
-        if (b.check_in <= todayIso && b.check_out > todayIso && !['canceled', 'blocked'].includes(b.status)) {
-          ids.add(b.property_id);
+        if (error) {
+          throw error;
         }
-      });
-      setBookedIds(ids);
-      setLoading(false);
+
+        const list = (data || []).map(r => ({
+          id: r.id,
+          title: r.title || 'Untitled',
+          location: r.location || 'Unknown Location',
+          price: r.price || 0,
+          type: r.type || '',
+          image: r.image,
+          is_featured: r.is_featured ?? false,
+          video_url: r.video_url,
+          approval_status: r.approval_status || 'approved'
+        }));
+        setRows(list);
+
+        const todayIso = new Date().toISOString();
+        const { data: bookings, error: bError } = await supabase
+          .from('bookings')
+          .select('property_id, check_in, check_out, status')
+          .lte('check_in', todayIso)
+          .gt('check_out', todayIso)
+          .not('status', 'in', '("canceled","blocked")');
+
+        if (bError) {
+          console.error('Error fetching bookings status:', bError);
+        }
+
+        const ids = new Set<string>();
+        (bookings || []).forEach((b) => {
+          ids.add(b.property_id);
+        });
+        setBookedIds(ids);
+      } catch (err: unknown) {
+        const error = err as Error;
+        console.error('Unexpected error in AdminListings load:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Fetch Failed',
+          description: error.message || 'An unexpected error occurred'
+        });
+      } finally {
+        setLoading(false);
+      }
     };
     load();
-  }, []);
+  }, [page, toast]);
 
   const toggleFeatured = async (id: string, currentStatus: boolean) => {
     const newStatus = !currentStatus;
     try {
-      await propertiesApi.moderateListing({
-        propertyId: id,
-        update: { is_featured: newStatus },
+      await invokePropertiesApi({
+        action: 'admin-set-featured',
+        id,
+        isFeatured: newStatus,
       });
     } catch {
       toast({
@@ -84,39 +124,43 @@ export default function AdminListings() {
   const handleUpdateListing = async () => {
     if (!editingListing) return;
     try {
-      await propertiesApi.moderateListing({
-        propertyId: editingListing.id,
-        update: {
-          title: editingListing.title,
-          location: editingListing.location,
-          price: editingListing.price,
-          type: editingListing.type,
-          video_url: editingListing.video_url
-        }
+      await invokePropertiesApi({
+        action: 'admin-update-listing',
+        id: editingListing.id,
+        title: editingListing.title,
+        location: editingListing.location,
+        price: editingListing.price,
+        type: editingListing.type,
+        video_url: editingListing.video_url,
       });
 
       setRows(prev => prev.map(r => r.id === editingListing.id ? editingListing : r));
       setEditingListing(null);
       toast({ title: "Listing Updated", description: "Changes saved successfully." });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Update Failed", description: e.message });
+    } catch (e: unknown) {
+      console.error('Error updating listing:', getErrorMessage(e));
+      toast({ variant: "destructive", title: "Update Failed", description: getErrorMessage(e) });
     }
   };
 
   const deleteListing = async (id: string) => {
     if (!confirm("Are you sure? This will remove the listing permanently.")) return;
     try {
-      await propertiesApi.moderateListing({ propertyId: id, update: {}, delete: true });
+      await invokePropertiesApi({
+        action: 'admin-delete-listing',
+        id,
+      });
       setRows(prev => prev.filter(r => r.id !== id));
       toast({ title: "Deleted", description: "Listing removed." });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Action Failed", description: e.message });
+    } catch (e: unknown) {
+      console.error('Error deleting listing:', getErrorMessage(e));
+      toast({ variant: "destructive", title: "Action Failed", description: getErrorMessage(e) });
     }
   };
 
   const filtered = rows.filter(r =>
-    r.title.toLowerCase().includes(search.toLowerCase()) ||
-    r.location.toLowerCase().includes(search.toLowerCase())
+    (r.title || '').toLowerCase().includes(search.toLowerCase()) ||
+    (r.location || '').toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -199,17 +243,25 @@ export default function AdminListings() {
                       <span className="text-xs text-gray-400 font-normal ml-1">/night</span>
                     </td>
                     <td className="px-6 py-4">
-                      {bookedIds.has(r.id) ? (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-100">
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 mr-1.5" />
-                          Booked
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-100">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5" />
-                          Available
-                        </span>
-                      )}
+                      <div className="flex flex-col gap-1.5">
+                        {bookedIds.has(r.id) ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-100">
+                            Booked
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-700 border border-green-100">
+                            Available
+                          </span>
+                        )}
+                        <Badge variant="outline" className={cn(
+                          "w-fit text-[10px] uppercase font-bold px-2 py-0",
+                          r.approval_status === 'approved' ? "border-green-200 text-green-700 bg-green-50/50" :
+                            r.approval_status === 'pending' ? "border-amber-200 text-amber-700 bg-amber-50/50" :
+                              "border-red-200 text-red-700 bg-red-50/50"
+                        )}>
+                          {r.approval_status}
+                        </Badge>
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <Button
@@ -239,7 +291,7 @@ export default function AdminListings() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => window.open(`/listings/${r.id}`, '_blank')}>
+                          <DropdownMenuItem onClick={() => window.open(`/properties/${r.id}`, '_blank')}>
                             View Listing
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setEditingListing(r)}>
@@ -256,6 +308,32 @@ export default function AdminListings() {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/30 flex items-center justify-between">
+          <span className="text-sm text-gray-500">
+            Showing {rows.length > 0 ? page * pageSize + 1 : 0} to {page * pageSize + rows.length} listings
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page === 0}
+              onClick={() => setPage(p => Math.max(0, p - 1))}
+              className="h-8 rounded-lg"
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={rows.length < pageSize}
+              onClick={() => setPage(p => p + 1)}
+              className="h-8 rounded-lg"
+            >
+              Next
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -312,7 +390,17 @@ export default function AdminListings() {
                   placeholder="https://..."
                 />
                 {editingListing.video_url && (
-                  <p className="text-[10px] text-gray-500">Note: Changing the URL here manually may break the player if the link is invalid.</p>
+                  <div className="space-y-2">
+                    <Label>Video Preview</Label>
+                    <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-gray-200">
+                      <video
+                        src={editingListing.video_url}
+                        className="w-full h-full"
+                        controls
+                        preload="metadata"
+                      />
+                    </div>
+                  </div>
                 )}
               </div>
               <Button onClick={handleUpdateListing} className="w-full">Save Changes</Button>
@@ -323,4 +411,3 @@ export default function AdminListings() {
     </div>
   );
 }
-

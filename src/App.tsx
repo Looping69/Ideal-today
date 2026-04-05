@@ -1,8 +1,8 @@
 import { Suspense, lazy } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 const Home = lazy(() => import("./components/home"));
 const RewardsDashboard = lazy(() => import("./components/rewards/RewardsDashboard"));
-const TripsPage = lazy(() => import("./components/trips/TripsPage"));
+const InquiriesPage = lazy(() => import("./components/trips/InquiriesPage"));
 const WishlistsPage = lazy(() => import("./components/wishlists/WishlistsPage"));
 const HostLayout = lazy(() => import("./components/host/HostLayout"));
 const HostDashboard = lazy(() => import("./components/host/HostDashboard"));
@@ -16,18 +16,22 @@ import { Toaster } from "./components/ui/toaster";
 import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
 import LoadingSpinner from "./components/ui/LoadingSpinner";
+import ReferralTracker from "./components/ReferralTracker";
 import { Analytics } from "@vercel/analytics/react";
 
 const HostListings = lazy(() => import("./components/host/HostListings"));
-const HostBookings = lazy(() => import("./components/host/HostBookings"));
+const HostEnquiries = lazy(() => import("./components/host/HostEnquiries"));
 const HostSettings = lazy(() => import("./components/host/HostSettings"));
 const HostGuests = lazy(() => import("./components/host/HostGuests"));
 const HostOperations = lazy(() => import("./components/host/HostOperations"));
 const HostReports = lazy(() => import("./components/host/HostReports"));
 const HostVerification = lazy(() => import("./components/host/HostVerification"));
-const HostSubscription = lazy(() => import("./components/host/HostSubscription"));
+const PricingPage = lazy(() => import("./components/host/PricingPage"));
+const RegionalHostLanding = lazy(() => import("./components/host/RegionalHostLanding"));
 
 const HostCalendar = lazy(() => import("./components/host/HostCalendar"));
+const HostReferrals = lazy(() => import("./components/host/HostReferrals"));
+const HostContentStudio = lazy(() => import("./components/host/HostContentStudio"));
 const InboxPage = lazy(() => import("./components/inbox/InboxPage"));
 const HostInbox = lazy(() => import("./components/host/HostInbox"));
 const AccountPage = lazy(() => import("./components/account/AccountPage"));
@@ -43,7 +47,7 @@ const AdminUsers = lazy(() => import("./components/admin/AdminUsers"));
 const AdminListings = lazy(() => import("./components/admin/AdminListings"));
 const AdminPendingListings = lazy(() => import("./components/admin/AdminPendingListings"));
 const AdminReviews = lazy(() => import("./components/admin/AdminReviews"));
-const AdminBookings = lazy(() => import("./components/admin/AdminBookings"));
+const AdminEnquiries = lazy(() => import("./components/admin/AdminEnquiries"));
 const AdminReferrals = lazy(() => import("./components/admin/AdminReferrals"));
 const AdminRewards = lazy(() => import("./components/admin/AdminRewards"));
 const AdminFinancials = lazy(() => import("./components/admin/AdminFinancials"));
@@ -52,19 +56,21 @@ const AdminNotifications = lazy(() => import("./components/admin/AdminNotificati
 
 const PaymentPage = lazy(() => import("./components/payment/PaymentPage"));
 const PaymentSuccess = lazy(() => import("./components/payment/PaymentSuccess"));
+const PropertyPage = lazy(() => import("./components/listings/PropertyPage"));
+const DevAuth = lazy(() => import("./components/dev/DevAuth"));
 
 function App() {
   return (
     <AuthProvider>
       <NotificationProvider>
+        <ReferralTracker />
         <Suspense fallback={<LoadingSpinner />}>
           <>
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/properties/:id" element={<PropertyPage />} />
               <Route path="/health" element={<Health />} />
               <Route path="/diagnose" element={<Diagnose />} />
-              <Route path="/book" element={<PaymentPage />} />
-              <Route path="/book/success" element={<PaymentSuccess />} />
               <Route path="/rewards" element={
                 <div className="min-h-screen bg-white flex flex-col">
                   <Header />
@@ -72,10 +78,10 @@ function App() {
                   <Footer />
                 </div>
               } />
-              <Route path="/trips" element={
+              <Route path="/inquiries" element={
                 <div className="min-h-screen bg-white flex flex-col">
                   <Header />
-                  <TripsPage />
+                  <InquiriesPage />
                   <Footer />
                 </div>
               } />
@@ -86,6 +92,21 @@ function App() {
                   <Footer />
                 </div>
               } />
+              <Route path="/pricing" element={
+                <div className="min-h-screen bg-white flex flex-col">
+                  <Header />
+                  <PricingPage />
+                  <Footer />
+                </div>
+              } />
+              <Route path="/host-with-us/:regionSlug" element={
+                <div className="min-h-screen bg-white flex flex-col">
+                  <Header />
+                  <RegionalHostLanding />
+                  <Footer />
+                </div>
+              } />
+              <Route path="/host/subscription" element={<Navigate to="/pricing?audience=host" replace />} />
               <Route path="/inbox" element={
                 <div className="min-h-screen bg-white flex flex-col">
                   <Header />
@@ -117,6 +138,9 @@ function App() {
               <Route path="/cancellation-policy" element={<CancellationPolicy />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
 
+              {/* Dev Tools */}
+              <Route path="/dev-auth" element={<DevAuth />} />
+
 
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<AdminOverview />} />
@@ -124,7 +148,7 @@ function App() {
                 <Route path="pending" element={<AdminPendingListings />} />
                 <Route path="listings" element={<AdminListings />} />
                 <Route path="reviews" element={<AdminReviews />} />
-                <Route path="bookings" element={<AdminBookings />} />
+                <Route path="enquiries" element={<AdminEnquiries />} />
                 <Route path="referrals" element={<AdminReferrals />} />
                 <Route path="rewards" element={<AdminRewards />} />
                 <Route path="financials" element={<AdminFinancials />} />
@@ -136,17 +160,19 @@ function App() {
               <Route path="/host" element={<HostLayout />}>
                 <Route index element={<HostDashboard />} />
                 <Route path="create" element={<CreateListing />} />
+                <Route path="edit/:id" element={<CreateListing />} />
                 <Route path="listings" element={<HostListings />} />
-                <Route path="bookings" element={<HostBookings />} />
+                <Route path="enquiries" element={<HostEnquiries />} />
                 <Route path="calendar" element={<HostCalendar />} />
                 <Route path="guests" element={<HostGuests />} />
                 <Route path="operations" element={<HostOperations />} />
                 <Route path="reports" element={<HostReports />} />
                 <Route path="inbox" element={<HostInbox />} />
-                <Route path="inbox/:bookingId" element={<HostInbox />} />
+                <Route path="inbox/:inquiryId" element={<HostInbox />} />
                 <Route path="verification" element={<HostVerification />} />
+                <Route path="referrals" element={<HostReferrals />} />
+                <Route path="content" element={<HostContentStudio />} />
                 <Route path="settings" element={<HostSettings />} />
-                <Route path="subscription" element={<HostSubscription />} />
               </Route>
 
               {/* 404 Catch-all */}

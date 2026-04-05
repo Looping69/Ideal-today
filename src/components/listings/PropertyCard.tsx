@@ -1,22 +1,57 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Property } from "@/types/property";
 import { Star, Heart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
-import { engagementApi } from "@/lib/api/engagement";
+import { cn } from "@/lib/utils";
+import { invokeEngagementAction } from "@/lib/backend";
 
 interface PropertyCardProps {
   property: Property;
   onClick: (property: Property) => void;
+  showBorder?: boolean;
 }
 
-export default function PropertyCard({ property, onClick }: PropertyCardProps) {
+export default function PropertyCard({ property, onClick, showBorder = false }: PropertyCardProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [saved, setSaved] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isIntersecting, setIsIntersecting] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsIntersecting(entry.isIntersecting);
+      },
+      {
+        threshold: 0.6, // Play when 60% of the card is visible
+      }
+    );
+
+    if (cardRef.current) {
+      observer.observe(cardRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const shouldPlay = isHovered || isIntersecting;
+    if (shouldPlay && videoRef.current) {
+      videoRef.current.play().catch(err => console.warn("Video auto-play blocked or failed", err));
+    } else if (!shouldPlay && videoRef.current) {
+      videoRef.current.pause();
+      if (!isIntersecting) {
+        videoRef.current.currentTime = 0;
+      }
+    }
+  }, [isHovered, isIntersecting]);
 
   useEffect(() => {
     const checkSaved = async () => {
@@ -40,15 +75,23 @@ export default function PropertyCard({ property, onClick }: PropertyCardProps) {
     }
     if (saved) {
       try {
-        const result = await engagementApi.toggleWishlist({ propertyId: property.id });
-        setSaved(result.saved);
+        await invokeEngagementAction({
+          action: "toggle-wishlist",
+          propertyId: property.id,
+          saved: false,
+        });
+        setSaved(false);
       } catch {
         toast({ variant: "destructive", title: "Error", description: "Failed to remove from wishlist." });
       }
     } else {
       try {
-        const result = await engagementApi.toggleWishlist({ propertyId: property.id });
-        setSaved(result.saved);
+        await invokeEngagementAction({
+          action: "toggle-wishlist",
+          propertyId: property.id,
+          saved: true,
+        });
+        setSaved(true);
       } catch {
         toast({ variant: "destructive", title: "Error", description: "Failed to add to wishlist." });
       }
@@ -57,15 +100,38 @@ export default function PropertyCard({ property, onClick }: PropertyCardProps) {
 
   return (
     <div
-      className="group cursor-pointer flex flex-col gap-3"
+      ref={cardRef}
+      className={cn(
+        "group cursor-pointer flex flex-col gap-3",
+        showBorder && "border border-gray-100 rounded-2xl p-3 bg-white"
+      )}
       onClick={() => onClick(property)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <div className="relative aspect-[20/19] overflow-hidden rounded-xl bg-gray-200 isolate">
         <img
           src={property.image}
           alt={property.title}
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className={cn(
+            "h-full w-full object-cover transition-all duration-500 group-hover:scale-105",
+            (isHovered || isIntersecting) && property.video_url ? "opacity-0 scale-110" : "opacity-100"
+          )}
         />
+
+        {property.video_url && (
+          <video
+            ref={videoRef}
+            src={property.video_url}
+            muted
+            loop
+            playsInline
+            className={cn(
+              "absolute inset-0 h-full w-full object-cover transition-opacity duration-500",
+              (isHovered || isIntersecting) ? "opacity-100 scale-100" : "opacity-0 scale-105"
+            )}
+          />
+        )}
 
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -105,16 +171,23 @@ export default function PropertyCard({ property, onClick }: PropertyCardProps) {
       </div>
 
       <div className="flex justify-between items-start">
-        <div>
-          <h3 className="font-semibold text-base text-gray-900 truncate leading-tight">{property.location}</h3>
-          <p className="text-gray-500 text-sm mt-0.5 truncate">Hosted by {property.host.name}</p>
-          <p className="text-gray-500 text-sm truncate">Oct 23 - 28</p>
-          <div className="flex items-baseline gap-1 mt-1.5">
-            <span className="font-semibold text-gray-900">R{property.price.toLocaleString()}</span>
-            <span className="text-gray-900">night</span>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-base text-gray-900 truncate uppercase leading-tight">{property.title}</h3>
+          <p className="text-gray-500 text-sm mt-0.5 truncate">{property.location}</p>
+          <div className="flex flex-col gap-1 mt-1">
+            <p className={cn(
+              "text-xs font-bold uppercase tracking-wider",
+              property.is_occupied ? "text-red-500" : "text-green-500"
+            )}>
+              {property.is_occupied ? "Occupied" : "Available"}
+            </p>
+            <div className="flex items-baseline gap-1">
+              <span className="font-semibold text-gray-900">R{property.price.toLocaleString()}</span>
+              <span className="text-gray-900 text-xs">night</span>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-1 mt-0.5">
+        <div className="flex items-center gap-1 mt-0.5 shrink-0 ml-2">
           <Star className="w-3.5 h-3.5 fill-black text-black" />
           <span className="text-sm font-medium text-gray-900">{property.rating}</span>
         </div>
@@ -122,4 +195,3 @@ export default function PropertyCard({ property, onClick }: PropertyCardProps) {
     </div>
   );
 }
-

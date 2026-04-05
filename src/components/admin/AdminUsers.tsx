@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, ShieldCheck, User, Ban, MoreHorizontal, CheckCircle2, XCircle, FileText, Bell, Pencil } from 'lucide-react';
+import { Search, ShieldCheck, User, Ban, MoreHorizontal, Bell, Pencil, Gift, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import SignedImage from '../ui/signed-image';
 import { Textarea } from '@/components/ui/textarea';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { useToast } from '@/components/ui/use-toast';
+import { getErrorMessage } from '@/lib/errors';
+import { invokeAdminUserAction } from '@/lib/backend';
 import {
   Dialog,
   DialogContent,
@@ -14,7 +18,20 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { adminApi } from '@/lib/api/admin';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+interface VerificationDocs {
+  id_front?: string;
+  id_back?: string;
+  selfie?: string;
+}
 
 type Row = {
   id: string;
@@ -24,8 +41,9 @@ type Row = {
   deactivated?: boolean;
   points?: number;
   verification_status?: 'none' | 'pending' | 'verified' | 'rejected';
-  verification_docs?: any;
-  host_plan?: 'free' | 'standard' | 'premium';
+  verification_docs?: VerificationDocs;
+  host_plan?: 'free' | 'standard' | 'professional' | 'premium';
+  referral_tier?: 'founder' | 'pro' | 'standard';
 };
 
 export default function AdminUsers() {
@@ -55,53 +73,111 @@ export default function AdminUsers() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const data = await adminApi.listUsers({ page, pageSize });
+      const selectStr = 'id,email,full_name,is_admin,deactivated,points,verification_status,verification_docs,host_plan,referral_tier';
 
-      setRows(((data as any[]) || []).map(r => ({
-        id: r.id,
-        email: r.email,
-        full_name: r.full_name,
-        is_admin: !!r.is_admin,
-        deactivated: !!r.deactivated,
-        points: r.points,
-        verification_status: r.verification_status || 'none',
-        verification_docs: r.verification_docs,
-        host_plan: r.host_plan || 'free'
-      })));
-      setLoading(false);
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select(selectStr)
+          .order('created_at', { ascending: false })
+          .range(page * pageSize, page * pageSize + pageSize - 1);
+
+        if (error) {
+          console.error('Supabase error loading profiles:', error);
+          const msg = getErrorMessage(error);
+
+          // If columns are missing (400), try a safer minimal query
+          if (msg.includes('400') || msg.toLowerCase().includes('column')) {
+            console.warn('Schema mismatch detected, falling back to minimal profile query');
+            const { data: fallbackData, error: fallbackError } = await supabase
+              .from('profiles')
+              .select('id,email,full_name,is_admin,deactivated,points')
+              .order('created_at', { ascending: false })
+              .range(page * pageSize, page * pageSize + pageSize - 1);
+
+            if (fallbackError) throw fallbackError;
+
+            setRows((fallbackData as unknown as Row[] || []).map(r => ({
+              id: r.id,
+              email: r.email,
+              full_name: r.full_name,
+              is_admin: !!r.is_admin,
+              deactivated: !!r.deactivated,
+              points: r.points || 0,
+              verification_status: 'none',
+              host_plan: 'free',
+              referral_tier: 'standard'
+            })));
+            toast({
+              variant: 'default',
+              title: 'Schema Mismatch',
+              description: 'Some profile details were omitted because they are missing from the database.'
+            });
+            return;
+          }
+          throw error;
+        }
+
+        setRows((data as unknown as Row[] || []).map(r => ({
+          id: r.id,
+          email: r.email,
+          full_name: r.full_name,
+          is_admin: !!r.is_admin,
+          deactivated: !!r.deactivated,
+          points: r.points || 0,
+          verification_status: r.verification_status || 'none',
+          verification_docs: r.verification_docs,
+          host_plan: r.host_plan || 'free',
+          referral_tier: r.referral_tier || 'standard'
+        })));
+      } catch (err) {
+        console.error('Error loading profiles:', getErrorMessage(err));
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load users' });
+      } finally {
+        setLoading(false);
+      }
     };
     load();
-  }, [page, filter]);
+  }, [page, filter, toast, pageSize]);
 
   const toggleAdmin = async (id: string, next: boolean) => {
     try {
-      await adminApi.updateUser({ userId: id, patch: { is_admin: next } });
+      await invokeAdminUserAction({
+        action: 'update-role-status',
+        userId: id,
+        isAdmin: next,
+      });
       setRows(rs => rs.map(r => (r.id === id ? { ...r, is_admin: next } : r)));
       toast({ title: "Role Updated", description: `User is now ${next ? 'an admin' : 'a regular user'}.` });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Update Failed", description: e.message });
+    } catch (e: unknown) {
+      console.error('Error toggling admin role:', getErrorMessage(e));
+      toast({ variant: "destructive", title: "Operation Failed", description: getErrorMessage(e) });
     }
   };
 
   const toggleDeactivate = async (id: string, next: boolean) => {
     try {
-      await adminApi.updateUser({ userId: id, patch: { deactivated: next } });
+      await invokeAdminUserAction({
+        action: 'update-role-status',
+        userId: id,
+        deactivated: next,
+      });
       setRows(rs => rs.map(r => (r.id === id ? { ...r, deactivated: next } : r)));
       toast({ title: "Account Status Updated", description: `User account has been ${next ? 'deactivated' : 'activated'}.` });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Update Failed", description: e.message });
+    } catch (e: unknown) {
+      console.error('Error toggling deactivation:', getErrorMessage(e));
+      toast({ variant: "destructive", title: "Operation Failed", description: getErrorMessage(e) });
     }
   };
 
   const updateVerification = async (id: string, status: 'verified' | 'rejected') => {
     try {
-      if (status === 'verified') {
-        await adminApi.approveVerification({ userId: id });
-      } else {
-        await adminApi.rejectVerification({ userId: id });
-      }
+      await invokeAdminUserAction({
+        action: 'review-verification',
+        userId: id,
+        status,
+      });
 
-      // 3. Update Local State
       setRows(rs => rs.map(r => (r.id === id ? { ...r, verification_status: status } : r)));
 
       toast({
@@ -109,12 +185,13 @@ export default function AdminUsers() {
         description: `User ${status === 'verified' ? 'approved' : 'rejected'} and notified successfully.`,
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Update failed:', error);
+      const message = error instanceof Error ? error.message : "Could not update verification status.";
       toast({
         variant: "destructive",
         title: "Update Failed",
-        description: error.message || "Could not update verification status."
+        description: message
       });
     }
   };
@@ -122,25 +199,25 @@ export default function AdminUsers() {
   const [editingUser, setEditingUser] = useState<Row | null>(null);
   const [broadcasting, setBroadcasting] = useState(false);
   const [broadcastData, setBroadcastData] = useState({ title: '', message: '' });
-  const [verificationPreviews, setVerificationPreviews] = useState<Record<string, Record<string, { path: string; url: string }>>>({});
 
   const handleUpdateProfile = async () => {
     if (!editingUser) return;
     try {
-      await adminApi.updateUser({
+      await invokeAdminUserAction({
+        action: 'update-profile',
         userId: editingUser.id,
-        patch: {
-          full_name: editingUser.full_name,
-          points: editingUser.points,
-          host_plan: editingUser.host_plan
-        }
+        fullName: editingUser.full_name,
+        points: editingUser.points,
+        hostPlan: editingUser.host_plan,
+        referralTier: editingUser.referral_tier,
       });
 
       setRows(rs => rs.map(r => r.id === editingUser.id ? editingUser : r));
       setEditingUser(null);
       toast({ title: "Profile Updated", description: "Changes saved successfully." });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Update Failed", description: e.message });
+    } catch (e: unknown) {
+      console.error('Error updating profile:', getErrorMessage(e));
+      toast({ variant: "destructive", title: "Operation Failed", description: getErrorMessage(e) });
     }
   };
 
@@ -148,17 +225,18 @@ export default function AdminUsers() {
     if (!broadcastData.title || !broadcastData.message) return;
     setLoading(true);
     try {
-      const result = await adminApi.sendNotification({
-        broadcast: true,
+      const result = await invokeAdminUserAction<{ count: number }>({
+        action: 'broadcast',
         title: broadcastData.title,
         message: broadcastData.message,
         type: 'info',
       });
       setBroadcasting(false);
       setBroadcastData({ title: '', message: '' });
-      toast({ title: "Broadcast Sent", description: `Notification sent to ${result.count} users.` });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Broadcast Failed", description: e.message });
+      toast({ title: "Broadcast Sent", description: `Notification sent to ${result?.count || 0} users.` });
+    } catch (e: unknown) {
+      console.error('Error during broadcast:', getErrorMessage(e));
+      toast({ variant: "destructive", title: "Broadcast Failed", description: getErrorMessage(e) });
     } finally {
       setLoading(false);
     }
@@ -255,12 +333,21 @@ export default function AdminUsers() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${r.host_plan === 'premium' ? 'bg-purple-50 text-purple-700 border-purple-100' :
-                        r.host_plan === 'standard' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                          'bg-gray-50 text-gray-600 border-gray-100'
-                        }`}>
-                        {r.host_plan === 'premium' ? '★ Premium' : r.host_plan === 'standard' ? '✓ Standard' : 'Free'}
-                      </span>
+                      <div className="flex flex-col gap-1 items-start">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${r.host_plan === 'premium' ? 'bg-purple-50 text-purple-700 border-purple-100' :
+                          r.host_plan === 'professional' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
+                            r.host_plan === 'standard' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                              'bg-gray-50 text-gray-600 border-gray-100'
+                          }`}>
+                          {r.host_plan === 'premium' ? '★ Premium' : r.host_plan === 'professional' ? '💎 Pro' : r.host_plan === 'standard' ? '✓ Standard' : 'Free'}
+                        </span>
+                        {r.referral_tier && r.referral_tier !== 'standard' && (
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${r.referral_tier === 'founder' ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-green-50 text-green-700 border-green-100'}`}>
+                            {r.referral_tier === 'founder' ? <Gift className="w-3 h-3 mr-1" /> : <CheckCircle className="w-3 h-3 mr-1" />}
+                            {r.referral_tier}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       {r.verification_status === 'verified' ? (
@@ -268,17 +355,7 @@ export default function AdminUsers() {
                       ) : r.verification_status === 'pending' ? (
                         <Dialog>
                           <DialogTrigger asChild>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-xs bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-                              onClick={async () => {
-                                if (!verificationPreviews[r.id]) {
-                                  const docs = await adminApi.getVerificationDocumentUrls({ userId: r.id });
-                                  setVerificationPreviews((prev) => ({ ...prev, [r.id]: docs }));
-                                }
-                              }}
-                            >
+                            <Button size="sm" variant="outline" className="h-7 text-xs bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100">
                               Review Docs
                             </Button>
                           </DialogTrigger>
@@ -288,22 +365,34 @@ export default function AdminUsers() {
                               <DialogDescription>Review documents submitted by {r.full_name}</DialogDescription>
                             </DialogHeader>
                             <div className="grid grid-cols-2 gap-4 py-4">
-                              {verificationPreviews[r.id]?.id_front?.url && (
+                              {r.verification_docs?.id_front && (
                                 <div>
                                   <p className="text-sm font-medium mb-2">ID Front</p>
-                                  <img src={verificationPreviews[r.id].id_front.url} className="rounded-lg border w-full" />
+                                  <SignedImage
+                                    bucket="verification"
+                                    path={r.verification_docs.id_front}
+                                    className="rounded-lg border w-full"
+                                  />
                                 </div>
                               )}
-                              {verificationPreviews[r.id]?.id_back?.url && (
+                              {r.verification_docs?.id_back && (
                                 <div>
                                   <p className="text-sm font-medium mb-2">ID Back</p>
-                                  <img src={verificationPreviews[r.id].id_back.url} className="rounded-lg border w-full" />
+                                  <SignedImage
+                                    bucket="verification"
+                                    path={r.verification_docs.id_back}
+                                    className="rounded-lg border w-full"
+                                  />
                                 </div>
                               )}
-                              {verificationPreviews[r.id]?.selfie?.url && (
+                              {r.verification_docs?.selfie && (
                                 <div>
                                   <p className="text-sm font-medium mb-2">Selfie</p>
-                                  <img src={verificationPreviews[r.id].selfie.url} className="rounded-lg border w-full" />
+                                  <SignedImage
+                                    bucket="verification"
+                                    path={r.verification_docs.selfie}
+                                    className="rounded-lg border w-full"
+                                  />
                                 </div>
                               )}
                             </div>
@@ -327,36 +416,64 @@ export default function AdminUsers() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0 text-gray-500 hover:text-purple-600 hover:bg-purple-50"
-                          title={r.is_admin ? "Remove Admin" : "Make Admin"}
-                          onClick={() => toggleAdmin(r.id, !r.is_admin)}
-                        >
-                          <ShieldCheck className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0 text-gray-500 hover:text-blue-600 hover:bg-blue-50"
-                          title="Edit Profile"
-                          onClick={() => setEditingUser(r)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className={`h-8 w-8 p-0 ${r.deactivated ? 'text-green-600 hover:bg-green-50' : 'text-gray-500 hover:text-red-600 hover:bg-red-50'}`}
-                          title={r.deactivated ? "Activate" : "Deactivate"}
-                          onClick={() => toggleDeactivate(r.id, !r.deactivated)}
-                        >
-                          <Ban className="w-4 h-4" />
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-gray-500 hover:text-gray-900">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-gray-500 hover:text-gray-900">
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Account Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setEditingUser(r)}>
+                              <Pencil className="w-4 h-4 mr-2" />
+                              Edit Profile
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuLabel className="text-[10px] font-bold uppercase text-gray-400 px-2 py-1">Quick Tier Update</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={async () => {
+                              try {
+                                await invokeAdminUserAction({
+                                  action: 'update-profile',
+                                  userId: r.id,
+                                  referralTier: 'founder',
+                                });
+                                setRows(rs => rs.map(row => row.id === r.id ? { ...row, referral_tier: 'founder' } : row));
+                                toast({ title: "Promoted to Founder", description: "User now earns 40% commissions." });
+                              } catch (e) {
+                                toast({ variant: "destructive", title: "Update Failed", description: getErrorMessage(e) });
+                              }
+                            }}>
+                              <Gift className="w-4 h-4 mr-2 text-amber-500" />
+                              Promote to Founder
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={async () => {
+                              try {
+                                await invokeAdminUserAction({
+                                  action: 'update-profile',
+                                  userId: r.id,
+                                  referralTier: 'pro',
+                                });
+                                setRows(rs => rs.map(row => row.id === r.id ? { ...row, referral_tier: 'pro' } : row));
+                                toast({ title: "Updated to Pro", description: "User now earns 20% commissions." });
+                              } catch (e) {
+                                toast({ variant: "destructive", title: "Update Failed", description: getErrorMessage(e) });
+                              }
+                            }}>
+                              <CheckCircle className="w-4 h-4 mr-2 text-blue-500" />
+                              Set to Pro Tier
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => toggleAdmin(r.id, !r.is_admin)}>
+                              <ShieldCheck className="w-4 h-4 mr-2" />
+                              {r.is_admin ? 'Remove Admin' : 'Make Admin'}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => toggleDeactivate(r.id, !r.deactivated)} className={r.deactivated ? 'text-green-600' : 'text-red-600'}>
+                              <Ban className="w-4 h-4 mr-2" />
+                              {r.deactivated ? 'Activate Account' : 'Deactivate Account'}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                         <Dialog>
                           <DialogTrigger asChild>
                             <Button
@@ -371,6 +488,7 @@ export default function AdminUsers() {
                           <DialogContent>
                             <DialogHeader>
                               <DialogTitle>Send Notification to {r.full_name}</DialogTitle>
+                              <DialogDescription>Send a direct message or system alert to this user.</DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
                               <div className="space-y-2">
@@ -445,11 +563,24 @@ export default function AdminUsers() {
                 <select
                   className="w-full rounded-md border border-gray-200 p-2 text-sm"
                   value={editingUser.host_plan}
-                  onChange={(e) => setEditingUser({ ...editingUser, host_plan: e.target.value as any })}
+                  onChange={(e) => setEditingUser({ ...editingUser, host_plan: e.target.value as Row['host_plan'] })}
                 >
                   <option value="free">Free</option>
                   <option value="standard">Standard</option>
+                  <option value="professional">Professional</option>
                   <option value="premium">Premium</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Referral Tier</label>
+                <select
+                  value={editingUser.referral_tier || 'standard'}
+                  onChange={(e) => setEditingUser({ ...editingUser, referral_tier: e.target.value as Row['referral_tier'] })}
+                  className="w-full rounded-md border border-gray-200 p-2 text-sm"
+                >
+                  <option value="founder">Founder (40%/20%)</option>
+                  <option value="pro">Pro (20%/10%)</option>
+                  <option value="standard">Standard (10%/5%)</option>
                 </select>
               </div>
               <Button onClick={handleUpdateProfile} className="w-full">Save Changes</Button>

@@ -15,6 +15,15 @@ export interface Property {
     bedrooms: number;
     bathrooms: number;
     description: string;
+    area?: string;
+    adults?: number;
+    children?: number;
+    is_self_catering?: boolean;
+    has_restaurant?: boolean;
+    restaurant_offers?: string[];
+    facilities?: string[];
+    other_facility?: string;
+    discount?: number;
     host: {
         name: string;
         image: string;
@@ -29,4 +38,10 @@ export interface Property {
     categories?: string[];
     isFeatured?: boolean;
     isVerifiedHost?: boolean;
+    is_wishlisted?: boolean;
+    created_at?: string;
+    reviews_count?: number;
+    approval_status?: 'pending' | 'approved' | 'rejected';
+    rejection_reason?: string;
+    is_occupied?: boolean;
 }

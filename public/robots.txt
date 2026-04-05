@@ -5,4 +5,4 @@ Disallow: /host
 Disallow: /diagnose
 Disallow: /book
 
-Sitemap: https://idealtoday.com/sitemap.xml
+Sitemap: https://idealstay.co.za/sitemap.xml

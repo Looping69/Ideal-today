@@ -1,0 +1,58 @@
+src/components/Diagnose.tsx(119,25): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+src/components/Diagnose.tsx(125,25): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+src/components/Diagnose.tsx(131,25): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+src/components/Diagnose.tsx(137,25): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+src/components/host/HostCalendar.tsx(99,10): error TS18048: 'blockRange' is possibly 'undefined'.
+src/components/host/HostCalendar.tsx(99,30): error TS18048: 'blockRange' is possibly 'undefined'.
+src/components/host/HostCalendar.tsx(116,21): error TS18048: 'blockRange' is possibly 'undefined'.
+src/components/host/HostCalendar.tsx(117,22): error TS18048: 'blockRange' is possibly 'undefined'.
+src/components/host/HostCalendar.tsx(287,95): error TS18048: 'blockRange' is possibly 'undefined'.
+src/components/host/HostCalendar.tsx(287,115): error TS18048: 'blockRange' is possibly 'undefined'.
+src/components/host/HostCalendar.tsx(377,50): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/components/host/HostCalendar.tsx(377,85): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/components/host/HostCalendar.tsx(409,89): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/components/host/HostListings.tsx(253,31): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/components/host/HostSubscription.tsx(162,27): error TS18047: 'user' is possibly 'null'.
+src/components/listings/PropertyView.tsx(412,62): error TS2322: Type 'string | null | undefined' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/stories/badge.stories.tsx(13,12): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/stories/badge.stories.tsx(17,12): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/stories/badge.stories.tsx(23,12): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/stories/badge.stories.tsx(29,12): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/stories/button.stories.tsx(15,12): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/stories/button.stories.tsx(19,12): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/stories/button.stories.tsx(25,12): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/stories/button.stories.tsx(31,12): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/stories/button.stories.tsx(37,12): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/stories/button.stories.tsx(43,12): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/stories/button.stories.tsx(54,12): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/stories/checkbox.stories.tsx(13,12): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/stories/checkbox.stories.tsx(32,12): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/stories/input.stories.tsx(15,12): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/stories/input.stories.tsx(22,12): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/stories/input.stories.tsx(26,12): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/stories/tabs.stories.tsx(21,12): error TS7006: Parameter 'args' implicitly has an 'any' type.

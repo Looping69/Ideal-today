@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,14 +7,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
+import ImageUpload from "@/components/ui/image-upload";
 import { Loader2, ShieldCheck, AlertCircle, CheckCircle2, Clock, ChevronRight, ChevronLeft, User, FileText } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { hostApi } from "@/lib/api/host";
-
-type DocumentField = {
-    path: string;
-    previewUrl: string;
-};
+import { submitHostVerification } from "@/lib/backend";
 
 export default function HostVerification() {
     const { user } = useAuth();
@@ -28,96 +24,56 @@ export default function HostVerification() {
         full_name: "",
         phone: "",
         bio: "",
-        business_address: ""
+        business_address: "",
+        join_advertising_network: true
     });
 
     // Step 2: Documents
     const [documents, setDocuments] = useState<{
-        id_front: DocumentField;
-        id_back: DocumentField;
-        selfie: DocumentField;
+        id_front: string;
+        id_back: string;
+        selfie: string;
     }>({
-        id_front: { path: "", previewUrl: "" },
-        id_back: { path: "", previewUrl: "" },
-        selfie: { path: "", previewUrl: "" },
+        id_front: "",
+        id_back: "",
+        selfie: "",
     });
+
+    const checkVerificationStatus = useCallback(async () => {
+        try {
+            const { data, error } = await supabase
+                .from("profiles")
+                .select("verification_status, verification_docs, full_name, phone, bio, business_address")
+                .eq("id", user?.id)
+                .single();
+
+            if (error) throw error;
+
+            if (data) {
+                setStatus(data.verification_status || 'none');
+                setProfileData({
+                    full_name: data.full_name || "",
+                    phone: data.phone || "",
+                    bio: data.bio || "",
+                    business_address: data.business_address || "",
+                    join_advertising_network: true // Default to true as it's the focus now
+                });
+                if (data.verification_docs) {
+                    setDocuments(data.verification_docs);
+                }
+            }
+        } catch (error: unknown) {
+            console.error("Error checking verification status:", error);
+        }
+    }, [user]);
 
     useEffect(() => {
         if (user) {
             checkVerificationStatus();
         }
-    }, [user]);
+    }, [user, checkVerificationStatus]);
 
-    async function checkVerificationStatus() {
-        try {
-            const [profile, verification] = await Promise.all([
-                hostApi.getProfile(),
-                hostApi.getVerificationStatus(),
-            ]);
-
-            if (profile) {
-                setProfileData({
-                    full_name: profile.full_name || "",
-                    phone: profile.phone || "",
-                    bio: profile.bio || "",
-                    business_address: profile.business_address || ""
-                });
-            }
-
-            if (verification) {
-                setStatus(verification.status || 'none');
-                setDocuments({
-                    id_front: verification.documents?.id_front
-                        ? { path: verification.documents.id_front.path, previewUrl: verification.documents.id_front.url }
-                        : { path: "", previewUrl: "" },
-                    id_back: verification.documents?.id_back
-                        ? { path: verification.documents.id_back.path, previewUrl: verification.documents.id_back.url }
-                        : { path: "", previewUrl: "" },
-                    selfie: verification.documents?.selfie
-                        ? { path: verification.documents.selfie.path, previewUrl: verification.documents.selfie.url }
-                        : { path: "", previewUrl: "" },
-                });
-            }
-        } catch (error) {
-            console.error("Error checking verification status:", error);
-        }
-    }
-
-    async function uploadDocument(field: 'id_front' | 'id_back' | 'selfie', file?: File | null) {
-        if (!file) return;
-
-        try {
-            setLoading(true);
-            const upload = await hostApi.getVerificationUploadUrl({
-                fileName: file.name,
-                contentType: file.type || "application/octet-stream",
-            });
-
-            const { error } = await supabase.storage
-                .from(upload.bucket)
-                .uploadToSignedUrl(upload.path, upload.token, file);
-
-            if (error) throw error;
-
-            setDocuments((prev) => ({
-                ...prev,
-                [field]: {
-                    path: upload.path,
-                    previewUrl: upload.signedUrl,
-                },
-            }));
-        } catch (error: any) {
-            toast({
-                variant: "destructive",
-                title: "Upload failed",
-                description: error.message || "Could not upload verification document.",
-            });
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    const handleNext = () => {
+    const handleNext = useCallback(() => {
         if (step === 1) {
             if (!profileData.full_name || !profileData.phone || !profileData.bio || !profileData.business_address) {
                 toast({
@@ -129,10 +85,10 @@ export default function HostVerification() {
             }
             setStep(2);
         }
-    };
+    }, [step, profileData, toast]);
 
-    async function submitVerification() {
-        if (!documents.id_front.path || !documents.id_back.path || !documents.selfie.path) {
+    const submitVerification = useCallback(async () => {
+        if (!documents.id_front || !documents.id_back || !documents.selfie) {
             toast({
                 variant: "destructive",
                 title: "Missing documents",
@@ -143,16 +99,12 @@ export default function HostVerification() {
 
         try {
             setLoading(true);
-            await hostApi.submitVerification({
-                full_name: profileData.full_name,
+            await submitHostVerification({
+                fullName: profileData.full_name,
                 phone: profileData.phone,
                 bio: profileData.bio,
-                business_address: profileData.business_address,
-                documents: {
-                    id_front: documents.id_front.path,
-                    id_back: documents.id_back.path,
-                    selfie: documents.selfie.path,
-                },
+                businessAddress: profileData.business_address,
+                documents,
             });
 
             setStatus('pending');
@@ -160,16 +112,17 @@ export default function HostVerification() {
                 title: "Verification submitted",
                 description: "We'll review your details and documents shortly.",
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "An unknown error occurred";
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: error.message,
+                description: message,
             });
         } finally {
             setLoading(false);
         }
-    }
+    }, [user, profileData, documents, toast]);
 
     if (status === 'verified') {
         return (
@@ -285,6 +238,28 @@ export default function HostVerification() {
                             />
                         </div>
 
+                        <div className="space-y-4 pt-2">
+                            <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                                <div className="mt-1">
+                                    <input
+                                        type="checkbox"
+                                        id="ad-network"
+                                        checked={profileData.join_advertising_network}
+                                        onChange={(e) => setProfileData({ ...profileData, join_advertising_network: e.target.checked })}
+                                        className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="ad-network" className="text-sm font-bold text-blue-900 cursor-pointer">
+                                        Join our Premium Advertising Network
+                                    </Label>
+                                    <p className="text-xs text-blue-700 leading-relaxed">
+                                        By selecting this, your verified properties will be featured in our network of Facebook partner groups and Instagram pages, significantly increasing listing exposure.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="flex justify-end pt-4">
                             <Button onClick={handleNext}>
                                 Next Step
@@ -309,21 +284,27 @@ export default function HostVerification() {
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium">Front of ID</label>
-                                    <div className="space-y-3">
-                                        {documents.id_front.previewUrl && (
-                                            <img src={documents.id_front.previewUrl} alt="Front of ID" className="rounded-xl border border-gray-200 w-full max-h-64 object-cover" />
-                                        )}
-                                        <Input type="file" accept="image/*" onChange={(e) => uploadDocument('id_front', e.target.files?.[0])} />
-                                    </div>
+                                    <ImageUpload
+                                        value={documents.id_front ? [documents.id_front] : []}
+                                        onChange={(urls) => setDocuments({ ...documents, id_front: urls[0] })}
+                                        onRemove={() => setDocuments({ ...documents, id_front: "" })}
+                                        bucket="verification"
+                                        maxFiles={1}
+                                        isPrivate={true}
+                                        allowCamera={true}
+                                    />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium">Back of ID</label>
-                                    <div className="space-y-3">
-                                        {documents.id_back.previewUrl && (
-                                            <img src={documents.id_back.previewUrl} alt="Back of ID" className="rounded-xl border border-gray-200 w-full max-h-64 object-cover" />
-                                        )}
-                                        <Input type="file" accept="image/*" onChange={(e) => uploadDocument('id_back', e.target.files?.[0])} />
-                                    </div>
+                                    <ImageUpload
+                                        value={documents.id_back ? [documents.id_back] : []}
+                                        onChange={(urls) => setDocuments({ ...documents, id_back: urls[0] })}
+                                        onRemove={() => setDocuments({ ...documents, id_back: "" })}
+                                        bucket="verification"
+                                        maxFiles={1}
+                                        isPrivate={true}
+                                        allowCamera={true}
+                                    />
                                 </div>
                             </CardContent>
                         </Card>
@@ -339,12 +320,15 @@ export default function HostVerification() {
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium">Your Selfie</label>
-                                    <div className="space-y-3">
-                                        {documents.selfie.previewUrl && (
-                                            <img src={documents.selfie.previewUrl} alt="Selfie" className="rounded-xl border border-gray-200 w-full max-h-64 object-cover" />
-                                        )}
-                                        <Input type="file" accept="image/*" onChange={(e) => uploadDocument('selfie', e.target.files?.[0])} />
-                                    </div>
+                                    <ImageUpload
+                                        value={documents.selfie ? [documents.selfie] : []}
+                                        onChange={(urls) => setDocuments({ ...documents, selfie: urls[0] })}
+                                        onRemove={() => setDocuments({ ...documents, selfie: "" })}
+                                        bucket="verification"
+                                        maxFiles={1}
+                                        isPrivate={true}
+                                        allowCamera={true}
+                                    />
                                 </div>
                                 <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-600">
                                     <p className="font-medium mb-2">Tips for a good photo:</p>

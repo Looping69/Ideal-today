@@ -1,86 +1,57 @@
-import { createClient, type SupabaseClient, type User } from "https://esm.sh/@supabase/supabase-js@2.45.6";
-import { HttpError } from "./http.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL");
-const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-
-if (!supabaseUrl || !serviceRoleKey || !anonKey) {
-  throw new Error("Missing Supabase environment variables for edge functions");
+function getEnv(name: string) {
+  const value = Deno.env.get(name);
+  if (!value) throw new Error(`Missing environment variable: ${name}`);
+  return value;
 }
 
-export function createServiceClient() {
-  return createClient(supabaseUrl!, serviceRoleKey!, {
+export function createAdminClient() {
+  return createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_SERVICE_ROLE_KEY"), {
     auth: {
-      persistSession: false,
       autoRefreshToken: false,
+      persistSession: false,
     },
   });
 }
 
-export function createAuthedClient(authHeader: string) {
-  return createClient(supabaseUrl!, anonKey!, {
+export function createUserClient(req: Request) {
+  return createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_ANON_KEY"), {
     auth: {
-      persistSession: false,
       autoRefreshToken: false,
+      persistSession: false,
     },
     global: {
       headers: {
-        Authorization: authHeader,
+        Authorization: req.headers.get("Authorization") ?? "",
       },
     },
   });
 }
 
-export async function requireUser(req: Request): Promise<{
-  user: User;
-  authHeader: string;
-  adminClient: SupabaseClient;
-  userClient: SupabaseClient;
-}> {
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    throw new HttpError(401, "Missing bearer token");
-  }
-
-  const token = authHeader.slice("Bearer ".length);
-  const adminClient = createServiceClient();
-  const { data, error } = await adminClient.auth.getUser(token);
+export async function requireUser(req: Request) {
+  const client = createUserClient(req);
+  const { data, error } = await client.auth.getUser();
 
   if (error || !data.user) {
-    throw new HttpError(401, "Invalid or expired session");
+    throw new Error("Unauthorized");
   }
 
-  return {
-    user: data.user,
-    authHeader,
-    adminClient,
-    userClient: createAuthedClient(authHeader),
-  };
+  return { client, user: data.user };
 }
 
-export async function requireAdmin(adminClient: SupabaseClient, userId: string) {
-  const { data, error } = await adminClient
+export async function requireAdmin(req: Request) {
+  const { user } = await requireUser(req);
+  const admin = createAdminClient();
+  const { data, error } = await admin
     .from("profiles")
     .select("is_admin")
-    .eq("id", userId)
+    .eq("id", user.id)
     .single();
 
   if (error || !data?.is_admin) {
-    throw new HttpError(403, "Admin access required");
-  }
-}
-
-export async function getProfile(adminClient: SupabaseClient, userId: string) {
-  const { data, error } = await adminClient
-    .from("profiles")
-    .select("*")
-    .eq("id", userId)
-    .single();
-
-  if (error) {
-    throw new HttpError(500, "Failed to load profile", error);
+    throw new Error("Forbidden");
   }
 
-  return data;
+  return { admin, user };
 }

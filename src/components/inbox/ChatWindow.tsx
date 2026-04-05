@@ -9,7 +9,7 @@ import { Send, User, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { bookingsApi } from "@/lib/api/bookings";
+import { invokeEngagementAction } from "@/lib/backend";
 
 interface Message {
   id: string;
@@ -37,11 +37,14 @@ export default function ChatWindow({ bookingId, otherUserName, otherUserAvatar, 
     if (!bookingId) return;
 
     const fetchMessages = async () => {
-      try {
-        const data = await bookingsApi.listMessages({ bookingId });
+      const { data, error } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("booking_id", bookingId)
+        .order("created_at", { ascending: true });
+
+      if (!error && data) {
         setMessages(data);
-      } catch (error) {
-        console.error("Error loading messages:", error);
       }
       setLoading(false);
     };
@@ -84,16 +87,18 @@ export default function ChatWindow({ bookingId, otherUserName, otherUserAvatar, 
     setNewMessage(""); // Optimistic clear
 
     try {
-      await bookingsApi.sendMessage({
+      await invokeEngagementAction({
+        action: "send-message",
         bookingId,
         content: messageContent,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error sending message:", error);
+      setNewMessage(messageContent);
       toast({
         variant: "destructive",
         title: "Failed to send",
-        description: error.message || "Please try again.",
+        description: error instanceof Error ? error.message : "Please try again.",
       });
     }
   };

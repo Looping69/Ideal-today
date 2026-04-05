@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
@@ -10,8 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 export default function HostReports() {
     const { user } = useAuth();
     const [period, setPeriod] = useState('30d');
-    const [loading, setLoading] = useState(true);
-    const [chartData, setChartData] = useState<any[]>([]);
+    interface ChartDataPoint {
+        name: string;
+        revenue: number;
+        bookings: number;
+        occupancy: number;
+    }
+
+    const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
     const [metrics, setMetrics] = useState({
         revenue: 0,
         occupancy: 0,
@@ -23,7 +29,6 @@ export default function HostReports() {
         if (!user) return;
 
         const fetchData = async () => {
-            setLoading(true);
             try {
                 // 1. Get properties
                 const { data: props } = await supabase.from('properties').select('id, price').eq('host_id', user.id);
@@ -31,7 +36,6 @@ export default function HostReports() {
                 const propIds = properties.map(p => p.id);
 
                 if (propIds.length === 0) {
-                    setLoading(false);
                     return;
                 }
 
@@ -103,10 +107,8 @@ export default function HostReports() {
                     formattedRevenue: new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(totalRev)
                 });
 
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setLoading(false);
+            } catch (err: unknown) {
+                console.error("Error fetching report data:", err);
             }
         };
 

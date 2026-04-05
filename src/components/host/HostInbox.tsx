@@ -8,6 +8,7 @@ import { Loader2, User, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ChatWindow from "@/components/inbox/ChatWindow";
 import { format } from "date-fns";
+import { getErrorMessage } from "@/lib/errors";
 
 interface Conversation {
   id: string; // booking_id
@@ -43,7 +44,7 @@ export default function HostInbox() {
           .from("properties")
           .select("id")
           .eq("host_id", user.id);
-        
+
         const propertyIds = (properties || []).map(p => p.id);
 
         if (propertyIds.length === 0) {
@@ -74,25 +75,31 @@ export default function HostInbox() {
 
         // 3. Fetch last message for each
         const conversationsWithMessages = await Promise.all(
-          (bookings || []).map(async (booking: any) => {
+          (bookings || []).map(async (booking) => {
             const { data: messages } = await supabase
               .from("messages")
               .select("content, created_at")
               .eq("booking_id", booking.id)
               .order("created_at", { ascending: false })
               .limit(1)
-              .single();
+              .maybeSingle();
+
+            const profile = (Array.isArray(booking.user) ? booking.user[0] : booking.user) as { full_name: string; avatar_url: string };
+            const propertyObj = (Array.isArray(booking.property) ? booking.property[0] : booking.property) as { title: string; image: string };
 
             return {
-              ...booking,
-              last_message: messages,
-            };
+              id: booking.id,
+              status: booking.status,
+              user: profile,
+              property: propertyObj,
+              last_message: messages || undefined,
+            } as Conversation;
           })
         );
 
         setConversations(conversationsWithMessages);
-      } catch (error) {
-        console.error("Error fetching host conversations:", error);
+      } catch (error: unknown) {
+        console.error("Error fetching host conversations:", getErrorMessage(error));
       } finally {
         setLoading(false);
       }
@@ -119,7 +126,7 @@ export default function HostInbox() {
           <p className="text-gray-500 mt-2">Messages from your guests.</p>
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full pb-6">
         {/* Conversation List */}
         <div className={cn(

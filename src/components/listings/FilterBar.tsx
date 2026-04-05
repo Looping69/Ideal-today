@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence, useScroll, useMotionValueEvent, useReducedMotion } from "framer-motion";
 import { ChevronRight, Home } from "lucide-react";
@@ -47,7 +47,7 @@ export default function FilterBar({ onFilterChange }: FilterBarProps) {
   return (
     <div
       className={cn(
-        "sticky top-32 z-20 transition-all duration-300 ease-in-out",
+        "sticky top-20 z-20 transition-all duration-300 ease-in-out",
         isCollapsed
           ? "bg-transparent py-2"
           : "bg-white/95 backdrop-blur-md border-b border-gray-100 py-4 pb-2"

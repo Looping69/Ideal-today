@@ -20,7 +20,9 @@ export default function WishlistsPage() {
         .select(`property_id, properties(*)`)
         .eq('user_id', user.id);
       if (!error && data) {
-        const mapped: Property[] = data.map((row: any) => ({
+        // cast to unknown first to safely assert properties exists for mapping
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mapped: Property[] = (data as unknown as { property_id: string; properties: Record<string, any> }[]).map((row) => ({
           id: row.properties.id,
           title: row.properties.title,
           location: row.properties.location,
@@ -29,6 +31,7 @@ export default function WishlistsPage() {
           reviews: row.properties.reviews_count,
           image: row.properties.image,
           images: row.properties.images || [],
+          video_url: row.properties.video_url,
           type: row.properties.type,
           amenities: row.properties.amenities || [],
           guests: row.properties.guests,
@@ -45,7 +48,7 @@ export default function WishlistsPage() {
   }, [user]);
 
   return (
-    <div className="min-h-screen pt-32 pb-12 container mx-auto px-4">
+    <div className="min-h-screen pt-20 pb-12 container mx-auto px-4">
       <h1 className="text-3xl font-bold mb-8">Wishlists</h1>
 
       {(!items || items.length === 0) ? (

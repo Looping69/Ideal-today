@@ -1,0 +1,565 @@
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { Property } from "@/types/property";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Star, MapPin, Wifi, Car, Utensils, Wind, Share, Heart, Video, Sparkles } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import ImageUpload from "@/components/ui/image-upload";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format, differenceInDays, parseISO } from "date-fns";
+import { DateRange } from "react-day-picker";
+import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
+import { useToast } from "@/components/ui/use-toast";
+import SEO from "../SEO";
+import PropertyMap from "./PropertyMap";
+import { Lightbox } from "@/components/ui/lightbox";
+import { invokeEngagementAction } from "@/lib/backend";
+
+interface PropertyViewProps {
+    property: Property;
+    onBookingComplete?: () => void;
+}
+
+interface Profile {
+    full_name: string | null;
+    avatar_url: string | null;
+}
+
+interface Review {
+    rating: number;
+    content: string;
+    created_at: string;
+    photo_url?: string;
+    user: Profile | null;
+}
+
+export default function PropertyView({ property, onBookingComplete }: PropertyViewProps) {
+    const { user } = useAuth();
+    const { toast } = useToast();
+    const navigate = useNavigate();
+    const [date, setDate] = useState<DateRange | undefined>();
+    const [guests] = useState(1);
+    const [isBooking] = useState(false);
+    const [bookedDates, setBookedDates] = useState<Date[]>([]);
+    const [reviews, setReviews] = useState<Review[]>([]);
+    const [canReview, setCanReview] = useState(false);
+    const [myRating, setMyRating] = useState<number>(5);
+    const [myText, setMyText] = useState("");
+    const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+    const [reviewPhotos, setReviewPhotos] = useState<string[]>([]);
+    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const [lightboxIndex, setLightboxIndex] = useState(0);
+    const [lightboxImages, setLightboxImages] = useState<string[]>([]);
+
+    const fetchBookedDates = useCallback(async () => {
+        if (!property) return;
+
+        const { data } = await supabase
+            .from('bookings')
+            .select('check_in, check_out')
+            .eq('property_id', property.id)
+            .neq('status', 'canceled');
+
+        if (data) {
+            const dates = data.flatMap(booking => {
+                const range = [];
+                const curr = parseISO(booking.check_in);
+                const end = parseISO(booking.check_out);
+
+                while (curr < end) {
+                    range.push(new Date(curr));
+                    curr.setDate(curr.getDate() + 1);
+                }
+                return range;
+            });
+            setBookedDates(dates);
+        }
+    }, [property]);
+
+    const loadReviews = useCallback(async () => {
+        if (!property) return;
+        const { data } = await supabase
+            .from('reviews')
+            .select('rating, content, created_at, photo_url, user:profiles!reviews_user_id_fkey(full_name, avatar_url)')
+            .eq('property_id', property.id)
+            .eq('status', 'approved')
+            .order('created_at', { ascending: false });
+
+        setReviews((data as unknown as Review[]) || []);
+
+        if (user) {
+            const { data: bookingOk } = await supabase
+                .from('bookings')
+                .select('id')
+                .eq('property_id', property.id)
+                .eq('user_id', user.id)
+                .in('status', ['confirmed', 'completed'])
+                .limit(1);
+
+            const { data: existing } = await supabase
+                .from('reviews')
+                .select('id')
+                .eq('property_id', property.id)
+                .eq('user_id', user.id)
+                .limit(1);
+
+            setCanReview(!!bookingOk && bookingOk.length > 0 && !(existing && existing.length > 0));
+        } else {
+            setCanReview(false);
+        }
+    }, [property, user]);
+
+    useEffect(() => {
+        if (property) {
+            fetchBookedDates();
+            loadReviews();
+        }
+    }, [property, fetchBookedDates, loadReviews]);
+
+    const submitReview = async () => {
+        if (!user) {
+            toast({ variant: 'destructive', title: 'Please login', description: 'Log in to write a review.' });
+            return;
+        }
+        if (!property) return;
+        if (!myRating || myRating < 1 || myRating > 5) {
+            toast({ variant: 'destructive', title: 'Invalid rating', description: 'Choose a rating between 1 and 5.' });
+            return;
+        }
+        setIsSubmittingReview(true);
+        try {
+            await invokeEngagementAction({
+                action: 'submit-review',
+                propertyId: property.id,
+                rating: myRating,
+                content: myText,
+                photoUrl: reviewPhotos[0] || null,
+            });
+            toast({ title: 'Review submitted', description: 'Your review is pending approval.' });
+            setMyText("");
+            setReviewPhotos([]);
+            setMyRating(5);
+            loadReviews();
+            setCanReview(false);
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : "Could not submit review.";
+            toast({ variant: 'destructive', title: 'Error', description: message });
+        } finally {
+            setIsSubmittingReview(false);
+        }
+    };
+
+    /* 
+    const handleReserve = () => {
+        ...
+    };
+    */
+
+    const propertySchema = {
+        "@context": "https://schema.org",
+        "@type": "LodgingBusiness",
+        "name": property.title,
+        "description": property.description,
+        "image": property.image,
+        "address": {
+            "@type": "PostalAddress",
+            "addressLocality": property.location,
+            "addressCountry": "ZA"
+        },
+        "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": property.rating,
+            "reviewCount": property.reviews
+        },
+        "priceRange": `R${property.price}`
+    };
+
+    const nights = date?.from && date?.to ? differenceInDays(date.to, date.from) : 0;
+    const subtotal = property.price * nights;
+    const cleaningFee = property.cleaning_fee || 0;
+    const serviceFee = property.service_fee || 0;
+    const total = subtotal + cleaningFee + serviceFee;
+
+    const allImages = [property.image, ...property.images];
+
+    const openLightbox = (index: number, images: string[] = allImages) => {
+        setLightboxImages(images);
+        setLightboxIndex(index);
+        setIsLightboxOpen(true);
+    };
+
+    return (
+        <div className="p-6">
+            <SEO
+                title={property.title}
+                description={`Explore ${property.title} in ${property.location}. ${property.description.substring(0, 150)}...`}
+                keywords={`${property.type}, holiday accommodation ${property.location}, ${property.title} rental`}
+                ogImage={property.image}
+                schema={propertySchema}
+            />
+            {/* Header */}
+            <div className="flex justify-between items-start mb-4">
+                <div>
+                    <h1 className="text-2xl font-bold mb-1 uppercase">{property.title}</h1>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Star className="w-4 h-4 fill-black text-black" />
+                        <span className="font-medium text-black">{property.rating}</span>
+                        <span>·</span>
+                        <span className="underline cursor-pointer">{property.reviews} reviews</span>
+                        <span>·</span>
+                        <span className="font-medium underline cursor-pointer uppercase">
+                            {property.area ? `${property.area}, ` : ""}{property.location}
+                        </span>
+                    </div>
+                </div>
+                <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" className="gap-2">
+                        <Share className="w-4 h-4" />
+                        Share
+                    </Button>
+                    <Button variant="ghost" size="sm" className="gap-2">
+                        <Heart className="w-4 h-4" />
+                        Save
+                    </Button>
+                </div>
+            </div>
+
+            {/* Images Grid */}
+            <div className="grid grid-cols-4 grid-rows-2 gap-2 h-[400px] rounded-xl overflow-hidden mb-8">
+                <div className="col-span-2 row-span-2 relative">
+                    <img
+                        src={property.image}
+                        alt={property.title}
+                        className="w-full h-full object-cover hover:opacity-95 transition-opacity cursor-pointer"
+                        onClick={() => openLightbox(0)}
+                    />
+                </div>
+                {property.images.slice(0, 4).map((img, i) => (
+                    <div key={i} className="col-span-1 row-span-1 relative">
+                        <img
+                            src={img}
+                            alt={property.title}
+                            className="w-full h-full object-cover hover:opacity-95 transition-opacity cursor-pointer"
+                            onClick={() => openLightbox(i + 1)}
+                        />
+                    </div>
+                ))}
+            </div>
+
+            {/* Video Section */}
+            {property.video_url && (
+                <div className="mb-8">
+                    <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <Video className="w-5 h-5" />
+                        Property Video Tour
+                    </h3>
+                    <div className="relative rounded-xl overflow-hidden bg-black shadow-lg">
+                        <video
+                            src={property.video_url}
+                            className="w-full aspect-video object-contain"
+                            controls
+                            playsInline
+                            poster={property.image}
+                        />
+                    </div>
+                </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+                {/* Left Column: Details */}
+                <div className="md:col-span-2 space-y-6">
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <h2 className="text-xl font-semibold mb-1">
+                                {property.type} hosted by {property.host.name}
+                            </h2>
+                            <p className="text-gray-600">
+                                {property.adults ? `${property.adults} adults` : `${property.guests} guests`}
+                                {property.children ? `, ${property.children} children` : ""}
+                                {" · "}
+                                {property.bedrooms} bedrooms · {property.bathrooms} bathrooms
+                            </p>
+                        </div>
+                        <Avatar className="w-14 h-14">
+                            <AvatarImage src={property.host.image} />
+                            <AvatarFallback>{property.host.name[0]}</AvatarFallback>
+                        </Avatar>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-4">
+                        <div className="flex gap-4">
+                            <div className="mt-1"><MapPin className="w-6 h-6 text-gray-600" /></div>
+                            <div>
+                                <h3 className="font-semibold">Great location</h3>
+                                <p className="text-gray-500 text-sm">100% of recent guests gave the location a 5-star rating.</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-4">
+                            <div className="mt-1"><KeyIcon className="w-6 h-6 text-gray-600" /></div>
+                            <div>
+                                <h3 className="font-semibold">Great check-in experience</h3>
+                                <p className="text-gray-500 text-sm">100% of recent guests gave the check-in process a 5-star rating.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <Separator />
+
+                    <div>
+                        <h3 className="text-xl font-semibold mb-4">About this place</h3>
+                        <p className="text-gray-700 leading-relaxed">
+                            {property.description}
+                        </p>
+                    </div>
+
+                    <Separator />
+
+                    {(property.is_self_catering || property.has_restaurant) && (
+                        <>
+                            <div className="space-y-4">
+                                <h3 className="text-xl font-semibold">Catering</h3>
+                                <div className="flex flex-wrap gap-4">
+                                    {property.is_self_catering && (
+                                        <div className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-full border border-green-100 text-sm font-medium">
+                                            <Utensils className="w-4 h-4" />
+                                            Self-Catering Available
+                                        </div>
+                                    )}
+                                    {property.has_restaurant && (
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full border border-blue-100 text-sm font-medium">
+                                                <Utensils className="w-4 h-4" />
+                                                Onsite Restaurant
+                                            </div>
+                                            {property.restaurant_offers && property.restaurant_offers.length > 0 && (
+                                                <p className="text-sm text-gray-500 ml-4">
+                                                    Offers: {property.restaurant_offers.join(", ")}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <Separator />
+                        </>
+                    )}
+
+                    <div>
+                        <h3 className="text-xl font-semibold mb-4">What this place offers</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            {property.amenities.map((amenity, index) => (
+                                <div key={index} className="flex items-center gap-3 text-gray-700">
+                                    {getAmenityIcon(amenity)}
+                                    <span>{amenity}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {property.facilities && property.facilities.length > 0 && (
+                        <>
+                            <Separator />
+                            <div>
+                                <h3 className="text-xl font-semibold mb-4">Onsite Facilities</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {property.facilities.map((fac, idx) => (
+                                        <div key={idx} className="flex items-center gap-3 text-gray-700">
+                                            <span className="text-xl">✓</span>
+                                            <span>{fac === "Other" ? property.other_facility : fac}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    <Separator />
+
+                    <div>
+                        <h3 className="text-xl font-semibold mb-4">Location</h3>
+                        <div className="h-[300px] rounded-xl overflow-hidden border border-gray-200">
+                            <PropertyMap
+                                properties={[property]}
+                                onPropertyClick={() => { }}
+                            />
+                        </div>
+                        <p className="mt-2 text-sm text-gray-500 flex items-center gap-2">
+                            <MapPin className="w-4 h-4" />
+                            <span className="uppercase">{property.area ? `${property.area}, ` : ""}{property.location}</span>
+                        </p>
+                    </div>
+
+                    <Separator />
+
+                    <div>
+                        <h3 className="text-xl font-semibold mb-4">Reviews</h3>
+                        {reviews.length === 0 ? (
+                            <p className="text-gray-500">No reviews yet.</p>
+                        ) : (
+                            <div className="space-y-4">
+                                {reviews.map((r, idx) => (
+                                    <div key={idx} className="border rounded-lg p-4">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <Avatar className="w-8 h-8">
+                                                <AvatarImage src={r.user?.avatar_url || undefined} />
+                                                <AvatarFallback>{(r.user?.full_name || 'G')[0]}</AvatarFallback>
+                                            </Avatar>
+                                            <div>
+                                                <div className="font-medium text-sm">{r.user?.full_name || 'Guest'}</div>
+                                                <div className="text-xs text-gray-500">{format(new Date(r.created_at), 'MMM d, yyyy')}</div>
+                                            </div>
+                                            <div className="ml-auto flex items-center gap-1">
+                                                {[...Array(r.rating)].map((_, i) => <Star key={i} className="w-4 h-4 fill-black text-black" />)}
+                                            </div>
+                                        </div>
+                                        <p className="text-sm text-gray-700 mb-3">{r.content}</p>
+                                        {r.photo_url && (
+                                            <div className="mt-2 w-32 h-32 rounded-lg overflow-hidden border border-gray-100 cursor-pointer hover:opacity-90 transition-opacity" onClick={() => {
+                                                openLightbox(0, [r.photo_url!]);
+                                            }}>
+                                                <img src={r.photo_url} className="w-full h-full object-cover" alt="Review photo" />
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="mt-6">
+                            <h4 className="font-semibold mb-2">Write a review</h4>
+                            {!canReview ? (
+                                <p className="text-sm text-gray-500">Reviews are available after a verified stay. You may have already reviewed this stay.</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-2">
+                                        {[1, 2, 3, 4, 5].map(n => (
+                                            <button key={n} onClick={() => setMyRating(n)} className={cn("p-1", myRating >= n ? "text-black" : "text-gray-400")}>
+                                                <Star className={cn("w-5 h-5", myRating >= n ? "fill-black" : "")} />
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <Textarea value={myText} onChange={(e) => setMyText(e.target.value)} placeholder="Share details of your stay" />
+                                    <div>
+                                        <span className="text-xs text-gray-500">Optional: add a photo (earns extra points)</span>
+                                        <ImageUpload
+                                            value={reviewPhotos}
+                                            onChange={setReviewPhotos}
+                                            onRemove={(url) => setReviewPhotos(reviewPhotos.filter(u => u !== url))}
+                                            bucket="review-photos"
+                                            maxFiles={1}
+                                            className="mt-2"
+                                        />
+                                    </div>
+                                    <Button onClick={submitReview} disabled={isSubmittingReview}>{isSubmittingReview ? 'Submitting...' : 'Submit review'}</Button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right Column: Verification/Exposure Widget */}
+                <div className="md:col-span-1 relative z-10">
+                    <div className="sticky top-24 border border-gray-200 rounded-2xl p-6 shadow-xl bg-white z-10">
+                        <div className="flex flex-col gap-4">
+                            <div className="flex items-center gap-3 p-3 bg-blue-50/50 rounded-xl border border-blue-100">
+                                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <Sparkles className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <div>
+                                    <div className="text-sm font-bold text-blue-900">Verified Network Exposure</div>
+                                    <div className="text-[10px] text-blue-700 font-medium font-primary">ESTIMATED REACH: 50K+ /mo</div>
+                                </div>
+                            </div>
+
+                            <div className="py-2">
+                                <h3 className="text-lg font-bold mb-2">Host Verification</h3>
+                                <p className="text-xs text-gray-500 leading-relaxed mb-4">
+                                    To list your property in our premium advertising network (including Facebook and Instagram partner groups), you must complete the host verification process.
+                                </p>
+
+                                <div className="space-y-3">
+                                    <div className="flex items-start gap-2">
+                                        <div className="mt-0.5 w-4 h-4 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                                        </div>
+                                        <div className="text-[11px] text-gray-600 font-medium">Identity verification required</div>
+                                    </div>
+                                    <div className="flex items-start gap-2">
+                                        <div className="mt-0.5 w-4 h-4 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                                        </div>
+                                        <div className="text-[11px] text-gray-600 font-medium">Property ownership validation</div>
+                                    </div>
+                                    <div className="flex items-start gap-2">
+                                        <div className="mt-0.5 w-4 h-4 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                                        </div>
+                                        <div className="text-[11px] text-gray-600 font-medium">Inquiry funnel distribution</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <Separator />
+
+                            <Button
+                                className="w-full bg-black text-white hover:bg-gray-800 font-bold py-6 rounded-xl"
+                                onClick={() => navigate("/host")}
+                            >
+                                Get Verified to Promote
+                            </Button>
+
+                            <p className="text-[10px] text-center text-gray-400 font-medium">
+                                *Verification usually takes 24-48 hours.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <Lightbox
+                images={lightboxImages}
+                initialIndex={lightboxIndex}
+                isOpen={isLightboxOpen}
+                onClose={() => setIsLightboxOpen(false)}
+            />
+        </div>
+    );
+}
+
+function KeyIcon({ className }: { className?: string }) {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={className}
+        >
+            <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+        </svg>
+    );
+}
+
+function getAmenityIcon(amenity: string) {
+    const className = "w-5 h-5 text-gray-500";
+    const a = amenity.toLowerCase();
+    if (a.includes("wifi")) return <Wifi className={className} />;
+    if (a.includes("pool")) return <span className={className}>🏊</span>;
+    if (a.includes("kitchen")) return <Utensils className={className} />;
+    if (a.includes("air conditioning")) return <Wind className={className} />;
+    if (a.includes("parking")) return <Car className={className} />;
+    if (a.includes("gym")) return <span className={className}>🏋️</span>;
+    if (a.includes("tv")) return <span className={className}>📺</span>;
+    if (a.includes("bbq")) return <span className={className}>🔥</span>;
+    return <Star className={className} />;
+}
