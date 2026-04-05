@@ -1,6 +1,5 @@
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, CheckCircle2, XCircle, Calendar as CalendarIcon, User, MapPin, Clock } from "lucide-react";
@@ -11,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { bookingsApi } from "@/lib/api/bookings";
 
 interface Booking {
     id: string;
@@ -47,33 +47,8 @@ export default function HostBookings() {
     const fetchBookings = async () => {
         try {
             setLoading(true);
-
-            // 1. Get host's properties
-            const { data: properties } = await supabase
-                .from('properties')
-                .select('id')
-                .eq('host_id', user?.id);
-
-            if (!properties || properties.length === 0) {
-                setLoading(false);
-                return;
-            }
-
-            const propertyIds = properties.map(p => p.id);
-
-            // 2. Get bookings for these properties
-            const { data, error } = await supabase
-                .from('bookings')
-                .select(`
-          *,
-          user:profiles(full_name, avatar_url, email),
-          property:properties(id, title, image, location)
-        `)
-                .in('property_id', propertyIds)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-            setBookings(data || []);
+            const data = await bookingsApi.listHostBookings();
+            setBookings(data as Booking[]);
 
         } catch (error) {
             console.error("Error fetching bookings:", error);
@@ -89,12 +64,10 @@ export default function HostBookings() {
 
     const handleUpdateStatus = async (bookingId: string, newStatus: string) => {
         try {
-            const { error } = await supabase
-                .from("bookings")
-                .update({ status: newStatus })
-                .eq("id", bookingId);
-
-            if (error) throw error;
+            await bookingsApi.updateBookingStatus({
+                bookingId,
+                status: newStatus as any,
+            });
 
             toast({
                 title: newStatus === 'confirmed' ? "Booking Accepted" : "Booking Updated",

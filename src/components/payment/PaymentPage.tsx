@@ -2,9 +2,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Calendar, Users, MapPin, ShieldCheck, Star, CreditCard, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
 import { useState } from 'react';
+import { billingApi } from '@/lib/api/billing';
 
 export default function PaymentPage() {
     const location = useLocation();
@@ -34,40 +34,17 @@ export default function PaymentPage() {
         try {
             setIsProcessing(true);
 
-            // 1. Create the booking in Supabase with 'pending' status
-            const { data: booking, error: bookingError } = await supabase
-                .from('bookings')
-                .insert({
-                    property_id: property.id,
-                    user_id: user.id,
-                    check_in: date.from,
-                    check_out: date.to,
-                    total_price: total,
-                    status: 'pending' // Initial status
-                })
-                .select()
-                .single();
-
-            if (bookingError) throw bookingError;
-
-            // 2. Create Yoco Checkout Session via Edge Function
-            const { data: checkout, error: checkoutError } = await supabase.functions.invoke('create-checkout', {
-                body: {
-                    amount: total * 100, // Amount in cents
-                    currency: 'ZAR',
-                    metadata: {
-                        bookingId: booking.id,
-                        type: 'booking'
-                    },
-                    successUrl: `${window.location.origin}/book/success?bookingId=${booking.id}`,
-                    cancelUrl: `${window.location.origin}/book?canceled=true`,
-                    failUrl: `${window.location.origin}/book?failed=true`
-                }
+            const checkout = await billingApi.startBookingCheckout({
+                propertyId: property.id,
+                checkIn: new Date(date.from).toISOString().slice(0, 10),
+                checkOut: new Date(date.to).toISOString().slice(0, 10),
+                guests,
+                totalPrice: total,
+                successUrl: `${window.location.origin}/book/success`,
+                cancelUrl: `${window.location.origin}/book?canceled=true`,
+                failUrl: `${window.location.origin}/book?failed=true`,
             });
 
-            if (checkoutError) throw checkoutError;
-
-            // 3. Redirect user to Yoco
             if (checkout?.redirectUrl) {
                 window.location.href = checkout.redirectUrl;
             } else {

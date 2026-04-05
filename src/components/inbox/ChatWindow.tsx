@@ -9,6 +9,7 @@ import { Send, User, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { bookingsApi } from "@/lib/api/bookings";
 
 interface Message {
   id: string;
@@ -36,14 +37,11 @@ export default function ChatWindow({ bookingId, otherUserName, otherUserAvatar, 
     if (!bookingId) return;
 
     const fetchMessages = async () => {
-      const { data, error } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("booking_id", bookingId)
-        .order("created_at", { ascending: true });
-
-      if (!error && data) {
+      try {
+        const data = await bookingsApi.listMessages({ bookingId });
         setMessages(data);
+      } catch (error) {
+        console.error("Error loading messages:", error);
       }
       setLoading(false);
     };
@@ -85,13 +83,12 @@ export default function ChatWindow({ bookingId, otherUserName, otherUserAvatar, 
     const messageContent = newMessage.trim();
     setNewMessage(""); // Optimistic clear
 
-    const { error } = await supabase.from("messages").insert({
-      booking_id: bookingId,
-      sender_id: user.id,
-      content: messageContent,
-    });
-
-    if (error) {
+    try {
+      await bookingsApi.sendMessage({
+        bookingId,
+        content: messageContent,
+      });
+    } catch (error: any) {
       console.error("Error sending message:", error);
       toast({
         variant: "destructive",

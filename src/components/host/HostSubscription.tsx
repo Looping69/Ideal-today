@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Check, Loader2, Sparkles, Smartphone, ShieldCheck, Video, BarChart4, Gift, Users, Share2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
+import { hostApi } from "@/lib/api/host";
+import { billingApi } from "@/lib/api/billing";
 
 type PlanTier = 'free' | 'standard' | 'premium';
 
@@ -96,33 +97,49 @@ export default function HostSubscription() {
     // Check for Upgrade Status on Return
     useEffect(() => {
         const checkPaymentStatus = async () => {
+            const paymentSessionId = searchParams.get('paymentSessionId');
             const status = searchParams.get('status');
-            const pendingPlan = sessionStorage.getItem('pending_plan_upgrade') as PlanTier | null;
 
-            if (status === 'success' && pendingPlan) {
-                // Clear immediately to prevent double processing
-                sessionStorage.removeItem('pending_plan_upgrade');
-
-                toast({
-                    title: "Payment Successful",
-                    description: "Finalizing your subscription upgrade...",
-                });
-
-                await performUpgrade(pendingPlan);
-            } else if (status === 'cancelled') {
-                sessionStorage.removeItem('pending_plan_upgrade');
+            if (status === 'cancelled') {
                 toast({
                     variant: "destructive",
                     title: "Payment Cancelled",
                     description: "You have not been charged.",
                 });
             } else if (status === 'failed') {
-                sessionStorage.removeItem('pending_plan_upgrade');
                 toast({
                     variant: "destructive",
                     title: "Payment Failed",
                     description: "The payment could not be completed.",
                 });
+            } else if (paymentSessionId) {
+                toast({
+                    title: "Payment Received",
+                    description: "Checking your plan upgrade...",
+                });
+
+                for (let attempt = 0; attempt < 8; attempt += 1) {
+                    const session = await billingApi.getSessionStatus({ paymentSessionId });
+                    if (session.status === 'succeeded' && session.plan_id) {
+                        setCurrentPlan(session.plan_id);
+                        toast({
+                            title: "Plan Updated!",
+                            description: `You are now on the ${session.plan_id.charAt(0).toUpperCase() + session.plan_id.slice(1)} plan.`,
+                        });
+                        return;
+                    }
+
+                    if (session.status === 'failed' || session.status === 'canceled') {
+                        toast({
+                            variant: "destructive",
+                            title: "Upgrade Failed",
+                            description: "The payment did not complete successfully.",
+                        });
+                        return;
+                    }
+
+                    await new Promise((resolve) => setTimeout(resolve, 1500));
+                }
             }
         };
 
@@ -133,15 +150,9 @@ export default function HostSubscription() {
         async function fetchPlan() {
             if (!user) return;
             try {
-                const { data, error } = await supabase
-                    .from('profiles')
-                    .select('host_plan')
-                    .eq('id', user.id)
-                    .single();
-
-                if (error) throw error;
-                if (data?.host_plan) {
-                    setCurrentPlan(data.host_plan as PlanTier);
+                const profile = await hostApi.getProfile();
+                if (profile?.host_plan) {
+                    setCurrentPlan(profile.host_plan as PlanTier);
                 }
             } catch (err) {
                 console.error('Error fetching plan:', err);
@@ -152,32 +163,6 @@ export default function HostSubscription() {
         fetchPlan();
     }, [user]);
 
-    const performUpgrade = async (planId: PlanTier) => {
-        setLoadingPlan(planId);
-        try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({ host_plan: planId })
-                .eq('id', user.id);
-
-            if (error) throw error;
-
-            setCurrentPlan(planId);
-            toast({
-                title: "Plan Updated!",
-                description: `You are now on the ${planId.charAt(0).toUpperCase() + planId.slice(1)} plan.`,
-            });
-        } catch (err: any) {
-            toast({
-                variant: "destructive",
-                title: "Update Failed",
-                description: "Payment was successful but we couldn't update your profile. Please contact support.",
-            });
-        } finally {
-            setLoadingPlan(null);
-        }
-    };
-
     const handleUpgrade = async (planId: PlanTier) => {
         if (!user) return;
 
@@ -186,37 +171,26 @@ export default function HostSubscription() {
 
         const priceAmount = parseInt(plan.price.replace('R', ''), 10);
 
-        // If free plan, just update directly
         if (priceAmount === 0) {
-            await performUpgrade(planId);
+            toast({
+                title: "Already on the free plan",
+                description: "Free plan changes do not require checkout.",
+            });
             return;
         }
 
-        // For paid plans, create checkout session via Edge Function
         setLoadingPlan(planId);
 
         try {
-            // Store plan intention
-            sessionStorage.setItem('pending_plan_upgrade', planId);
-
-            const { data, error } = await supabase.functions.invoke('create-checkout', {
-                body: {
-                    amount: priceAmount * 100, // Cents
-                    currency: 'ZAR',
-                    metadata: {
-                        userId: user.id,
-                        planId: planId
-                    },
-                    successUrl: window.location.href, // Return to this page
-                    cancelUrl: window.location.href,
-                    failUrl: window.location.href
-                }
+            const data = await billingApi.startPlanCheckout({
+                planId,
+                amount: priceAmount,
+                successUrl: window.location.href,
+                cancelUrl: `${window.location.href}${window.location.href.includes('?') ? '&' : '?'}status=cancelled`,
+                failUrl: `${window.location.href}${window.location.href.includes('?') ? '&' : '?'}status=failed`,
             });
 
-            if (error) throw error;
-
             if (data?.redirectUrl) {
-                // Redirect user to Yoco
                 window.location.href = data.redirectUrl;
             } else {
                 throw new Error('No redirect URL returned from payment server');
@@ -224,7 +198,6 @@ export default function HostSubscription() {
 
         } catch (error: any) {
             setLoadingPlan(null);
-            sessionStorage.removeItem('pending_plan_upgrade');
             console.error("Payment setup error:", error);
 
             // Helpful error message if function fails (e.g. locally without serving)

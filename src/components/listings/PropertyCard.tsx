@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
+import { engagementApi } from "@/lib/api/engagement";
 
 interface PropertyCardProps {
   property: Property;
@@ -38,24 +39,18 @@ export default function PropertyCard({ property, onClick }: PropertyCardProps) {
       return;
     }
     if (saved) {
-      const { error } = await supabase
-        .from("wishlists")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("property_id", property.id);
-      if (error) {
+      try {
+        const result = await engagementApi.toggleWishlist({ propertyId: property.id });
+        setSaved(result.saved);
+      } catch {
         toast({ variant: "destructive", title: "Error", description: "Failed to remove from wishlist." });
-      } else {
-        setSaved(false);
       }
     } else {
-      const { error } = await supabase
-        .from("wishlists")
-        .insert({ user_id: user.id, property_id: property.id });
-      if (error) {
+      try {
+        const result = await engagementApi.toggleWishlist({ propertyId: property.id });
+        setSaved(result.saved);
+      } catch {
         toast({ variant: "destructive", title: "Error", description: "Failed to add to wishlist." });
-      } else {
-        setSaved(true);
       }
     }
   };

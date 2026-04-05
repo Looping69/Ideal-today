@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, CheckCircle, XCircle, MapPin, Home, User, Eye, AlertCircle, Video } from "lucide-react";
@@ -21,6 +20,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { adminApi } from "@/lib/api/admin";
+import { propertiesApi } from "@/lib/api/properties";
 
 interface PendingProperty {
     id: string;
@@ -35,9 +36,9 @@ interface PendingProperty {
     created_at: string;
     host_id: string;
     host?: {
-        full_name: string;
-        email: string;
-        verification_status: string;
+        full_name?: string;
+        email?: string;
+        verification_status?: string;
     };
 }
 
@@ -57,17 +58,8 @@ export default function AdminPendingListings() {
     async function fetchPendingListings() {
         try {
             setLoading(true);
-            const { data, error } = await supabase
-                .from('properties')
-                .select(`
-                    *,
-                    host:profiles!properties_host_id_fkey(full_name, email, verification_status)
-                `)
-                .eq('approval_status', 'pending')
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-            setListings(data || []);
+            const data = await adminApi.listListings({ limit: 100, approvalStatus: 'pending' });
+            setListings((data as unknown as PendingProperty[]) || []);
         } catch (error) {
             console.error(error);
             toast({
@@ -83,12 +75,10 @@ export default function AdminPendingListings() {
     async function handleApprove(id: string) {
         try {
             setProcessing(true);
-            const { error } = await supabase
-                .from('properties')
-                .update({ approval_status: 'approved' })
-                .eq('id', id);
-
-            if (error) throw error;
+            await propertiesApi.moderateListing({
+                propertyId: id,
+                update: { approval_status: 'approved', rejection_reason: null }
+            });
 
             toast({
                 title: 'Listing Approved',
@@ -112,15 +102,13 @@ export default function AdminPendingListings() {
         if (!rejectId) return;
         try {
             setProcessing(true);
-            const { error } = await supabase
-                .from('properties')
-                .update({
+            await propertiesApi.moderateListing({
+                propertyId: rejectId,
+                update: {
                     approval_status: 'rejected',
                     rejection_reason: rejectReason
-                })
-                .eq('id', rejectId);
-
-            if (error) throw error;
+                }
+            });
 
             toast({
                 title: 'Listing Rejected',

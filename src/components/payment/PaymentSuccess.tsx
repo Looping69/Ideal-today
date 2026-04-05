@@ -2,15 +2,16 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CheckCircle, Loader2, Home, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
+import { billingApi } from "@/lib/api/billing";
+import type { PaymentSessionStatus } from "@/lib/api/types";
 
 export default function PaymentSuccess() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const { toast } = useToast();
     const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
-    const [bookingDetails, setBookingDetails] = useState<any>(null);
+    const [paymentSession, setPaymentSession] = useState<PaymentSessionStatus | null>(null);
     const verifiedRef = useRef(false);
 
     useEffect(() => {
@@ -18,74 +19,36 @@ export default function PaymentSuccess() {
             if (verifiedRef.current) return;
             verifiedRef.current = true;
 
-            const bookingId = searchParams.get('bookingId');
+            const paymentSessionId = searchParams.get('paymentSessionId');
 
-            if (!bookingId) {
+            if (!paymentSessionId) {
                 setStatus('error');
                 return;
             }
 
             try {
-                // 1. Fetch the booking
-                const { data: booking, error: fetchError } = await supabase
-                    .from('bookings')
-                    .select('*, property:properties(title, image, location), user:profiles(email, full_name)')
-                    .eq('id', bookingId)
-                    .single();
+                for (let attempt = 0; attempt < 8; attempt += 1) {
+                    const session = await billingApi.getSessionStatus({ paymentSessionId });
+                    setPaymentSession(session);
 
-                if (fetchError || !booking) {
-                    console.error("Booking not found", fetchError);
-                    throw new Error("Could not find booking details");
-                }
-
-                setBookingDetails(booking);
-
-                // 2. If already confirmed, just show success
-                if (booking.status === 'confirmed') {
-                    setStatus('success');
-                    return;
-                }
-
-                // 3. Update status to confirmed
-                const { error: updateError } = await supabase
-                    .from('bookings')
-                    .update({ status: 'confirmed' })
-                    .eq('id', bookingId);
-
-                if (updateError) {
-                    console.error("Update failed", updateError);
-                    throw new Error("Failed to confirm booking status");
-                }
-
-                setStatus('success');
-                toast({
-                    title: "Booking Confirmed!",
-                    description: "Your trip is all set.",
-                    duration: 5000,
-                });
-
-                // 4. Send Confirmation Email
-                // We don't await this to keep UI snappy, but we log errors
-                supabase.functions.invoke('send-email', {
-                    body: {
-                        to: booking.user?.email || 'user@example.com',
-                        subject: `Booking Confirmed: ${booking.property?.title}`,
-                        html: `
-                            <div style="font-family: sans-serif; color: #333;">
-                                <h1>Your Trip is Confirmed!</h1>
-                                <p>Hi ${booking.user?.full_name || 'there'},</p>
-                                <p>You are going to <strong>${booking.property?.title}</strong> in ${booking.property?.location}.</p>
-                                <p><strong>Check-in:</strong> ${new Date(booking.check_in).toDateString()}</p>
-                                <p><strong>Check-out:</strong> ${new Date(booking.check_out).toDateString()}</p>
-                                <p>Total Paid: R${booking.total_price}</p>
-                                <br/>
-                                <a href="${window.location.origin}/trips" style="background: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Trip</a>
-                            </div>
-                        `
+                    if (session.status === 'succeeded' && session.booking?.status === 'confirmed') {
+                        setStatus('success');
+                        toast({
+                            title: "Booking Confirmed!",
+                            description: "Your trip is all set.",
+                            duration: 5000,
+                        });
+                        return;
                     }
-                }).then(({ error }) => {
-                    if (error) console.error("Failed to send email:", error);
-                });
+
+                    if (session.status === 'failed' || session.status === 'canceled') {
+                        setStatus('error');
+                        return;
+                    }
+
+                    await new Promise((resolve) => setTimeout(resolve, 1500));
+                }
+                setStatus('error');
 
             } catch (err) {
                 console.error("Verification error:", err);
@@ -142,22 +105,22 @@ export default function PaymentSuccess() {
 
                 <h1 className="text-3xl font-bold text-gray-900 mb-4">You're all set!</h1>
                 <p className="text-lg text-gray-600 mb-8 leading-relaxed">
-                    Your booking at <span className="font-semibold text-gray-900">{bookingDetails?.property?.title}</span> has been confirmed. A receipt was sent to your email.
+                    Your booking at <span className="font-semibold text-gray-900">{paymentSession?.booking?.property?.title}</span> has been confirmed.
                 </p>
 
                 <div className="bg-gray-50 rounded-xl p-6 mb-8 text-left border border-gray-100">
                     <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200">
                         <span className="text-gray-500">Total Paid</span>
-                        <span className="font-bold text-lg">R{bookingDetails?.total_price}</span>
+                        <span className="font-bold text-lg">R{paymentSession?.booking?.total_price}</span>
                     </div>
                     <div className="space-y-2 text-sm text-gray-600">
                         <div className="flex justify-between">
                             <span>Check-in</span>
-                            <span className="font-medium text-gray-900">{new Date(bookingDetails?.check_in).toLocaleDateString()}</span>
+                            <span className="font-medium text-gray-900">{paymentSession?.booking?.check_in ? new Date(paymentSession.booking.check_in).toLocaleDateString() : "—"}</span>
                         </div>
                         <div className="flex justify-between">
                             <span>Check-out</span>
-                            <span className="font-medium text-gray-900">{new Date(bookingDetails?.check_out).toLocaleDateString()}</span>
+                            <span className="font-medium text-gray-900">{paymentSession?.booking?.check_out ? new Date(paymentSession.booking.check_out).toLocaleDateString() : "—"}</span>
                         </div>
                     </div>
                 </div>

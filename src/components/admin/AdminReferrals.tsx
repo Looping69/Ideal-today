@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Search, Filter, Gift, CheckCircle, Clock, XCircle, MoreHorizontal, Download, Trash2, Plus } from 'lucide-react';
+import { Search, Gift, CheckCircle, Clock, MoreHorizontal, Download, Plus } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,8 +10,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { adminApi } from '@/lib/api/admin';
+import type { ReferralRecord } from '@/lib/api/types';
 
-type RefRow = { id: string; referrer_id: string; referee_id: string; status: 'pending' | 'confirmed' | 'rewarded'; created_at: string; rewarded_at?: string };
+type RefRow = ReferralRecord;
 
 export default function AdminReferrals() {
   const [tab, setTab] = useState<'guest' | 'host'>('guest');
@@ -22,7 +22,6 @@ export default function AdminReferrals() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const pageSize = 25;
-  const [names, setNames] = useState<Record<string, { email?: string; full_name?: string }>>({});
   const [referrerEmail, setReferrerEmail] = useState('');
   const [refereeEmail, setRefereeEmail] = useState('');
   const [selected, setSelected] = useState<Record<string, boolean>>({});
@@ -30,22 +29,18 @@ export default function AdminReferrals() {
 
   const load = async () => {
     setLoading(true);
-    const table = tab === 'guest' ? 'referrals' : 'host_referrals';
-    let query = supabase.from(table).select('id,referrer_id,referee_id,status,created_at,rewarded_at').order('created_at', { ascending: false }).range(page * pageSize, page * pageSize + pageSize - 1);
-    if (status !== 'all') query = query.eq('status', status);
-    const { data } = await query as any;
-    setRows((data as any[]) || []);
-    setSelected({});
-    const ids = Array.from(new Set(((data as any[]) || []).flatMap((r: any) => [r.referrer_id, r.referee_id])));
-    if (ids.length) {
-      const { data: profiles } = await supabase.from('profiles').select('id,email,full_name').in('id', ids);
-      const map: Record<string, { email?: string; full_name?: string }> = {};
-      (profiles || []).forEach((p: any) => { map[p.id] = { email: p.email, full_name: p.full_name }; });
-      setNames(map);
-    } else {
-      setNames({});
+    try {
+      const data = await adminApi.listReferrals({
+        host: tab === 'host',
+        page,
+        pageSize,
+        status: status === 'all' ? undefined : status,
+      });
+      setRows(data || []);
+      setSelected({});
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => { load(); }, [tab, status, page]);
@@ -54,11 +49,12 @@ export default function AdminReferrals() {
     if (!search.trim()) return rows;
     const q = search.toLowerCase();
     return rows.filter(r => {
-      const a = names[r.referrer_id];
-      const b = names[r.referee_id];
-      return (a?.email || '').toLowerCase().includes(q) || (a?.full_name || '').toLowerCase().includes(q) || (b?.email || '').toLowerCase().includes(q) || (b?.full_name || '').toLowerCase().includes(q);
+      return (r.referrer?.email || '').toLowerCase().includes(q)
+        || (r.referrer?.full_name || '').toLowerCase().includes(q)
+        || (r.referee?.email || '').toLowerCase().includes(q)
+        || (r.referee?.full_name || '').toLowerCase().includes(q);
     });
-  }, [rows, search, names]);
+  }, [rows, search]);
 
   const counts = useMemo(() => {
     let pending = 0, confirmed = 0, rewarded = 0;
@@ -71,28 +67,25 @@ export default function AdminReferrals() {
   }, [rows]);
 
   const updateStatus = async (id: string, next: 'pending' | 'confirmed' | 'rewarded') => {
-    const table = tab === 'guest' ? 'referrals' : 'host_referrals';
-    await supabase.from(table).update({ status: next, rewarded_at: next === 'rewarded' ? new Date().toISOString() : null }).eq('id', id);
-    setRows(rs => rs.map(r => (r.id === id ? { ...r, status: next, rewarded_at: next === 'rewarded' ? new Date().toISOString() : undefined } : r)));
+    const updated = await adminApi.updateReferral({ host: tab === 'host', referralId: id, status: next });
+    setRows(rs => rs.map(r => (r.id === id ? updated : r)));
   };
 
   const removeRow = async (id: string) => {
-    const table = tab === 'guest' ? 'referrals' : 'host_referrals';
-    await supabase.from(table).delete().eq('id', id);
+    await adminApi.deleteReferrals({ host: tab === 'host', referralIds: [id] });
     setRows(rs => rs.filter(r => r.id !== id));
   };
 
   const createManual = async () => {
     if (!referrerEmail || !refereeEmail) return;
-    const { data: referrer } = await supabase.from('profiles').select('id').eq('email', referrerEmail).single();
-    const { data: referee } = await supabase.from('profiles').select('id').eq('email', refereeEmail).single();
-    if (!referrer?.id || !referee?.id) return;
-    const table = tab === 'guest' ? 'referrals' : 'host_referrals';
-    const { data } = await supabase.from(table).insert({ referrer_id: referrer.id, referee_id: referee.id, status: 'pending' }).select('id,referrer_id,referee_id,status,created_at').single();
-    setRows(rs => [data as any, ...rs]);
+    const data = await adminApi.createReferral({
+      host: tab === 'host',
+      referrerEmail,
+      refereeEmail,
+    });
+    setRows(rs => [data, ...rs]);
     setReferrerEmail('');
     setRefereeEmail('');
-    await load();
   };
 
   const toggleSelect = (id: string, value?: boolean) => {
@@ -102,24 +95,27 @@ export default function AdminReferrals() {
   const bulkUpdate = async (next: 'pending' | 'confirmed' | 'rewarded') => {
     const ids = Object.keys(selected).filter(k => selected[k]);
     if (ids.length === 0) return;
-    const table = tab === 'guest' ? 'referrals' : 'host_referrals';
-    await supabase.from(table).update({ status: next, rewarded_at: next === 'rewarded' ? new Date().toISOString() : null }).in('id', ids);
-    setRows(rs => rs.map(r => (selected[r.id] ? { ...r, status: next, rewarded_at: next === 'rewarded' ? new Date().toISOString() : r.rewarded_at } : r)));
+    const updatedRows = await Promise.all(ids.map((id) => adminApi.updateReferral({
+      host: tab === 'host',
+      referralId: id,
+      status: next,
+    })));
+    const updatedMap = new Map(updatedRows.map((row) => [row.id, row]));
+    setRows(rs => rs.map(r => updatedMap.get(r.id) ?? r));
     setSelected({});
   };
 
   const bulkDelete = async () => {
     const ids = Object.keys(selected).filter(k => selected[k]);
     if (ids.length === 0) return;
-    const table = tab === 'guest' ? 'referrals' : 'host_referrals';
-    await supabase.from(table).delete().in('id', ids);
+    await adminApi.deleteReferrals({ host: tab === 'host', referralIds: ids });
     setRows(rs => rs.filter(r => !selected[r.id]));
     setSelected({});
   };
 
   const exportCsv = () => {
     const headers = ['type', 'referrer', 'referee', 'status', 'created_at'];
-    const lines = filtered.map(r => [tab, names[r.referrer_id]?.email || r.referrer_id, names[r.referee_id]?.email || r.referee_id, r.status, r.created_at]);
+    const lines = filtered.map(r => [tab, r.referrer?.email || r.referrer_id, r.referee?.email || r.referee_id, r.status, r.created_at]);
     const csv = [headers.join(','), ...lines.map(l => l.join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -232,12 +228,12 @@ export default function AdminReferrals() {
                       <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" checked={!!selected[r.id]} onChange={() => toggleSelect(r.id)} />
                     </td>
                     <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">{names[r.referrer_id]?.full_name || 'Unknown'}</div>
-                      <div className="text-xs text-gray-500 truncate max-w-[150px]">{names[r.referrer_id]?.email || r.referrer_id}</div>
+                      <div className="font-medium text-gray-900">{r.referrer?.full_name || 'Unknown'}</div>
+                      <div className="text-xs text-gray-500 truncate max-w-[150px]">{r.referrer?.email || r.referrer_id}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">{names[r.referee_id]?.full_name || 'Unknown'}</div>
-                      <div className="text-xs text-gray-500 truncate max-w-[150px]">{names[r.referee_id]?.email || r.referee_id}</div>
+                      <div className="font-medium text-gray-900">{r.referee?.full_name || 'Unknown'}</div>
+                      <div className="text-xs text-gray-500 truncate max-w-[150px]">{r.referee?.email || r.referee_id}</div>
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${r.status === 'rewarded' ? 'bg-green-50 text-green-700 border-green-100' :

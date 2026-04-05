@@ -8,12 +8,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, Calendar as CalendarIcon, User, MapPin, Ban, CheckCircle2, Clock, XCircle, ChevronRight, Filter } from "lucide-react";
 import { format, isSameDay, parseISO, addDays, isWithinInterval, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
+import { propertiesApi } from "@/lib/api/properties";
+import { bookingsApi } from "@/lib/api/bookings";
 
 interface Property {
   id: string;
@@ -59,27 +60,16 @@ export default function HostCalendar() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      // Fetch properties
-      const { data: propsData, error: propsError } = await supabase
-        .from("properties")
-        .select("id, title, image")
-        .eq("host_id", user?.id);
-
-      if (propsError) throw propsError;
-      setProperties(propsData || []);
-
-      // Fetch bookings
-      const { data: bookingsData, error: bookingsError } = await supabase
-        .from("bookings")
-        .select(`
-          *,
-          user:profiles(full_name, avatar_url)
-        `)
-        .in("property_id", (propsData || []).map(p => p.id))
-        .neq("status", "canceled"); // Don't show canceled bookings on calendar
-
-      if (bookingsError) throw bookingsError;
-      setBookings(bookingsData || []);
+      const [propsData, bookingsData] = await Promise.all([
+        propertiesApi.listHost(),
+        bookingsApi.listHostBookings({ includeBlocked: true }),
+      ]);
+      setProperties((propsData || []).map((property) => ({
+        id: property.id,
+        title: property.title,
+        image: property.image || "",
+      })));
+      setBookings((bookingsData || []).filter((booking) => booking.status !== "canceled") as Booking[]);
 
     } catch (error) {
       console.error("Error fetching calendar data:", error);
@@ -106,18 +96,11 @@ export default function HostCalendar() {
     }
 
     try {
-      const { error } = await supabase
-        .from("bookings")
-        .insert({
-          property_id: selectedPropertyId,
-          user_id: user.id,
-          check_in: blockRange.from.toISOString(),
-          check_out: blockRange.to.toISOString(),
-          total_price: 0,
-          status: 'blocked'
-        });
-
-      if (error) throw error;
+      await bookingsApi.blockDates({
+        propertyId: selectedPropertyId,
+        from: blockRange.from.toISOString().slice(0, 10),
+        to: blockRange.to.toISOString().slice(0, 10),
+      });
 
       toast({
         title: "Dates Blocked",
@@ -137,12 +120,10 @@ export default function HostCalendar() {
 
   const handleUpdateStatus = async (bookingId: string, newStatus: string) => {
     try {
-      const { error } = await supabase
-        .from("bookings")
-        .update({ status: newStatus })
-        .eq("id", bookingId);
-
-      if (error) throw error;
+      await bookingsApi.updateBookingStatus({
+        bookingId,
+        status: newStatus as any,
+      });
 
       toast({
         title: "Status Updated",

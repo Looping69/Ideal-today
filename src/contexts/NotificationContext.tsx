@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import { adminApi } from '@/lib/api/admin';
 
 export type Notification = {
     id: string;
@@ -104,12 +105,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             // Optimistic update
             setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
 
-            const { error } = await supabase
-                .from('notifications')
-                .update({ read: true })
-                .eq('id', id);
-
-            if (error) throw error;
+            await adminApi.markNotificationRead({ notificationId: id });
         } catch (error) {
             console.error('Error marking notification as read:', error);
             // Revert on error could be implemented here
@@ -119,14 +115,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     const markAllAsRead = async () => {
         try {
             setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-
-            const { error } = await supabase
-                .from('notifications')
-                .update({ read: true })
-                .eq('user_id', user?.id)
-                .eq('read', false);
-
-            if (error) throw error;
+            await adminApi.markAllNotificationsRead();
         } catch (error) {
             console.error('Error marking all as read:', error);
         }
@@ -135,13 +124,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     const deleteNotification = async (id: string) => {
         try {
             setNotifications(prev => prev.filter(n => n.id !== id));
-
-            const { error } = await supabase
-                .from('notifications')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
+            await adminApi.deleteNotification({ notificationId: id });
         } catch (error) {
             console.error('Error deleting notification:', error);
         }
@@ -149,15 +132,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     const sendNotification = async (userId: string, notification: Omit<Notification, 'id' | 'user_id' | 'read' | 'created_at'>) => {
         try {
-            const { error } = await supabase
-                .from('notifications')
-                .insert({
-                    user_id: userId,
-                    ...notification,
-                    read: false
-                });
-
-            if (error) throw error;
+            await adminApi.sendNotification({
+                userId,
+                title: notification.title,
+                message: notification.message,
+                type: notification.type,
+                link: notification.link,
+            });
         } catch (error) {
             console.error('Error sending notification:', error);
             throw error;

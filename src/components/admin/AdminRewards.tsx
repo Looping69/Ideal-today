@@ -1,16 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Search, Filter, Gift, Download, Trash2, Plus, Medal } from 'lucide-react';
+import { Search, Gift, Download, Trash2, Medal } from 'lucide-react';
+import { adminApi } from '@/lib/api/admin';
+import type { RewardCompletionRecord } from '@/lib/api/types';
 
-type Row = { id: string; user_id: string; reward_code: string; created_at: string };
-
-const REWARD_POINTS: Record<string, number> = {
-  coastal_explorer: 500,
-  photo_finisher: 200,
-};
+type Row = RewardCompletionRecord;
 
 export default function AdminRewards() {
   const [rows, setRows] = useState<Row[]>([]);
@@ -25,12 +20,17 @@ export default function AdminRewards() {
 
   const load = async () => {
     setLoading(true);
-    let query = supabase.from('rewards_completions').select('id,user_id,reward_code,created_at').order('created_at', { ascending: false }).range(page * pageSize, page * pageSize + pageSize - 1);
-    if (codeFilter !== 'all') query = query.eq('reward_code', codeFilter);
-    const { data } = await query as any;
-    setRows((data as any[]) || []);
-    setSelected({});
-    setLoading(false);
+    try {
+      const data = await adminApi.listRewards({
+        page,
+        pageSize,
+        rewardCode: codeFilter === 'all' ? undefined : codeFilter,
+      });
+      setRows(data || []);
+      setSelected({});
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, [page, codeFilter]);
@@ -38,36 +38,32 @@ export default function AdminRewards() {
   const filtered = useMemo(() => {
     if (!search.trim()) return rows;
     const q = search.toLowerCase();
-    return rows.filter(r => r.user_id.toLowerCase().includes(q) || r.reward_code.toLowerCase().includes(q));
+    return rows.filter(r =>
+      r.user_id.toLowerCase().includes(q)
+      || r.reward_code.toLowerCase().includes(q)
+      || (r.user?.email || '').toLowerCase().includes(q)
+      || (r.user?.full_name || '').toLowerCase().includes(q),
+    );
   }, [rows, search]);
 
   const awardManual = async () => {
     if (!userEmail) return;
-    const { data: profile } = await supabase.from('profiles').select('id').eq('email', userEmail).single();
-    if (!profile?.id) return;
-    const points = REWARD_POINTS[manualCode] || 0;
-    const { data: existing } = await supabase.from('rewards_completions').select('id').eq('user_id', profile.id).eq('reward_code', manualCode).limit(1);
-    if (existing && existing.length > 0) return;
-    await supabase.from('rewards_completions').insert({ user_id: profile.id, reward_code: manualCode });
-    if (points) await supabase.from('profiles').update({ points: (undefined as any) }).eq('id', profile.id);
-    await supabase.rpc('noop');
-    await supabase.from('profiles').update({ points: supabase.rpc as any }).eq('id', profile.id);
-    const { data: refresh } = await supabase.from('rewards_completions').select('id,user_id,reward_code,created_at').eq('user_id', profile.id).eq('reward_code', manualCode).limit(1);
-    setRows(rs => refresh && refresh.length ? [refresh[0] as any, ...rs] : rs);
+    const reward = await adminApi.awardReward({ userEmail, rewardCode: manualCode });
+    setRows(rs => [reward, ...rs]);
     setUserEmail('');
   };
 
   const bulkDelete = async () => {
     const ids = Object.keys(selected).filter(k => selected[k]);
     if (ids.length === 0) return;
-    await supabase.from('rewards_completions').delete().in('id', ids);
+    await adminApi.deleteRewards({ rewardIds: ids });
     setRows(rs => rs.filter(r => !selected[r.id]));
     setSelected({});
   };
 
   const exportCsv = () => {
-    const headers = ['user_id', 'reward_code', 'created_at'];
-    const lines = filtered.map(r => [r.user_id, r.reward_code, r.created_at]);
+    const headers = ['user_id', 'email', 'reward_code', 'created_at'];
+    const lines = filtered.map(r => [r.user_id, r.user?.email || '', r.reward_code, r.created_at]);
     const csv = [headers.join(','), ...lines.map(l => l.join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -160,7 +156,7 @@ export default function AdminRewards() {
                     setSelected(all);
                   }} />
                 </th>
-                <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">User ID</th>
+                <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">User</th>
                 <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Reward</th>
                 <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Date Awarded</th>
               </tr>
@@ -176,8 +172,9 @@ export default function AdminRewards() {
                     <td className="px-6 py-4">
                       <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" checked={!!selected[r.id]} onChange={() => toggleSelect(r.id)} />
                     </td>
-                    <td className="px-6 py-4 font-mono text-xs text-gray-600">
-                      {r.user_id}
+                    <td className="px-6 py-4">
+                      <div className="font-medium text-gray-900">{r.user?.full_name || 'Unknown user'}</div>
+                      <div className="font-mono text-xs text-gray-500">{r.user?.email || r.user_id}</div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">

@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
 import ImageUpload from "@/components/ui/image-upload";
 import { Loader2 } from "lucide-react";
+import { engagementApi } from "@/lib/api/engagement";
+import { hostApi } from "@/lib/api/host";
 
 export default function HostSettings() {
   const { user } = useAuth();
@@ -30,13 +31,10 @@ export default function HostSettings() {
   async function getProfile() {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("full_name, avatar_url, host_referral_code")
-        .eq("id", user?.id)
-        .single();
-
-      if (error) throw error;
+      const [data, referrals] = await Promise.all([
+        hostApi.getProfile(),
+        engagementApi.getReferralDashboard({ host: true }),
+      ]);
 
       if (data) {
         setFormData({
@@ -44,12 +42,7 @@ export default function HostSettings() {
           avatar_url: data.avatar_url || "",
         });
         setHostReferralCode(data.host_referral_code || null);
-        const { data: refs } = await supabase
-          .from('host_referrals')
-          .select('referee_id, status, created_at, rewarded_at')
-          .eq('referrer_id', user?.id)
-          .order('created_at', { ascending: false });
-        setHostRefs(refs || []);
+        setHostRefs(referrals.referrals || []);
       }
     } catch (error) {
       console.error("Error loading user data!", error);
@@ -61,17 +54,10 @@ export default function HostSettings() {
   async function updateProfile() {
     try {
       setLoading(true);
-
-      const updates = {
-        id: user?.id,
+      await hostApi.updateProfile({
         full_name: formData.full_name,
         avatar_url: formData.avatar_url,
-        updated_at: new Date(),
-      };
-
-      const { error } = await supabase.from("profiles").upsert(updates);
-
-      if (error) throw error;
+      });
       toast({
         title: "Profile updated",
         description: "Your host profile has been updated successfully.",

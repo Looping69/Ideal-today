@@ -6,8 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/lib/supabase";
 import { Loader2, Send, Users, Search } from "lucide-react";
+import { adminApi } from "@/lib/api/admin";
 
 export default function AdminNotifications() {
     const { sendNotification } = useNotifications();
@@ -25,10 +25,7 @@ export default function AdminNotifications() {
 
     useEffect(() => {
         const fetchUsers = async () => {
-            const { data } = await supabase
-                .from('profiles')
-                .select('id, email, full_name')
-                .limit(50);
+            const data = await adminApi.listNotificationRecipients();
             setUsers(data || []);
         };
         fetchUsers();
@@ -48,23 +45,13 @@ export default function AdminNotifications() {
             setLoading(true);
 
             if (selectedUser === "all") {
-                // In a real app, this should be a backend function to avoid 1000s of inserts from client
-                // For this demo, we'll fetch all users and loop (not scalable but works for demo)
-                const { data: allUsers } = await supabase.from('profiles').select('id');
-
-                if (allUsers) {
-                    const notifications = allUsers.map(u => ({
-                        user_id: u.id,
-                        title: formData.title,
-                        message: formData.message,
-                        type: formData.type,
-                        link: formData.link,
-                        read: false
-                    }));
-
-                    const { error } = await supabase.from('notifications').insert(notifications);
-                    if (error) throw error;
-                }
+                await adminApi.sendNotification({
+                    broadcast: true,
+                    title: formData.title,
+                    message: formData.message,
+                    type: formData.type,
+                    link: formData.link,
+                });
             } else {
                 await sendNotification(selectedUser, {
                     title: formData.title,

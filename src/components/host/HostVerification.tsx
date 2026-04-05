@@ -7,9 +7,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
-import ImageUpload from "@/components/ui/image-upload";
 import { Loader2, ShieldCheck, AlertCircle, CheckCircle2, Clock, ChevronRight, ChevronLeft, User, FileText } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { hostApi } from "@/lib/api/host";
+
+type DocumentField = {
+    path: string;
+    previewUrl: string;
+};
 
 export default function HostVerification() {
     const { user } = useAuth();
@@ -28,13 +33,13 @@ export default function HostVerification() {
 
     // Step 2: Documents
     const [documents, setDocuments] = useState<{
-        id_front: string;
-        id_back: string;
-        selfie: string;
+        id_front: DocumentField;
+        id_back: DocumentField;
+        selfie: DocumentField;
     }>({
-        id_front: "",
-        id_back: "",
-        selfie: "",
+        id_front: { path: "", previewUrl: "" },
+        id_back: { path: "", previewUrl: "" },
+        selfie: { path: "", previewUrl: "" },
     });
 
     useEffect(() => {
@@ -45,28 +50,70 @@ export default function HostVerification() {
 
     async function checkVerificationStatus() {
         try {
-            const { data, error } = await supabase
-                .from("profiles")
-                .select("verification_status, verification_docs, full_name, phone, bio, business_address")
-                .eq("id", user?.id)
-                .single();
+            const [profile, verification] = await Promise.all([
+                hostApi.getProfile(),
+                hostApi.getVerificationStatus(),
+            ]);
 
-            if (error) throw error;
-
-            if (data) {
-                setStatus(data.verification_status || 'none');
+            if (profile) {
                 setProfileData({
-                    full_name: data.full_name || "",
-                    phone: data.phone || "",
-                    bio: data.bio || "",
-                    business_address: data.business_address || ""
+                    full_name: profile.full_name || "",
+                    phone: profile.phone || "",
+                    bio: profile.bio || "",
+                    business_address: profile.business_address || ""
                 });
-                if (data.verification_docs) {
-                    setDocuments(data.verification_docs);
-                }
+            }
+
+            if (verification) {
+                setStatus(verification.status || 'none');
+                setDocuments({
+                    id_front: verification.documents?.id_front
+                        ? { path: verification.documents.id_front.path, previewUrl: verification.documents.id_front.url }
+                        : { path: "", previewUrl: "" },
+                    id_back: verification.documents?.id_back
+                        ? { path: verification.documents.id_back.path, previewUrl: verification.documents.id_back.url }
+                        : { path: "", previewUrl: "" },
+                    selfie: verification.documents?.selfie
+                        ? { path: verification.documents.selfie.path, previewUrl: verification.documents.selfie.url }
+                        : { path: "", previewUrl: "" },
+                });
             }
         } catch (error) {
             console.error("Error checking verification status:", error);
+        }
+    }
+
+    async function uploadDocument(field: 'id_front' | 'id_back' | 'selfie', file?: File | null) {
+        if (!file) return;
+
+        try {
+            setLoading(true);
+            const upload = await hostApi.getVerificationUploadUrl({
+                fileName: file.name,
+                contentType: file.type || "application/octet-stream",
+            });
+
+            const { error } = await supabase.storage
+                .from(upload.bucket)
+                .uploadToSignedUrl(upload.path, upload.token, file);
+
+            if (error) throw error;
+
+            setDocuments((prev) => ({
+                ...prev,
+                [field]: {
+                    path: upload.path,
+                    previewUrl: upload.signedUrl,
+                },
+            }));
+        } catch (error: any) {
+            toast({
+                variant: "destructive",
+                title: "Upload failed",
+                description: error.message || "Could not upload verification document.",
+            });
+        } finally {
+            setLoading(false);
         }
     }
 
@@ -85,7 +132,7 @@ export default function HostVerification() {
     };
 
     async function submitVerification() {
-        if (!documents.id_front || !documents.id_back || !documents.selfie) {
+        if (!documents.id_front.path || !documents.id_back.path || !documents.selfie.path) {
             toast({
                 variant: "destructive",
                 title: "Missing documents",
@@ -96,41 +143,17 @@ export default function HostVerification() {
 
         try {
             setLoading(true);
-            const { error } = await supabase
-                .from("profiles")
-                .update({
-                    // Profile fields
-                    full_name: profileData.full_name,
-                    phone: profileData.phone,
-                    bio: profileData.bio,
-                    business_address: profileData.business_address,
-
-                    // Verification fields
-                    verification_status: 'pending',
-                    verification_docs: documents,
-                    verification_submitted_at: new Date().toISOString(),
-                })
-                .eq("id", user?.id);
-
-            if (error) throw error;
-
-            // Notify Admins
-            const { data: admins } = await supabase
-                .from('profiles')
-                .select('id')
-                .eq('is_admin', true);
-
-            if (admins && admins.length > 0) {
-                const notifications = admins.map(admin => ({
-                    user_id: admin.id,
-                    title: 'New Host Verification',
-                    message: `${profileData.full_name} has submitted verification documents.`,
-                    type: 'system',
-                    link: '/admin/users'
-                }));
-
-                await supabase.from('notifications').insert(notifications);
-            }
+            await hostApi.submitVerification({
+                full_name: profileData.full_name,
+                phone: profileData.phone,
+                bio: profileData.bio,
+                business_address: profileData.business_address,
+                documents: {
+                    id_front: documents.id_front.path,
+                    id_back: documents.id_back.path,
+                    selfie: documents.selfie.path,
+                },
+            });
 
             setStatus('pending');
             toast({
@@ -286,23 +309,21 @@ export default function HostVerification() {
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium">Front of ID</label>
-                                    <ImageUpload
-                                        value={documents.id_front ? [documents.id_front] : []}
-                                        onChange={(urls) => setDocuments({ ...documents, id_front: urls[0] })}
-                                        onRemove={() => setDocuments({ ...documents, id_front: "" })}
-                                        bucket="verification"
-                                        maxFiles={1}
-                                    />
+                                    <div className="space-y-3">
+                                        {documents.id_front.previewUrl && (
+                                            <img src={documents.id_front.previewUrl} alt="Front of ID" className="rounded-xl border border-gray-200 w-full max-h-64 object-cover" />
+                                        )}
+                                        <Input type="file" accept="image/*" onChange={(e) => uploadDocument('id_front', e.target.files?.[0])} />
+                                    </div>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium">Back of ID</label>
-                                    <ImageUpload
-                                        value={documents.id_back ? [documents.id_back] : []}
-                                        onChange={(urls) => setDocuments({ ...documents, id_back: urls[0] })}
-                                        onRemove={() => setDocuments({ ...documents, id_back: "" })}
-                                        bucket="verification"
-                                        maxFiles={1}
-                                    />
+                                    <div className="space-y-3">
+                                        {documents.id_back.previewUrl && (
+                                            <img src={documents.id_back.previewUrl} alt="Back of ID" className="rounded-xl border border-gray-200 w-full max-h-64 object-cover" />
+                                        )}
+                                        <Input type="file" accept="image/*" onChange={(e) => uploadDocument('id_back', e.target.files?.[0])} />
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -318,13 +339,12 @@ export default function HostVerification() {
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium">Your Selfie</label>
-                                    <ImageUpload
-                                        value={documents.selfie ? [documents.selfie] : []}
-                                        onChange={(urls) => setDocuments({ ...documents, selfie: urls[0] })}
-                                        onRemove={() => setDocuments({ ...documents, selfie: "" })}
-                                        bucket="verification"
-                                        maxFiles={1}
-                                    />
+                                    <div className="space-y-3">
+                                        {documents.selfie.previewUrl && (
+                                            <img src={documents.selfie.previewUrl} alt="Selfie" className="rounded-xl border border-gray-200 w-full max-h-64 object-cover" />
+                                        )}
+                                        <Input type="file" accept="image/*" onChange={(e) => uploadDocument('selfie', e.target.files?.[0])} />
+                                    </div>
                                 </div>
                                 <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-600">
                                     <p className="font-medium mb-2">Tips for a good photo:</p>

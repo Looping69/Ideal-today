@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { Loader2, Upload, X, Video, Play, Pause } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface VideoUploadProps {
     value: string | null;
@@ -26,10 +27,20 @@ export default function VideoUpload({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const { toast } = useToast();
+    const { user } = useAuth();
 
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
+
+        if (!user) {
+            toast({
+                variant: "destructive",
+                title: "Authentication required",
+                description: "Please sign in before uploading files.",
+            });
+            return;
+        }
 
         // Validate file type
         const validTypes = ["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo"];
@@ -59,7 +70,7 @@ export default function VideoUpload({
         try {
             const fileExt = file.name.split(".").pop();
             const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-            const filePath = `${fileName}`;
+            const filePath = `${user.id}/${fileName}`;
 
             // Simulate progress (Supabase doesn't provide upload progress)
             const progressInterval = setInterval(() => {
@@ -108,10 +119,14 @@ export default function VideoUpload({
             // Extract filename from URL
             try {
                 const url = new URL(value);
-                const pathParts = url.pathname.split("/");
-                const fileName = pathParts[pathParts.length - 1];
+                const marker = `/object/public/${bucket}/`;
+                const path = url.pathname.includes(marker)
+                    ? decodeURIComponent(url.pathname.split(marker)[1])
+                    : decodeURIComponent(url.pathname.split(`/${bucket}/`).slice(1).join(`/${bucket}/`));
 
-                await supabase.storage.from(bucket).remove([fileName]);
+                if (path) {
+                    await supabase.storage.from(bucket).remove([path]);
+                }
             } catch (e) {
                 console.error("Error removing video:", e);
             }

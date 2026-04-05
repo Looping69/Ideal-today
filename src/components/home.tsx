@@ -12,6 +12,7 @@ import { Map, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { CATEGORIES } from "@/constants/categories";
+import { propertiesApi } from "@/lib/api/properties";
 
 function Home() {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
@@ -182,10 +183,11 @@ function Home() {
       const from = state.date.from;
       const to = state.date.to;
       try {
-        const { data } = await supabase
-          .from('bookings')
-          .select('property_id, check_in, check_out, status')
-          .neq('status', 'canceled');
+        const data = await propertiesApi.getAvailability({
+          propertyIds: arr.map((property) => property.id),
+          from: from.toISOString().slice(0, 10),
+          to: to.toISOString().slice(0, 10),
+        });
         const unavailable = new Set<string>();
         (data || []).forEach((b: any) => {
           const bi = new Date(b.check_in);

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
@@ -20,6 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { adminApi } from '@/lib/api/admin';
 
 type Row = { id: string; property_id: string; user_id: string; status: string; check_in: string; check_out: string; user?: { email?: string; full_name?: string }; property?: { title?: string } };
 
@@ -35,15 +35,11 @@ export default function AdminBookings() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      let query = supabase
-        .from('bookings')
-        .select('id,property_id,user_id,status,check_in,check_out,user:profiles!bookings_user_id_fkey(email,full_name),property:properties(title)')
-        .order('created_at', { ascending: false })
-        .range(page * pageSize, page * pageSize + pageSize - 1);
-
-      if (tab !== 'all') query = query.eq('status', tab);
-
-      const { data } = await query as any;
+      const data = await adminApi.listBookings({
+        page,
+        pageSize,
+        status: tab === 'all' ? undefined : tab,
+      });
       setRows((data as any[]) || []);
       setLoading(false);
     };
@@ -62,11 +58,12 @@ export default function AdminBookings() {
   }, [rows, search]);
 
   const updateStatus = async (id: string, next: 'pending' | 'confirmed' | 'completed' | 'canceled') => {
-    const { error } = await supabase.from('bookings').update({ status: next }).eq('id', id);
-    if (error) toast({ variant: 'destructive', title: 'Error', description: error.message });
-    else {
+    try {
+      await adminApi.editBooking({ bookingId: id, patch: { status: next } });
       setRows(rs => rs.map(r => (r.id === id ? { ...r, status: next } : r)));
       toast({ title: 'Success', description: `Booking marked as ${next}` });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
     }
   };
 
@@ -75,17 +72,14 @@ export default function AdminBookings() {
   const handleUpdateBooking = async () => {
     if (!editingBooking) return;
     try {
-      const { error } = await supabase
-        .from('bookings')
-        .update({
+      await adminApi.editBooking({
+        bookingId: editingBooking.id,
+        patch: {
           check_in: editingBooking.check_in,
           check_out: editingBooking.check_out,
           status: editingBooking.status
-          // Add total_price here once schema confirms column name, assuming it's total_price
-        })
-        .eq('id', editingBooking.id);
-
-      if (error) throw error;
+        }
+      });
 
       setRows(prev => prev.map(r => r.id === editingBooking.id ? editingBooking : r));
       setEditingBooking(null);
@@ -98,8 +92,7 @@ export default function AdminBookings() {
   const deleteBooking = async (id: string) => {
     if (!confirm("Permanently delete this booking record? This cannot be undone.")) return;
     try {
-      const { error } = await supabase.from('bookings').delete().eq('id', id);
-      if (error) throw error;
+      await adminApi.editBooking({ bookingId: id, patch: {}, delete: true });
       setRows(prev => prev.filter(r => r.id !== id));
       toast({ title: "Deleted", description: "Booking record removed." });
     } catch (e: any) {

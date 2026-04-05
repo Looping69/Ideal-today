@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import ImageUpload from "@/components/ui/image-upload";
 import { useToast } from "@/components/ui/use-toast";
+import { hostApi } from "@/lib/api/host";
 
 export default function AccountPage() {
   const { user } = useAuth();
@@ -19,12 +20,14 @@ export default function AccountPage() {
   useEffect(() => {
     const load = async () => {
       if (!user) { setLoading(false); return; }
-      const { data } = await supabase
-        .from('profiles')
-        .select('full_name, avatar_url, phone, bio, preferences, points, level')
-        .eq('id', user.id)
-        .single();
-      setProfile({ full_name: data?.full_name || "", avatar_url: data?.avatar_url || "", phone: data?.phone || "", bio: data?.bio || "", preferences: data?.preferences || {} });
+      const data = await hostApi.getProfile();
+      setProfile({
+        full_name: data?.full_name || "",
+        avatar_url: data?.avatar_url || "",
+        phone: data?.phone || "",
+        bio: data?.bio || "",
+        preferences: data?.preferences || {},
+      });
       setEmail(user.email || "");
       setLoading(false);
     };
@@ -34,30 +37,19 @@ export default function AccountPage() {
   const saveProfile = async () => {
     if (!user || !profile) return;
     setLoading(true);
-    // Try update first to avoid RLS insert violations
-    const { error } = await supabase
-      .from('profiles')
-      .update({ full_name: profile.full_name, avatar_url: profile.avatar_url, phone: profile.phone, bio: profile.bio, preferences: profile.preferences, updated_at: new Date().toISOString() })
-      .eq('id', user.id);
-    // If no rows updated, try insert with RLS insert policy
-    if (!error) {
-      const { data } = await supabase.from('profiles').select('id').eq('id', user.id).limit(1);
-      if (!data || data.length === 0) {
-        const ins = await supabase
-          .from('profiles')
-          .insert({ id: user.id, email: user.email, full_name: profile.full_name, avatar_url: profile.avatar_url, phone: profile.phone, bio: profile.bio, preferences: profile.preferences, updated_at: new Date().toISOString() });
-        if (ins.error) {
-          setLoading(false);
-          toast({ variant: 'destructive', title: 'Error', description: ins.error.message });
-          return;
-        }
-      }
-    }
-    setLoading(false);
-    if (error) {
-      toast({ variant: 'destructive', title: 'Error', description: error.message });
-    } else {
+    try {
+      await hostApi.updateProfile({
+        full_name: profile.full_name,
+        avatar_url: profile.avatar_url,
+        phone: profile.phone,
+        bio: profile.bio,
+        preferences: profile.preferences,
+      });
       toast({ title: 'Account updated' });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    } finally {
+      setLoading(false);
     }
   };
 

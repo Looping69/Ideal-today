@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -22,6 +21,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { CATEGORIES } from '@/constants/categories';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { adminApi } from '@/lib/api/admin';
+import { propertiesApi } from '@/lib/api/properties';
 
 type Row = { id: string; title: string; location: string; price: number; type: string; image?: string; is_featured?: boolean; video_url?: string | null };
 
@@ -35,21 +36,19 @@ export default function AdminListings() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const { data } = await supabase.from('properties').select('id,title,location,price,type,image,is_featured,video_url').limit(50);
+      const [data, bookings] = await Promise.all([
+        adminApi.listListings({ limit: 50 }),
+        adminApi.listBookings({ page: 0, pageSize: 500 }),
+      ]);
       const list = ((data as any[]) || []).map(r => ({ id: r.id, title: r.title, location: r.location, price: r.price, type: r.type || '', image: r.image, is_featured: r.is_featured ?? false, video_url: r.video_url }));
       setRows(list);
 
       const todayIso = new Date().toISOString();
-      const { data: bookings } = await supabase
-        .from('bookings')
-        .select('property_id, check_in, check_out, status')
-        .lte('check_in', todayIso)
-        .gt('check_out', todayIso)
-        .not('status', 'in', '("canceled","blocked")');
-
       const ids = new Set<string>();
       (bookings || []).forEach((b: any) => {
-        ids.add(b.property_id);
+        if (b.check_in <= todayIso && b.check_out > todayIso && !['canceled', 'blocked'].includes(b.status)) {
+          ids.add(b.property_id);
+        }
       });
       setBookedIds(ids);
       setLoading(false);
@@ -59,12 +58,12 @@ export default function AdminListings() {
 
   const toggleFeatured = async (id: string, currentStatus: boolean) => {
     const newStatus = !currentStatus;
-    const { error } = await supabase
-      .from('properties')
-      .update({ is_featured: newStatus })
-      .eq('id', id);
-
-    if (error) {
+    try {
+      await propertiesApi.moderateListing({
+        propertyId: id,
+        update: { is_featured: newStatus },
+      });
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -85,18 +84,16 @@ export default function AdminListings() {
   const handleUpdateListing = async () => {
     if (!editingListing) return;
     try {
-      const { error } = await supabase
-        .from('properties')
-        .update({
+      await propertiesApi.moderateListing({
+        propertyId: editingListing.id,
+        update: {
           title: editingListing.title,
           location: editingListing.location,
           price: editingListing.price,
           type: editingListing.type,
           video_url: editingListing.video_url
-        })
-        .eq('id', editingListing.id);
-
-      if (error) throw error;
+        }
+      });
 
       setRows(prev => prev.map(r => r.id === editingListing.id ? editingListing : r));
       setEditingListing(null);
@@ -109,8 +106,7 @@ export default function AdminListings() {
   const deleteListing = async (id: string) => {
     if (!confirm("Are you sure? This will remove the listing permanently.")) return;
     try {
-      const { error } = await supabase.from('properties').delete().eq('id', id);
-      if (error) throw error;
+      await propertiesApi.moderateListing({ propertyId: id, update: {}, delete: true });
       setRows(prev => prev.filter(r => r.id !== id));
       toast({ title: "Deleted", description: "Listing removed." });
     } catch (e: any) {

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, ShieldCheck, User, Ban, MoreHorizontal, CheckCircle2, XCircle, FileText, Bell, Pencil } from 'lucide-react';
@@ -15,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { adminApi } from '@/lib/api/admin';
 
 type Row = {
   id: string;
@@ -55,11 +55,7 @@ export default function AdminUsers() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from('profiles')
-        .select('id,email,full_name,is_admin,deactivated,points,verification_status,verification_docs,host_plan')
-        .order('created_at', { ascending: false })
-        .range(page * pageSize, page * pageSize + pageSize - 1);
+      const data = await adminApi.listUsers({ page, pageSize });
 
       setRows(((data as any[]) || []).map(r => ({
         id: r.id,
@@ -79,8 +75,7 @@ export default function AdminUsers() {
 
   const toggleAdmin = async (id: string, next: boolean) => {
     try {
-      const { error } = await supabase.from('profiles').update({ is_admin: next }).eq('id', id);
-      if (error) throw error;
+      await adminApi.updateUser({ userId: id, patch: { is_admin: next } });
       setRows(rs => rs.map(r => (r.id === id ? { ...r, is_admin: next } : r)));
       toast({ title: "Role Updated", description: `User is now ${next ? 'an admin' : 'a regular user'}.` });
     } catch (e: any) {
@@ -90,8 +85,7 @@ export default function AdminUsers() {
 
   const toggleDeactivate = async (id: string, next: boolean) => {
     try {
-      const { error } = await supabase.from('profiles').update({ deactivated: next }).eq('id', id);
-      if (error) throw error;
+      await adminApi.updateUser({ userId: id, patch: { deactivated: next } });
       setRows(rs => rs.map(r => (r.id === id ? { ...r, deactivated: next } : r)));
       toast({ title: "Account Status Updated", description: `User account has been ${next ? 'deactivated' : 'activated'}.` });
     } catch (e: any) {
@@ -101,27 +95,11 @@ export default function AdminUsers() {
 
   const updateVerification = async (id: string, status: 'verified' | 'rejected') => {
     try {
-      // 1. Update Profile Status
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ verification_status: status })
-        .eq('id', id);
-
-      if (updateError) throw updateError;
-
-      // 2. Notify the User
-      const title = status === 'verified' ? 'Verification Approved' : 'Verification Rejected';
-      const message = status === 'verified'
-        ? 'Congratulations! Your host verification has been approved. You now have full access to host features.'
-        : 'Your verification documents were rejected. Please review our guidelines and try again.';
-
-      await supabase.from('notifications').insert({
-        user_id: id,
-        title,
-        message,
-        type: status === 'verified' ? 'success' : 'error',
-        link: '/host/verification'
-      });
+      if (status === 'verified') {
+        await adminApi.approveVerification({ userId: id });
+      } else {
+        await adminApi.rejectVerification({ userId: id });
+      }
 
       // 3. Update Local State
       setRows(rs => rs.map(r => (r.id === id ? { ...r, verification_status: status } : r)));
@@ -144,20 +122,19 @@ export default function AdminUsers() {
   const [editingUser, setEditingUser] = useState<Row | null>(null);
   const [broadcasting, setBroadcasting] = useState(false);
   const [broadcastData, setBroadcastData] = useState({ title: '', message: '' });
+  const [verificationPreviews, setVerificationPreviews] = useState<Record<string, Record<string, { path: string; url: string }>>>({});
 
   const handleUpdateProfile = async () => {
     if (!editingUser) return;
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
+      await adminApi.updateUser({
+        userId: editingUser.id,
+        patch: {
           full_name: editingUser.full_name,
           points: editingUser.points,
           host_plan: editingUser.host_plan
-        })
-        .eq('id', editingUser.id);
-
-      if (error) throw error;
+        }
+      });
 
       setRows(rs => rs.map(r => r.id === editingUser.id ? editingUser : r));
       setEditingUser(null);
@@ -171,24 +148,15 @@ export default function AdminUsers() {
     if (!broadcastData.title || !broadcastData.message) return;
     setLoading(true);
     try {
-      // This is a heavy operation, in production this should be a background job
-      const { data: users } = await supabase.from('profiles').select('id');
-      if (users) {
-        const notifications = users.map(u => ({
-          user_id: u.id,
-          title: broadcastData.title,
-          message: broadcastData.message,
-          type: 'info'
-        }));
-
-        // Batch insert in chunks of 100 to avoid issues
-        for (let i = 0; i < notifications.length; i += 100) {
-          await supabase.from('notifications').insert(notifications.slice(i, i + 100));
-        }
-      }
+      const result = await adminApi.sendNotification({
+        broadcast: true,
+        title: broadcastData.title,
+        message: broadcastData.message,
+        type: 'info',
+      });
       setBroadcasting(false);
       setBroadcastData({ title: '', message: '' });
-      toast({ title: "Broadcast Sent", description: `Notification sent to ${users?.length || 0} users.` });
+      toast({ title: "Broadcast Sent", description: `Notification sent to ${result.count} users.` });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Broadcast Failed", description: e.message });
     } finally {
@@ -300,7 +268,17 @@ export default function AdminUsers() {
                       ) : r.verification_status === 'pending' ? (
                         <Dialog>
                           <DialogTrigger asChild>
-                            <Button size="sm" variant="outline" className="h-7 text-xs bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                              onClick={async () => {
+                                if (!verificationPreviews[r.id]) {
+                                  const docs = await adminApi.getVerificationDocumentUrls({ userId: r.id });
+                                  setVerificationPreviews((prev) => ({ ...prev, [r.id]: docs }));
+                                }
+                              }}
+                            >
                               Review Docs
                             </Button>
                           </DialogTrigger>
@@ -310,22 +288,22 @@ export default function AdminUsers() {
                               <DialogDescription>Review documents submitted by {r.full_name}</DialogDescription>
                             </DialogHeader>
                             <div className="grid grid-cols-2 gap-4 py-4">
-                              {r.verification_docs?.id_front && (
+                              {verificationPreviews[r.id]?.id_front?.url && (
                                 <div>
                                   <p className="text-sm font-medium mb-2">ID Front</p>
-                                  <img src={r.verification_docs.id_front} className="rounded-lg border w-full" />
+                                  <img src={verificationPreviews[r.id].id_front.url} className="rounded-lg border w-full" />
                                 </div>
                               )}
-                              {r.verification_docs?.id_back && (
+                              {verificationPreviews[r.id]?.id_back?.url && (
                                 <div>
                                   <p className="text-sm font-medium mb-2">ID Back</p>
-                                  <img src={r.verification_docs.id_back} className="rounded-lg border w-full" />
+                                  <img src={verificationPreviews[r.id].id_back.url} className="rounded-lg border w-full" />
                                 </div>
                               )}
-                              {r.verification_docs?.selfie && (
+                              {verificationPreviews[r.id]?.selfie?.url && (
                                 <div>
                                   <p className="text-sm font-medium mb-2">Selfie</p>
-                                  <img src={r.verification_docs.selfie} className="rounded-lg border w-full" />
+                                  <img src={verificationPreviews[r.id].selfie.url} className="rounded-lg border w-full" />
                                 </div>
                               )}
                             </div>

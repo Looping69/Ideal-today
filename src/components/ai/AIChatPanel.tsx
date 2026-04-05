@@ -14,7 +14,6 @@ export default function AIChatPanel({ initialMessage }: Props) {
 
   useEffect(() => {
     if (initialMessage) send();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialMessage]);
 
   useEffect(() => {

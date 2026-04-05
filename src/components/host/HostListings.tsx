@@ -25,10 +25,10 @@ import {
   Loader2
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
+import { propertiesApi } from "@/lib/api/properties";
 
 export default function HostListings() {
   const navigate = useNavigate();
@@ -46,13 +46,7 @@ export default function HostListings() {
 
   async function fetchListings() {
     try {
-      const { data, error } = await supabase
-        .from("properties")
-        .select("*")
-        .eq("host_id", user?.id)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
+      const data = await propertiesApi.listHost();
       setListings(data || []);
     } catch (error) {
       console.error("Error fetching listings:", error);
@@ -70,72 +64,7 @@ export default function HostListings() {
     if (!confirm("Are you sure you want to delete this listing? This action cannot be undone.")) return;
 
     try {
-      // 1. Check for active bookings
-      const today = new Date().toISOString();
-      const { data: activeBookings, error: checkError } = await supabase
-        .from("bookings")
-        .select("id")
-        .eq("property_id", id)
-        .gte("check_out", today)
-        .neq("status", "canceled");
-
-      if (checkError) throw checkError;
-
-      if (activeBookings && activeBookings.length > 0) {
-        toast({
-          variant: "destructive",
-          title: "Cannot delete listing",
-          description: "This property has active or upcoming bookings. Please cancel them first.",
-        });
-        return;
-      }
-
-      // 2. Delete dependencies (client-side cascade)
-      // Delete reviews
-      const { error: reviewsError } = await supabase
-        .from("reviews")
-        .delete()
-        .eq("property_id", id);
-
-      if (reviewsError) throw reviewsError;
-
-      // Fetch booking IDs to delete related messages
-      const { data: bookingIds } = await supabase
-        .from("bookings")
-        .select("id")
-        .eq("property_id", id);
-
-      if (bookingIds && bookingIds.length > 0) {
-        const ids = bookingIds.map(b => b.id);
-        // Delete messages for these bookings
-        const { error: messagesError } = await supabase
-          .from("messages")
-          .delete()
-          .in("booking_id", ids);
-
-        if (messagesError) throw messagesError;
-      }
-
-      // Delete past/canceled bookings
-      const { error: bookingsError } = await supabase
-        .from("bookings")
-        .delete()
-        .eq("property_id", id);
-
-      if (bookingsError) throw bookingsError;
-
-      // 3. Delete property
-      const { data, error } = await supabase
-        .from("properties")
-        .delete()
-        .eq("id", id)
-        .select();
-
-      if (error) throw error;
-
-      if (!data || data.length === 0) {
-        throw new Error("Could not delete listing. It may have already been deleted or you do not have permission.");
-      }
+      await propertiesApi.deleteHostListing({ propertyId: id });
 
       setListings(listings.filter(l => l.id !== id));
       toast({

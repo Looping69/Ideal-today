@@ -1,13 +1,13 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/lib/supabase";
 import BadgeCard from "./BadgeCard";
 import { Progress } from "@/components/ui/progress";
 import { Trophy, Map, Star, Calendar, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
+import { engagementApi } from "@/lib/api/engagement";
 
 interface Badge {
   id: string;
@@ -55,92 +55,54 @@ export default function RewardsDashboard() {
 
   async function fetchProfile() {
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user?.id)
-        .single();
-
-      if (error) {
-        // If profile doesn't exist, create mock data
-        setProfile({
-          points: 1250,
-          level: "Explorer",
-          badges: [
-            { id: "first_booking", name: "First Journey", icon: "🎒", description: "Complete your first booking", date: "2024-01-15" },
-            { id: "reviewer", name: "Critic", icon: "✍️", description: "Leave 5 reviews", date: "2024-02-20" },
-          ]
-        });
-      } else {
-        setProfile(data);
-        setReferralCode(data?.referral_code || null);
-      }
-    } catch (error) {
-      // On network error, use mock data
+      const data = await engagementApi.getRewardsDashboard();
       setProfile({
-        points: 1250,
-        level: "Explorer",
-        badges: [
-          { id: "first_booking", name: "First Journey", icon: "🎒", description: "Complete your first booking", date: "2024-01-15" },
-          { id: "reviewer", name: "Critic", icon: "✍️", description: "Leave 5 reviews", date: "2024-02-20" },
-        ]
+        points: data.points,
+        level: data.level,
+        badges: data.badges,
       });
+      setReferralCode(data.referral_code || null);
+      setReferrals(data.referrals || []);
+    } catch (error) {
+      console.error("Failed to load rewards dashboard", error);
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => {
-    const loadReferrals = async () => {
-      if (!user) return;
-      const { data: refs } = await supabase
-        .from('referrals')
-        .select('referee_id, status, created_at, rewarded_at')
-        .eq('referrer_id', user.id)
-        .order('created_at', { ascending: false });
-      setReferrals(refs || []);
-    };
-    loadReferrals();
-  }, [user]);
-
   const refetchProfile = async () => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user?.id)
-      .single();
-    if (data) setProfile(data);
+    await fetchProfile();
   };
 
   const claimCoastalExplorer = async () => {
-    const { data, error } = await supabase.rpc('claim_coastal_explorer');
-    if (error) {
+    try {
+      const result = await engagementApi.claimReward({ rewardCode: 'coastal_explorer' });
+      if (result.result === 'claimed') {
+        toast({ title: 'Challenge completed', description: '+500 points awarded' });
+        await refetchProfile();
+      } else if (result.result === 'already_claimed') {
+        toast({ title: 'Already claimed', description: 'Reward already granted for this challenge.' });
+      } else {
+        toast({ variant: 'destructive', title: 'Not eligible', description: 'Book a stay in Cape Town or Durban first.' });
+      }
+    } catch (error: any) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
-      return;
-    }
-    if (data === 'claimed') {
-      toast({ title: 'Challenge completed', description: '+500 points awarded' });
-      await refetchProfile();
-    } else if (data === 'already_claimed') {
-      toast({ title: 'Already claimed', description: 'Reward already granted for this challenge.' });
-    } else {
-      toast({ variant: 'destructive', title: 'Not eligible', description: 'Book a stay in Cape Town or Durban first.' });
     }
   };
 
   const claimPhotoFinisher = async () => {
-    const { data, error } = await supabase.rpc('claim_photo_finisher');
-    if (error) {
+    try {
+      const result = await engagementApi.claimReward({ rewardCode: 'photo_finisher' });
+      if (result.result === 'claimed') {
+        toast({ title: 'Photo reward', description: '+200 points awarded' });
+        await refetchProfile();
+      } else if (result.result === 'already_claimed') {
+        toast({ title: 'Already claimed', description: 'Reward already granted for this challenge.' });
+      } else {
+        toast({ variant: 'destructive', title: 'Not eligible', description: 'Submit an approved review with a photo.' });
+      }
+    } catch (error: any) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
-      return;
-    }
-    if (data === 'claimed') {
-      toast({ title: 'Photo reward', description: '+200 points awarded' });
-      await refetchProfile();
-    } else if (data === 'already_claimed') {
-      toast({ title: 'Already claimed', description: 'Reward already granted for this challenge.' });
-    } else {
-      toast({ variant: 'destructive', title: 'Not eligible', description: 'Submit an approved review with a photo.' });
     }
   };
 

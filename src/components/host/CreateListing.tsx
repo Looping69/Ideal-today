@@ -24,11 +24,12 @@ import {
   Video
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { geocodeAddress } from "@/lib/geocoding";
+import { hostApi } from "@/lib/api/host";
+import { propertiesApi } from "@/lib/api/properties";
 
 import { CATEGORIES } from "@/constants/categories";
 import { CATEGORY_ICONS } from "@/components/icons/CategoryIcons";
@@ -70,45 +71,33 @@ export default function CreateListing() {
   const [canCreate, setCanCreate] = useState(true);
   const [verificationStatus, setVerificationStatus] = useState<'none' | 'pending' | 'verified' | 'rejected' | null>(null);
 
-  useEffect(() => {
-    async function checkLimits() {
-      if (!user) return;
+    useEffect(() => {
+        async function checkLimits() {
+            if (!user) return;
 
-      // 1. Get Plan and Verification from database
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('host_plan, verification_status')
-        .eq('id', user.id)
-        .single();
+            try {
+                const [profileData, listings] = await Promise.all([
+                    hostApi.getProfile(),
+                    propertiesApi.listHost(),
+                ]);
 
-      const currentPlan = (profileData?.host_plan as 'free' | 'standard' | 'premium') || 'free';
-      setPlan(currentPlan);
-      const startStatus = profileData?.verification_status || 'none';
-      setVerificationStatus(startStatus);
+                const currentPlan = (profileData?.host_plan as 'free' | 'standard' | 'premium') || 'free';
+                setPlan(currentPlan);
+                const startStatus = profileData?.verification_status || 'none';
+                setVerificationStatus(startStatus);
 
-      if (profileError) {
-        console.error('Error fetching plan:', profileError);
-      }
-
-      // 2. Count Listings
-      const { count, error } = await supabase
-        .from('properties')
-        .select('*', { count: 'exact', head: true })
-        .eq('host_id', user.id);
-
-      if (error) {
-        console.error(error);
-      } else {
-        const listingCount = count || 0;
-        // Free plan limit: 1 listing
-        if (currentPlan === 'free' && listingCount >= 1) {
-          setCanCreate(false);
+                const listingCount = listings.length;
+                if (currentPlan === 'free' && listingCount >= 1) {
+                    setCanCreate(false);
+                }
+            } catch (error) {
+                console.error(error);
+            } finally {
+                setCheckingLimit(false);
+            }
         }
-      }
-      setCheckingLimit(false);
-    }
-    checkLimits();
-  }, [user]);
+        checkLimits();
+    }, [user]);
 
   if (checkingLimit) return <div className="flex justify-center p-20"><Loader2 className="animate-spin" /></div>;
 
@@ -205,7 +194,7 @@ export default function CreateListing() {
         }
       }
 
-      const { error } = await supabase.from("properties").insert({
+      await propertiesApi.saveHostListing({
         title: formData.title,
         description: formData.description,
         location: formData.location,
@@ -219,13 +208,9 @@ export default function CreateListing() {
         image: formData.images[0] || null,
         images: formData.images,
         video_url: formData.video_url,
-        host_id: user.id,
         latitude,
         longitude,
-        approval_status: 'pending' // Listings require approval
       });
-
-      if (error) throw error;
 
       toast({
         title: "Listing Submitted!",
