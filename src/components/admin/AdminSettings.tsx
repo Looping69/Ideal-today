@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -12,9 +12,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Bell, Shield, Mail, Globe, Database, Save, DollarSign } from 'lucide-react';
+import { Bell, Shield, Mail, Globe, Database, Save, DollarSign, Copy, Check } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
-import { adminApi } from '@/lib/api/admin';
+import { SETUP_SQL } from '@/lib/setup_sql';
+import { getErrorMessage } from '@/lib/errors';
+import { invokeEngagementAction } from '@/lib/backend';
 
 export default function AdminSettings() {
   const [loading, setLoading] = useState(false);
@@ -38,13 +41,17 @@ export default function AdminSettings() {
     value: string;
   } | null>(null);
 
-  useEffect(() => {
-    fetchSettings();
-  }, []);
+  const [showSetupSql, setShowSetupSql] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     try {
-      const data = await adminApi.getSettings();
+      const { data, error } = await supabase
+        .from('admin_settings')
+        .select('*')
+        .single();
+
+      if (error) throw error;
       if (data) {
         setSettings({
           site_name: data.site_name || '',
@@ -58,34 +65,68 @@ export default function AdminSettings() {
           booking_confirmation_template: data.booking_confirmation_template || ''
         });
       }
-    } catch (error: any) {
-      console.error('Error fetching settings:', error);
-      toast({
-        variant: "destructive",
-        title: "Error loading settings",
-        description: error.message || "Could not load platform settings.",
-      });
+    } catch (error: unknown) {
+      console.error('Error fetching settings:', getErrorMessage(error));
+      const message = getErrorMessage(error);
+      const isTableMissing = typeof error === 'object' && error !== null && 'code' in error && error.code === 'PGRST205';
+      const isNotFound = message.includes('does not exist');
+
+      if (isTableMissing || isNotFound) {
+        setShowSetupSql(true);
+        toast({
+          variant: "destructive",
+          title: "Database Setup Required",
+          description: "Required tables are missing. Click 'Database Setup' to view the SQL.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error loading settings",
+          description: "Could not load platform settings.",
+        });
+      }
     } finally {
       setFetching(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
 
   const handleSave = async () => {
     setLoading(true);
     try {
-      await adminApi.updateSettings({ patch: settings });
+      const result = await invokeEngagementAction<{ settings: typeof settings }>({
+        action: 'admin-save-settings',
+        ...settings,
+      });
+      setSettings(result.settings);
 
       toast({
         title: "Settings saved",
         description: "Platform settings have been updated successfully.",
       });
-    } catch (error: any) {
-      console.error('Error saving settings:', error);
-      toast({
-        variant: "destructive",
-        title: "Error saving settings",
-        description: error.message || "Could not save changes. Please try again.",
-      });
+    } catch (error: unknown) {
+      console.error('Error saving settings:', getErrorMessage(error));
+      const message = getErrorMessage(error);
+      const isTableMissing = typeof error === 'object' && error !== null && 'code' in error && error.code === 'PGRST205';
+      const isNotFound = message.includes('does not exist');
+
+      if (isTableMissing || isNotFound) {
+        setShowSetupSql(true);
+        toast({
+          variant: "destructive",
+          title: "Database Setup Required",
+          description: "The admin_settings table is missing. Please run the migration SQL.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error saving settings",
+          description: "Could not save changes. Please try again.",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -109,10 +150,18 @@ export default function AdminSettings() {
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Platform Settings</h1>
           <p className="text-gray-500 text-sm mt-1">Configure global application settings and preferences.</p>
         </div>
-        <Button onClick={handleSave} disabled={loading} className="bg-gray-900 text-white hover:bg-gray-800">
-          <Save className="w-4 h-4 mr-2" />
-          {loading ? 'Saving...' : 'Save Changes'}
-        </Button>
+        <div className="flex gap-2">
+          {showSetupSql && (
+            <Button onClick={() => setShowSetupSql(true)} variant="destructive">
+              <Database className="w-4 h-4 mr-2" />
+              Database Setup
+            </Button>
+          )}
+          <Button onClick={handleSave} disabled={loading} className="bg-gray-900 text-white hover:bg-gray-800">
+            <Save className="w-4 h-4 mr-2" />
+            {loading ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -347,6 +396,39 @@ export default function AdminSettings() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingTemplate(null)}>Cancel</Button>
             <Button onClick={handleTemplateSave}>Update Template</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSetupSql} onOpenChange={setShowSetupSql}>
+        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Database Setup Required</DialogTitle>
+            <DialogDescription>
+              The required tables (admin_settings, notifications) are missing from your Supabase database.
+              Please copy the SQL below and run it in your Supabase SQL Editor.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 border rounded-md bg-slate-950 p-4 overflow-auto relative group">
+            <Button
+              size="icon"
+              variant="secondary"
+              className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => {
+                navigator.clipboard.writeText(SETUP_SQL);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+                toast({ title: "Copied to clipboard" });
+              }}
+            >
+              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            </Button>
+            <pre className="text-xs font-mono text-slate-50 whitespace-pre-wrap">
+              {SETUP_SQL}
+            </pre>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowSetupSql(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -2,7 +2,6 @@ import { Bell, Check, Trash2, Info, AlertTriangle, CheckCircle, XCircle } from "
 import {
     DropdownMenu,
     DropdownMenuContent,
-    DropdownMenuItem,
     DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,

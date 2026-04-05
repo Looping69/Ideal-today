@@ -8,6 +8,7 @@ import { Loader2, User, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ChatWindow from "./ChatWindow";
 import { format } from "date-fns";
+import { getErrorMessage } from "@/lib/errors";
 
 interface Conversation {
   id: string; // booking_id
@@ -61,7 +62,7 @@ export default function InboxPage() {
 
         // For each booking, fetch the last message (optional optimization: do this in a better way later)
         const conversationsWithMessages = await Promise.all(
-          (bookings || []).map(async (booking: any) => {
+          (bookings || []).map(async (booking) => {
             const { data: messages } = await supabase
               .from("messages")
               .select("content, created_at")
@@ -70,16 +71,17 @@ export default function InboxPage() {
               .limit(1)
               .single();
 
+            // Cast to Conversation to match the state type
             return {
               ...booking,
-              last_message: messages,
-            };
+              last_message: messages || undefined,
+            } as unknown as Conversation;
           })
         );
 
         setConversations(conversationsWithMessages);
-      } catch (error) {
-        console.error("Error fetching conversations:", error);
+      } catch (error: unknown) {
+        console.error("Error fetching conversations:", getErrorMessage(error));
       } finally {
         setLoading(false);
       }
@@ -92,14 +94,14 @@ export default function InboxPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pt-32 flex justify-center">
+      <div className="min-h-screen pt-20 flex justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen pt-32 pb-12 container mx-auto px-4">
+    <div className="min-h-screen pt-20 pb-12 container mx-auto px-4">
       <h1 className="text-3xl font-bold mb-6">Messages</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[600px]">

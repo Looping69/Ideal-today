@@ -2,53 +2,99 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CheckCircle, Loader2, Home, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
-import { billingApi } from "@/lib/api/billing";
-import type { PaymentSessionStatus } from "@/lib/api/types";
+import { supabase } from "@/lib/supabase";
+
+interface BookingDetails {
+    id: string;
+    total_price: number;
+    check_in: string;
+    check_out: string;
+    property?: {
+        title: string;
+        image: string;
+        location: string;
+    };
+    user?: {
+        email: string;
+        full_name: string;
+    }
+}
 
 export default function PaymentSuccess() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const { toast } = useToast();
     const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
-    const [paymentSession, setPaymentSession] = useState<PaymentSessionStatus | null>(null);
+    const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(null);
     const verifiedRef = useRef(false);
 
     useEffect(() => {
+        let interval: number | undefined;
+
         const verifyPayment = async () => {
             if (verifiedRef.current) return;
             verifiedRef.current = true;
 
-            const paymentSessionId = searchParams.get('paymentSessionId');
+            const bookingId = searchParams.get('bookingId');
 
-            if (!paymentSessionId) {
+            if (!bookingId) {
                 setStatus('error');
                 return;
             }
 
             try {
-                for (let attempt = 0; attempt < 8; attempt += 1) {
-                    const session = await billingApi.getSessionStatus({ paymentSessionId });
-                    setPaymentSession(session);
+                // 1. Fetch the booking
+                const { data: booking, error: fetchError } = await supabase
+                    .from('bookings')
+                    .select('*, property:properties(title, image, location), user:profiles(email, full_name), payment_status')
+                    .eq('id', bookingId)
+                    .single();
 
-                    if (session.status === 'succeeded' && session.booking?.status === 'confirmed') {
-                        setStatus('success');
-                        toast({
-                            title: "Booking Confirmed!",
-                            description: "Your trip is all set.",
-                            duration: 5000,
-                        });
-                        return;
-                    }
+                if (fetchError || !booking) {
+                    console.error("Booking not found", fetchError);
+                    throw new Error("Could not find booking details");
+                }
 
-                    if (session.status === 'failed' || session.status === 'canceled') {
+                setBookingDetails(booking);
+
+                if (booking.status === 'confirmed') {
+                    setStatus('success');
+                    return;
+                }
+
+                if ((booking as BookingDetails & { payment_status?: string }).payment_status === 'failed') {
+                    setStatus('error');
+                    return;
+                }
+
+                let attempts = 0;
+                interval = window.setInterval(async () => {
+                    attempts += 1;
+
+                    const { data: refreshed, error: refreshedError } = await supabase
+                        .from('bookings')
+                        .select('*, property:properties(title, image, location), user:profiles(email, full_name), payment_status')
+                        .eq('id', bookingId)
+                        .single();
+
+                    if (refreshedError || !refreshed) {
+                        window.clearInterval(interval);
                         setStatus('error');
                         return;
                     }
 
-                    await new Promise((resolve) => setTimeout(resolve, 1500));
-                }
-                setStatus('error');
+                    setBookingDetails(refreshed);
+
+                    if (refreshed.status === 'confirmed') {
+                        window.clearInterval(interval);
+                        setStatus('success');
+                        return;
+                    }
+
+                    if (refreshed.payment_status === 'failed' || attempts >= 10) {
+                        if (interval) window.clearInterval(interval);
+                        setStatus('error');
+                    }
+                }, 3000);
 
             } catch (err) {
                 console.error("Verification error:", err);
@@ -57,7 +103,10 @@ export default function PaymentSuccess() {
         };
 
         verifyPayment();
-    }, [searchParams, toast]);
+        return () => {
+            if (interval) window.clearInterval(interval);
+        };
+    }, [searchParams]);
 
     if (status === 'verifying') {
         return (
@@ -105,22 +154,22 @@ export default function PaymentSuccess() {
 
                 <h1 className="text-3xl font-bold text-gray-900 mb-4">You're all set!</h1>
                 <p className="text-lg text-gray-600 mb-8 leading-relaxed">
-                    Your booking at <span className="font-semibold text-gray-900">{paymentSession?.booking?.property?.title}</span> has been confirmed.
+                    Your booking at <span className="font-semibold text-gray-900">{bookingDetails?.property?.title}</span> has been confirmed. You can view it in your trips dashboard.
                 </p>
 
                 <div className="bg-gray-50 rounded-xl p-6 mb-8 text-left border border-gray-100">
                     <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200">
                         <span className="text-gray-500">Total Paid</span>
-                        <span className="font-bold text-lg">R{paymentSession?.booking?.total_price}</span>
+                        <span className="font-bold text-lg">R{bookingDetails?.total_price}</span>
                     </div>
                     <div className="space-y-2 text-sm text-gray-600">
                         <div className="flex justify-between">
                             <span>Check-in</span>
-                            <span className="font-medium text-gray-900">{paymentSession?.booking?.check_in ? new Date(paymentSession.booking.check_in).toLocaleDateString() : "—"}</span>
+                            <span className="font-medium text-gray-900">{bookingDetails?.check_in ? new Date(bookingDetails.check_in).toLocaleDateString() : ''}</span>
                         </div>
                         <div className="flex justify-between">
                             <span>Check-out</span>
-                            <span className="font-medium text-gray-900">{paymentSession?.booking?.check_out ? new Date(paymentSession.booking.check_out).toLocaleDateString() : "—"}</span>
+                            <span className="font-medium text-gray-900">{bookingDetails?.check_out ? new Date(bookingDetails.check_out).toLocaleDateString() : ''}</span>
                         </div>
                     </div>
                 </div>

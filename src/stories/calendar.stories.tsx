@@ -1,4 +1,5 @@
 // [build] library: 'shadcn'
+/* eslint-disable react-hooks/rules-of-hooks */
 import { Calendar } from "../components/ui/calendar";
 import { CalendarIcon } from "@radix-ui/react-icons";
 
@@ -17,7 +18,7 @@ import {
 } from "../components/ui/select";
 
 import { Button } from "../components/ui/button";
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import { DateRange } from "react-day-picker";
 import { addDays, format } from "date-fns";
 
@@ -30,7 +31,7 @@ const meta = {
 export default meta;
 
 export const Base = {
-  render: (args: any) => <Calendar {...args}>Calendar</Calendar>,
+  render: (args: ComponentProps<typeof Calendar>) => <Calendar {...args}>Calendar</Calendar>,
   args: {
     mode: "single",
     className: "rounded-md border",

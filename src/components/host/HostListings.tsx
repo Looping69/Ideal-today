@@ -22,34 +22,39 @@ import {
   Pencil,
   Trash2,
   Eye,
-  Loader2
+  Loader2,
+  Video
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useCallback } from "react";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { propertiesApi } from "@/lib/api/properties";
+import { Property } from "@/types/property";
+import { getErrorMessage } from "@/lib/errors";
+import { invokePropertiesApi } from "@/lib/backend";
 
 export default function HostListings() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [listings, setListings] = useState<any[]>([]);
+  const [listings, setListings] = useState<Property[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
-    if (user) {
-      fetchListings();
-    }
-  }, [user]);
-
-  async function fetchListings() {
+  const fetchListings = useCallback(async () => {
     try {
-      const data = await propertiesApi.listHost();
-      setListings(data || []);
-    } catch (error) {
-      console.error("Error fetching listings:", error);
+      const { data, error } = await supabase
+        .from("properties")
+        .select("*")
+        .eq("host_id", user?.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setListings((data as unknown as Property[]) || []);
+    } catch (error: unknown) {
+      console.error("Error fetching listings:", getErrorMessage(error));
       toast({
         variant: "destructive",
         title: "Error",
@@ -58,28 +63,38 @@ export default function HostListings() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user, toast]);
 
-  async function deleteListing(id: string) {
+  useEffect(() => {
+    if (user) {
+      fetchListings();
+    }
+  }, [user, fetchListings]);
+
+  const deleteListing = useCallback(async (id: string) => {
     if (!confirm("Are you sure you want to delete this listing? This action cannot be undone.")) return;
 
     try {
-      await propertiesApi.deleteHostListing({ propertyId: id });
+      await invokePropertiesApi({
+        action: 'delete-host-listing',
+        id,
+      });
 
-      setListings(listings.filter(l => l.id !== id));
+      setListings(prev => prev.filter(l => l.id !== id));
       toast({
         title: "Listing deleted",
         description: "Your listing has been removed successfully.",
       });
-    } catch (error: any) {
-      console.error("Error deleting listing:", error);
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      console.error("Error deleting listing:", message);
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to delete listing.",
+        description: message || "Failed to delete listing.",
       });
     }
-  }
+  }, [toast]);
 
   const filteredListings = listings.filter(listing =>
     listing.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -151,13 +166,34 @@ export default function HostListings() {
                         />
                       </div>
                       <div>
-                        <div className="font-medium text-gray-900">{listing.title}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="font-medium text-gray-900">{listing.title}</div>
+                          {listing.video_url && (
+                            <Badge variant="outline" className="text-[10px] uppercase font-bold px-1.5 py-0 border-blue-200 text-blue-700 bg-blue-50/50 flex items-center gap-1">
+                              <Video className="w-2.5 h-2.5" />
+                              Tour
+                            </Badge>
+                          )}
+                        </div>
                         <div className="text-sm text-gray-500">{listing.location}</div>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Active</Badge>
+                    {listing.approval_status === 'approved' ? (
+                      <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Active</Badge>
+                    ) : listing.approval_status === 'rejected' ? (
+                      <div className="flex flex-col gap-1">
+                        <Badge variant="destructive" className="bg-red-100 text-red-800 hover:bg-red-100">Rejected</Badge>
+                        {listing.rejection_reason && (
+                          <span className="text-[10px] text-red-500 max-w-[150px] leading-tight italic">
+                            Reason: {listing.rejection_reason}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Pending</Badge>
+                    )}
                   </TableCell>
                   <TableCell>R{listing.price} <span className="text-gray-500 text-xs">/ night</span></TableCell>
                   <TableCell>
@@ -167,7 +203,7 @@ export default function HostListings() {
                     </div>
                   </TableCell>
                   <TableCell className="text-gray-500">
-                    {new Date(listing.created_at).toLocaleDateString()}
+                    {new Date(listing.created_at || new Date()).toLocaleDateString()}
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -181,7 +217,7 @@ export default function HostListings() {
                           <Eye className="w-4 h-4 mr-2" />
                           View
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => navigate(`/host/edit/${listing.id}`)}>
                           <Pencil className="w-4 h-4 mr-2" />
                           Edit
                         </DropdownMenuItem>

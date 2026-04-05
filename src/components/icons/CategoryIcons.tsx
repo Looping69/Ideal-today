@@ -158,6 +158,7 @@ export function UniqueStaysIcon(props: IconProps) {
 }
 
 // Map category IDs to icon components
+// eslint-disable-next-line react-refresh/only-export-components
 export const CATEGORY_ICONS: Record<string, React.FC<IconProps>> = {
     "hotels-resorts": HotelsResortsIcon,
     "guesthouses-bnbs": GuesthousesBnBIcon,

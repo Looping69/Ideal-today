@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, Gift, Download, Trash2, Medal } from 'lucide-react';
-import { adminApi } from '@/lib/api/admin';
-import type { RewardCompletionRecord } from '@/lib/api/types';
+import { useCallback } from 'react';
+import { invokeEngagementAction } from '@/lib/backend';
 
-type Row = RewardCompletionRecord;
+type Row = { rowId: string; user_id: string; reward_code: string; created_at: string };
 
 export default function AdminRewards() {
   const [rows, setRows] = useState<Row[]>([]);
@@ -18,52 +19,57 @@ export default function AdminRewards() {
   const [manualCode, setManualCode] = useState<'coastal_explorer' | 'photo_finisher'>('coastal_explorer');
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
-    try {
-      const data = await adminApi.listRewards({
-        page,
-        pageSize,
-        rewardCode: codeFilter === 'all' ? undefined : codeFilter,
-      });
-      setRows(data || []);
-      setSelected({});
-    } finally {
-      setLoading(false);
-    }
-  };
+    let query = supabase.from('rewards_completions').select('user_id,reward_code,created_at').order('created_at', { ascending: false }).range(page * pageSize, page * pageSize + pageSize - 1);
+    if (codeFilter !== 'all') query = query.eq('reward_code', codeFilter);
+    const { data } = await query;
+    setRows((((data as Omit<Row, 'rowId'>[]) || []).map((row) => ({
+      ...row,
+      rowId: `${row.user_id}:${row.reward_code}`,
+    }))));
+    setSelected({});
+    setLoading(false);
+  }, [page, codeFilter, pageSize]);
 
-  useEffect(() => { load(); }, [page, codeFilter]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      load();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [load]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return rows;
     const q = search.toLowerCase();
-    return rows.filter(r =>
-      r.user_id.toLowerCase().includes(q)
-      || r.reward_code.toLowerCase().includes(q)
-      || (r.user?.email || '').toLowerCase().includes(q)
-      || (r.user?.full_name || '').toLowerCase().includes(q),
-    );
+    return rows.filter(r => r.user_id.toLowerCase().includes(q) || r.reward_code.toLowerCase().includes(q));
   }, [rows, search]);
 
   const awardManual = async () => {
     if (!userEmail) return;
-    const reward = await adminApi.awardReward({ userEmail, rewardCode: manualCode });
-    setRows(rs => [reward, ...rs]);
+    await invokeEngagementAction({
+      action: 'admin-award-reward',
+      userEmail,
+      rewardCode: manualCode,
+    });
+    await load();
     setUserEmail('');
   };
 
   const bulkDelete = async () => {
     const ids = Object.keys(selected).filter(k => selected[k]);
     if (ids.length === 0) return;
-    await adminApi.deleteRewards({ rewardIds: ids });
-    setRows(rs => rs.filter(r => !selected[r.id]));
+    await invokeEngagementAction({
+      action: 'admin-delete-rewards',
+      ids,
+    });
+    setRows(rs => rs.filter(r => !selected[r.rowId]));
     setSelected({});
   };
 
   const exportCsv = () => {
-    const headers = ['user_id', 'email', 'reward_code', 'created_at'];
-    const lines = filtered.map(r => [r.user_id, r.user?.email || '', r.reward_code, r.created_at]);
+    const headers = ['user_id', 'reward_code', 'created_at'];
+    const lines = filtered.map(r => [r.user_id, r.reward_code, r.created_at]);
     const csv = [headers.join(','), ...lines.map(l => l.join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -74,8 +80,8 @@ export default function AdminRewards() {
     URL.revokeObjectURL(url);
   };
 
-  const toggleSelect = (id: string) => {
-    setSelected(s => ({ ...s, [id]: !s[id] }));
+  const toggleSelect = (rowId: string) => {
+    setSelected(s => ({ ...s, [rowId]: !s[rowId] }));
   };
 
   return (
@@ -106,8 +112,8 @@ export default function AdminRewards() {
           <button
             onClick={() => setCodeFilter('all')}
             className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${codeFilter === 'all'
-                ? 'bg-gray-900 text-white shadow-md shadow-gray-900/20'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+              ? 'bg-gray-900 text-white shadow-md shadow-gray-900/20'
+              : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
               }`}
           >
             All Rewards
@@ -115,8 +121,8 @@ export default function AdminRewards() {
           <button
             onClick={() => setCodeFilter('coastal_explorer')}
             className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${codeFilter === 'coastal_explorer'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+              : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
               }`}
           >
             Coastal Explorer
@@ -126,8 +132,8 @@ export default function AdminRewards() {
           <button
             onClick={() => setCodeFilter('photo_finisher')}
             className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${codeFilter === 'photo_finisher'
-                ? 'bg-green-600 text-white shadow-md shadow-green-600/20'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+              ? 'bg-green-600 text-white shadow-md shadow-green-600/20'
+              : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
               }`}
           >
             Photo Finisher
@@ -152,11 +158,11 @@ export default function AdminRewards() {
                 <th className="px-6 py-4 w-12">
                   <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" onChange={(e) => {
                     const all: Record<string, boolean> = {};
-                    filtered.forEach(r => { all[r.id] = e.target.checked; });
+                    filtered.forEach(r => { all[r.rowId] = e.target.checked; });
                     setSelected(all);
                   }} />
                 </th>
-                <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">User</th>
+                <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">User ID</th>
                 <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Reward</th>
                 <th className="px-6 py-4 font-semibold text-gray-500 uppercase tracking-wider text-xs">Date Awarded</th>
               </tr>
@@ -168,18 +174,17 @@ export default function AdminRewards() {
                 <tr><td className="px-6 py-12 text-center text-gray-500" colSpan={4}>No rewards found</td></tr>
               ) : (
                 filtered.map((r) => (
-                  <tr key={r.id} className="hover:bg-gray-50/50 transition-colors group">
+                  <tr key={r.rowId} className="hover:bg-gray-50/50 transition-colors group">
                     <td className="px-6 py-4">
-                      <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" checked={!!selected[r.id]} onChange={() => toggleSelect(r.id)} />
+                      <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" checked={!!selected[r.rowId]} onChange={() => toggleSelect(r.rowId)} />
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">{r.user?.full_name || 'Unknown user'}</div>
-                      <div className="font-mono text-xs text-gray-500">{r.user?.email || r.user_id}</div>
+                    <td className="px-6 py-4 font-mono text-xs text-gray-600">
+                      {r.user_id}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <div className={`p-1.5 rounded-lg ${r.reward_code === 'coastal_explorer' ? 'bg-blue-100 text-blue-600' :
-                            r.reward_code === 'photo_finisher' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'
+                          r.reward_code === 'photo_finisher' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'
                           }`}>
                           <Medal className="w-4 h-4" />
                         </div>
@@ -223,7 +228,7 @@ export default function AdminRewards() {
             <select
               className="h-10 w-64 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               value={manualCode}
-              onChange={(e) => setManualCode(e.target.value as any)}
+              onChange={(e) => setManualCode(e.target.value as 'coastal_explorer' | 'photo_finisher')}
             >
               <option value="coastal_explorer">Coastal Explorer (+500)</option>
               <option value="photo_finisher">Photo Finisher (+200)</option>

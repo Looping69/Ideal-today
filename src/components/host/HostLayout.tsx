@@ -13,9 +13,11 @@ import {
   Users,
   CheckSquare,
   BarChart3,
-  CreditCard,
-  AlertCircle
+  Sparkles,
+  AlertCircle,
+  Trophy
 } from "lucide-react";
+import { useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,6 +32,16 @@ export default function HostLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const { toast } = useToast();
   const [verificationStatus, setVerificationStatus] = useState<'none' | 'pending' | 'verified' | 'rejected'>('none');
+  const [hostPlan, setHostPlan] = useState<'free' | 'standard' | 'professional' | 'premium'>('free');
+
+  const checkStatus = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase.from('profiles').select('verification_status, host_plan').eq('id', user.id).single();
+    if (data) {
+      setVerificationStatus(data.verification_status || 'none');
+      setHostPlan(data.host_plan || 'free');
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -40,29 +52,26 @@ export default function HostLayout() {
       });
       navigate("/");
     } else if (user) {
-      // Check verification status
-      const checkStatus = async () => {
-        const { data } = await supabase.from('profiles').select('verification_status').eq('id', user.id).single();
-        if (data) {
-          setVerificationStatus(data.verification_status || 'none');
-        }
-      };
-      checkStatus();
+      setTimeout(() => checkStatus(), 0);
     }
-  }, [loading, user]);
+  }, [loading, user, navigate, toast, checkStatus]);
 
   const sidebarItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/host" },
     { icon: MessageSquare, label: "Inbox", path: "/host/inbox" },
-    { icon: Calendar, label: "Calendar", path: "/host/calendar" },
-    { icon: ClipboardList, label: "Bookings", path: "/host/bookings" },
-    { icon: CheckSquare, label: "Operations", path: "/host/operations" },
+    { icon: ClipboardList, label: "Enquiries", path: "/host/enquiries" },
     { icon: Building2, label: "Listings", path: "/host/listings" },
-    { icon: Users, label: "Guests", path: "/host/guests" },
-    { icon: CreditCard, label: "Plan & Billing", path: "/host/subscription" },
     { icon: BarChart3, label: "Reports", path: "/host/reports" },
+    { icon: Trophy, label: "Referrals", path: "/host/referrals" },
     { icon: Settings, label: "Settings", path: "/host/settings" },
   ];
+  const visibleSidebarItems = hostPlan === 'free'
+    ? sidebarItems
+    : [
+      ...sidebarItems.slice(0, 4),
+      { icon: Sparkles, label: "Content Studio", path: "/host/content" },
+      ...sidebarItems.slice(4),
+    ];
 
   return (
     <div className="min-h-screen bg-gray-50/50 flex flex-col lg:flex-row">
@@ -122,7 +131,7 @@ export default function HostLayout() {
           </Button>
 
           <div className="space-y-1">
-            {sidebarItems.map((item) => (
+            {visibleSidebarItems.map((item) => (
               <button
                 key={item.path}
                 onClick={() => {
@@ -182,7 +191,7 @@ export default function HostLayout() {
               <Menu className="w-5 h-5" />
             </Button>
             <h2 className="text-lg font-semibold text-gray-800 hidden sm:block">
-              {sidebarItems.find(i => i.path === location.pathname)?.label || 'Dashboard'}
+              {visibleSidebarItems.find(i => i.path === location.pathname)?.label || (location.pathname === '/host/verification' ? 'Host Verification' : 'Dashboard')}
             </h2>
           </div>
 
@@ -192,7 +201,7 @@ export default function HostLayout() {
               onClick={() => navigate("/")}
               className="hidden md:flex rounded-full border-gray-200 hover:bg-gray-50 hover:text-primary transition-colors"
             >
-              Switch to Traveling
+              Switch to Marketplace
             </Button>
 
             <NotificationBell />
@@ -225,7 +234,7 @@ export default function HostLayout() {
           </div>
         </header>
 
-        {verificationStatus !== 'verified' && (
+        {verificationStatus !== 'verified' && location.pathname !== '/host/verification' && (
           <div className="bg-amber-50 border-b border-amber-200 px-8 py-3 flex items-center justify-between animate-in slide-in-from-top-2">
             <div className="flex items-center gap-2 text-amber-800">
               <AlertCircle className="w-4 h-4" />

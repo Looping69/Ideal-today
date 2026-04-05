@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, CheckCircle, XCircle, MapPin, Home, User, Eye, AlertCircle, Video } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, MapPin, User, Eye, AlertCircle, Video } from "lucide-react";
 import {
     Table,
     TableBody,
@@ -20,8 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { adminApi } from "@/lib/api/admin";
-import { propertiesApi } from "@/lib/api/properties";
+import { invokePropertiesApi } from "@/lib/backend";
 
 interface PendingProperty {
     id: string;
@@ -36,9 +36,9 @@ interface PendingProperty {
     created_at: string;
     host_id: string;
     host?: {
-        full_name?: string;
-        email?: string;
-        verification_status?: string;
+        full_name: string;
+        email: string;
+        verification_status: string;
     };
 }
 
@@ -52,32 +52,42 @@ export default function AdminPendingListings() {
     const [detailsOpen, setDetailsOpen] = useState<string | null>(null);
 
     useEffect(() => {
-        fetchPendingListings();
-    }, []);
+        async function fetchPendingListings() {
+            try {
+                setLoading(true);
+                const { data, error } = await supabase
+                    .from('properties')
+                    .select(`
+                        *,
+                        host:profiles!properties_host_id_fkey(full_name, email, verification_status)
+                    `)
+                    .eq('approval_status', 'pending')
+                    .order('created_at', { ascending: false });
 
-    async function fetchPendingListings() {
-        try {
-            setLoading(true);
-            const data = await adminApi.listListings({ limit: 100, approvalStatus: 'pending' });
-            setListings((data as unknown as PendingProperty[]) || []);
-        } catch (error) {
-            console.error(error);
-            toast({
-                variant: 'destructive',
-                title: 'Error fetching listings',
-                description: 'Could not load pending listings.'
-            });
-        } finally {
-            setLoading(false);
+                if (error) throw error;
+                setListings(data || []);
+            } catch (error: unknown) {
+                console.error(error);
+                const message = error instanceof Error ? error.message : "Could not load pending listings.";
+                toast({
+                    variant: 'destructive',
+                    title: 'Error fetching listings',
+                    description: message
+                });
+            } finally {
+                setLoading(false);
+            }
         }
-    }
+        fetchPendingListings();
+    }, [toast]);
 
     async function handleApprove(id: string) {
         try {
             setProcessing(true);
-            await propertiesApi.moderateListing({
-                propertyId: id,
-                update: { approval_status: 'approved', rejection_reason: null }
+            await invokePropertiesApi({
+                action: 'admin-review-listing',
+                id,
+                status: 'approved',
             });
 
             toast({
@@ -87,11 +97,13 @@ export default function AdminPendingListings() {
 
             // Remove from list
             setListings(prev => prev.filter(l => l.id !== id));
-        } catch (error: any) {
+        } catch (error: unknown) {
+            console.error('Approval failed:', error);
+            const message = error instanceof Error ? error.message : "An unknown error occurred";
             toast({
                 variant: 'destructive',
                 title: 'Error',
-                description: error.message
+                description: message
             });
         } finally {
             setProcessing(false);
@@ -102,12 +114,11 @@ export default function AdminPendingListings() {
         if (!rejectId) return;
         try {
             setProcessing(true);
-            await propertiesApi.moderateListing({
-                propertyId: rejectId,
-                update: {
-                    approval_status: 'rejected',
-                    rejection_reason: rejectReason
-                }
+            await invokePropertiesApi({
+                action: 'admin-review-listing',
+                id: rejectId,
+                status: 'rejected',
+                rejectionReason: rejectReason,
             });
 
             toast({
@@ -118,11 +129,12 @@ export default function AdminPendingListings() {
             setListings(prev => prev.filter(l => l.id !== rejectId));
             setRejectId(null);
             setRejectReason("");
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "An unknown error occurred";
             toast({
                 variant: 'destructive',
                 title: 'Error',
-                description: error.message
+                description: message
             });
         } finally {
             setProcessing(false);

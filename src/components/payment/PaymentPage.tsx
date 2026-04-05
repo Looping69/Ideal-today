@@ -4,7 +4,23 @@ import { ArrowLeft, Calendar, Users, MapPin, ShieldCheck, Star, CreditCard, Load
 import { format } from 'date-fns';
 import { useToast } from '@/components/ui/use-toast';
 import { useState } from 'react';
-import { billingApi } from '@/lib/api/billing';
+import { Property } from '@/types/property';
+import { createCheckout } from '@/lib/backend';
+
+interface BookingState {
+    property: Property;
+    date: {
+        from: Date;
+        to: Date;
+    };
+    guests: number;
+    total: number;
+    nights: number;
+    user: {
+        id: string;
+        email?: string;
+    };
+}
 
 export default function PaymentPage() {
     const location = useLocation();
@@ -13,7 +29,7 @@ export default function PaymentPage() {
     const [isProcessing, setIsProcessing] = useState(false);
 
     // Get booking data passed from the previous screen
-    const bookingData = location.state;
+    const bookingData = location.state as BookingState | null;
 
     if (!bookingData) {
         return (
@@ -34,28 +50,23 @@ export default function PaymentPage() {
         try {
             setIsProcessing(true);
 
-            const checkout = await billingApi.startBookingCheckout({
+            const checkout = await createCheckout<{ redirectUrl?: string }>({
+                kind: 'booking',
                 propertyId: property.id,
-                checkIn: new Date(date.from).toISOString().slice(0, 10),
-                checkOut: new Date(date.to).toISOString().slice(0, 10),
-                guests,
-                totalPrice: total,
-                successUrl: `${window.location.origin}/book/success`,
-                cancelUrl: `${window.location.origin}/book?canceled=true`,
-                failUrl: `${window.location.origin}/book?failed=true`,
+                checkIn: date.from.toISOString(),
+                checkOut: date.to.toISOString(),
             });
-
             if (checkout?.redirectUrl) {
                 window.location.href = checkout.redirectUrl;
             } else {
                 throw new Error("No redirect URL provided by payment gateway");
             }
 
-        } catch (error: any) {
-            console.error(error);
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "Could not start payment. Please try again.";
             toast({
                 title: "Payment Initialization Failed",
-                description: error.message || "Could not start payment. Please try again.",
+                description: message,
                 variant: "destructive",
             });
             setIsProcessing(false);

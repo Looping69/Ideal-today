@@ -7,27 +7,25 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import ImageUpload from "@/components/ui/image-upload";
 import { useToast } from "@/components/ui/use-toast";
-import { hostApi } from "@/lib/api/host";
+import { saveUserProfile } from "@/lib/backend";
 
 export default function AccountPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<{ full_name: string; avatar_url: string; phone?: string; bio?: string; preferences?: any } | null>(null);
+  const [profile, setProfile] = useState<{ full_name: string; avatar_url: string; phone?: string; bio?: string; preferences?: Record<string, unknown> } | null>(null);
   const [password, setPassword] = useState("");
   const [email, setEmail] = useState<string>("");
 
   useEffect(() => {
     const load = async () => {
       if (!user) { setLoading(false); return; }
-      const data = await hostApi.getProfile();
-      setProfile({
-        full_name: data?.full_name || "",
-        avatar_url: data?.avatar_url || "",
-        phone: data?.phone || "",
-        bio: data?.bio || "",
-        preferences: data?.preferences || {},
-      });
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name, avatar_url, phone, bio, preferences, points, level')
+        .eq('id', user.id)
+        .single();
+      setProfile({ full_name: data?.full_name || "", avatar_url: data?.avatar_url || "", phone: data?.phone || "", bio: data?.bio || "", preferences: data?.preferences || {} });
       setEmail(user.email || "");
       setLoading(false);
     };
@@ -38,16 +36,16 @@ export default function AccountPage() {
     if (!user || !profile) return;
     setLoading(true);
     try {
-      await hostApi.updateProfile({
-        full_name: profile.full_name,
-        avatar_url: profile.avatar_url,
+      await saveUserProfile({
+        fullName: profile.full_name,
+        avatarUrl: profile.avatar_url,
         phone: profile.phone,
         bio: profile.bio,
         preferences: profile.preferences,
       });
       toast({ title: 'Account updated' });
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error instanceof Error ? error.message : 'Failed to update profile' });
     } finally {
       setLoading(false);
     }
@@ -72,7 +70,7 @@ export default function AccountPage() {
       toast({ variant: 'destructive', title: 'Invalid email' });
       return;
     }
-    const { data, error } = await supabase.auth.updateUser({ email });
+    const { error } = await supabase.auth.updateUser({ email });
     if (error) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
     } else {
@@ -81,18 +79,18 @@ export default function AccountPage() {
   };
 
   const signOutAll = async () => {
-    const { error } = await supabase.auth.signOut({ scope: 'global' as any });
+    const { error } = await supabase.auth.signOut({ scope: 'global' });
     if (error) toast({ variant: 'destructive', title: 'Error', description: error.message });
     else toast({ title: 'Signed out everywhere' });
   };
 
   if (loading) {
-    return <div className="min-h-screen pt-32 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
+    return <div className="min-h-screen pt-20 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen pt-32 flex flex-col items-center justify-center p-4 text-center">
+      <div className="min-h-screen pt-20 flex flex-col items-center justify-center p-4 text-center">
         <h1 className="text-2xl font-bold mb-2">Please log in</h1>
         <p className="text-gray-600">You need to be signed in to access your account.</p>
       </div>
@@ -100,7 +98,7 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 pt-32 pb-12">
+    <div className="container mx-auto px-4 pt-20 pb-12">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <Card className="md:col-span-2">
           <CardHeader>

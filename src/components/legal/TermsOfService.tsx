@@ -1,10 +1,15 @@
 
 import Header from "../layout/Header";
 import Footer from "../layout/Footer";
+import SEO from "../SEO";
 
 export default function TermsOfService() {
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
+            <SEO
+                title="Terms of Service"
+                description="Read the IdealStay Terms of Service. Understand the rules for booking and hosting holiday accommodation on our platform."
+            />
             <Header />
             <main className="flex-grow container mx-auto px-4 py-8 md:py-12 max-w-4xl">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 md:p-12">

@@ -1,20 +1,23 @@
 import { useEffect, useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, Calendar as CalendarIcon, User, MapPin, Ban, CheckCircle2, Clock, XCircle, ChevronRight, Filter } from "lucide-react";
-import { format, isSameDay, parseISO, addDays, isWithinInterval, startOfDay } from "date-fns";
+import { Loader2, Calendar as CalendarIcon, User, MapPin, Ban, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { useCallback } from "react";
+import { format, parseISO, addDays, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
-import { propertiesApi } from "@/lib/api/properties";
-import { bookingsApi } from "@/lib/api/bookings";
+import { getErrorMessage } from "@/lib/errors";
+import { DateRange } from "react-day-picker";
+import { invokeBookingAction } from "@/lib/backend";
 
 interface Property {
   id: string;
@@ -47,32 +50,38 @@ export default function HostCalendar() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
-  const [blockRange, setBlockRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+  const [blockRange, setBlockRange] = useState<DateRange | undefined>({
     from: new Date(),
     to: addDays(new Date(), 1)
   });
 
-  useEffect(() => {
-    if (!user) return;
-    fetchData();
-  }, [user]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [propsData, bookingsData] = await Promise.all([
-        propertiesApi.listHost(),
-        bookingsApi.listHostBookings({ includeBlocked: true }),
-      ]);
-      setProperties((propsData || []).map((property) => ({
-        id: property.id,
-        title: property.title,
-        image: property.image || "",
-      })));
-      setBookings((bookingsData || []).filter((booking) => booking.status !== "canceled") as Booking[]);
+      // Fetch properties
+      const { data: propsData, error: propsError } = await supabase
+        .from("properties")
+        .select("id, title, image")
+        .eq("host_id", user?.id);
 
-    } catch (error) {
-      console.error("Error fetching calendar data:", error);
+      if (propsError) throw propsError;
+      setProperties(propsData || []);
+
+      // Fetch bookings
+      const { data: bookingsData, error: bookingsError } = await supabase
+        .from("bookings")
+        .select(`
+          *,
+          user:profiles(full_name, avatar_url)
+        `)
+        .in("property_id", (propsData || []).map(p => p.id))
+        .neq("status", "canceled"); // Don't show canceled bookings on calendar
+
+      if (bookingsError) throw bookingsError;
+      setBookings((bookingsData || []) as unknown as Booking[]);
+
+    } catch (error: unknown) {
+      console.error("Error fetching calendar data:", getErrorMessage(error));
       toast({
         variant: "destructive",
         title: "Error",
@@ -81,11 +90,16 @@ export default function HostCalendar() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, toast]);
 
-  const handleBlockDates = async () => {
-    if (!blockRange.from || !blockRange.to || !user) return;
-    
+  useEffect(() => {
+    if (!user) return;
+    fetchData();
+  }, [user, fetchData]);
+
+  const handleBlockDates = useCallback(async () => {
+    if (!blockRange?.from || !blockRange?.to || !user) return;
+
     if (selectedPropertyId === "all") {
       toast({
         variant: "destructive",
@@ -96,10 +110,11 @@ export default function HostCalendar() {
     }
 
     try {
-      await bookingsApi.blockDates({
+      await invokeBookingAction({
+        action: "host-block-dates",
         propertyId: selectedPropertyId,
-        from: blockRange.from.toISOString().slice(0, 10),
-        to: blockRange.to.toISOString().slice(0, 10),
+        checkIn: blockRange.from.toISOString(),
+        checkOut: blockRange.to.toISOString(),
       });
 
       toast({
@@ -108,21 +123,22 @@ export default function HostCalendar() {
       });
       setIsBlockDialogOpen(false);
       fetchData();
-    } catch (error) {
-      console.error("Error blocking dates:", error);
+    } catch (error: unknown) {
+      console.error("Error blocking dates:", getErrorMessage(error));
       toast({
         variant: "destructive",
         title: "Error",
         description: "Failed to block dates.",
       });
     }
-  };
+  }, [blockRange, selectedPropertyId, user, toast, fetchData]);
 
-  const handleUpdateStatus = async (bookingId: string, newStatus: string) => {
+  const handleUpdateStatus = useCallback(async (bookingId: string, newStatus: string) => {
     try {
-      await bookingsApi.updateBookingStatus({
+      await invokeBookingAction({
+        action: "host-update-booking-status",
         bookingId,
-        status: newStatus as any,
+        status: newStatus,
       });
 
       toast({
@@ -130,18 +146,18 @@ export default function HostCalendar() {
         description: `Booking marked as ${newStatus}.`,
       });
       fetchData();
-    } catch (error) {
-      console.error("Error updating status:", error);
+    } catch (error: unknown) {
+      console.error("Error updating status:", getErrorMessage(error));
       toast({
         variant: "destructive",
         title: "Error",
         description: "Failed to update booking status.",
       });
     }
-  };
+  }, [toast, fetchData]);
 
-  const filteredBookings = selectedPropertyId === "all" 
-    ? bookings 
+  const filteredBookings = selectedPropertyId === "all"
+    ? bookings
     : bookings.filter(b => b.property_id === selectedPropertyId);
 
   // Get dates for modifiers
@@ -185,19 +201,15 @@ export default function HostCalendar() {
     });
 
   // Find bookings for the selected date
-  const selectedDateBookings = date 
+  const selectedDateBookings = date
     ? filteredBookings.filter(booking => {
-        const checkIn = startOfDay(parseISO(booking.check_in));
-        const checkOut = startOfDay(parseISO(booking.check_out));
-        const selected = startOfDay(date);
-        return selected >= checkIn && selected < checkOut;
-      })
+      const checkIn = startOfDay(parseISO(booking.check_in));
+      const checkOut = startOfDay(parseISO(booking.check_out));
+      const selected = startOfDay(date);
+      return selected >= checkIn && selected < checkOut;
+    })
     : [];
 
-  const upcomingBookings = filteredBookings
-    .filter(b => new Date(b.check_in) >= new Date() && b.status !== 'blocked')
-    .sort((a, b) => new Date(a.check_in).getTime() - new Date(b.check_in).getTime())
-    .slice(0, 5);
 
   if (loading) {
     return (
@@ -215,7 +227,7 @@ export default function HostCalendar() {
           <h1 className="text-2xl font-bold text-gray-900">Calendar & Bookings</h1>
           <p className="text-gray-500 mt-1">Manage your property availability and reservations.</p>
         </div>
-        
+
         <div className="flex items-center gap-3 w-full md:w-auto">
           <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
             <SelectTrigger className="w-[200px]">
@@ -255,7 +267,7 @@ export default function HostCalendar() {
                   <Calendar
                     mode="range"
                     selected={blockRange}
-                    onSelect={(range: any) => setBlockRange(range)}
+                    onSelect={(range) => setBlockRange(range)}
                     numberOfMonths={1}
                     disabled={(date) => date < new Date()}
                   />
@@ -263,7 +275,7 @@ export default function HostCalendar() {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsBlockDialogOpen(false)}>Cancel</Button>
-                <Button onClick={handleBlockDates} disabled={selectedPropertyId === "all" || !blockRange.from || !blockRange.to}>
+                <Button onClick={handleBlockDates} disabled={selectedPropertyId === "all" || !blockRange?.from || !blockRange?.to}>
                   Confirm Block
                 </Button>
               </DialogFooter>
@@ -344,7 +356,7 @@ export default function HostCalendar() {
                   <TabsTrigger value="pending">Pending Approval</TabsTrigger>
                   <TabsTrigger value="all">All History</TabsTrigger>
                 </TabsList>
-                
+
                 <ScrollArea className="h-[400px]">
                   <div className="space-y-4">
                     {filteredBookings.length === 0 ? (
@@ -353,7 +365,7 @@ export default function HostCalendar() {
                       </div>
                     ) : (
                       filteredBookings
-                        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                        .sort((a, b) => new Date(b.created_at || "").getTime() - new Date(a.created_at || "").getTime())
                         .map(booking => {
                           const property = properties.find(p => p.id === booking.property_id);
                           return (
@@ -379,13 +391,13 @@ export default function HostCalendar() {
                                   <div className="text-sm text-gray-500 mt-1 flex items-center gap-2">
                                     <span>{property?.title}</span>
                                     <span>•</span>
-                                    <span>{format(parseISO(booking.check_in), "MMM d")} - {format(parseISO(booking.check_out), "MMM d")}</span>
+                                    <span>{format(parseISO(booking.check_in || ""), "MMM d")} - {format(parseISO(booking.check_out || ""), "MMM d")}</span>
                                   </div>
                                 </div>
                               </div>
                               <div className="text-right">
                                 <div className="font-bold">R{booking.total_price}</div>
-                                <div className="text-xs text-gray-500">{format(new Date(booking.created_at), "MMM d, yyyy")}</div>
+                                <div className="text-xs text-gray-500">{format(new Date(booking.created_at || ""), "MMM d, yyyy")}</div>
                               </div>
                             </div>
                           );
@@ -434,7 +446,7 @@ export default function HostCalendar() {
                             </div>
                           )}
                         </div>
-                        
+
                         <div className="flex items-center gap-3">
                           <Avatar className="h-10 w-10">
                             <AvatarImage src={booking.user?.avatar_url} />
@@ -459,11 +471,11 @@ export default function HostCalendar() {
                           <span className="text-gray-500">Payout</span>
                           <span className="font-bold">R{booking.total_price}</span>
                         </div>
-                        
+
                         {booking.status === 'blocked' && (
-                           <Button variant="outline" size="sm" className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200" onClick={() => handleUpdateStatus(booking.id, 'canceled')}>
-                             Unblock Dates
-                           </Button>
+                          <Button variant="outline" size="sm" className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200" onClick={() => handleUpdateStatus(booking.id, 'canceled')}>
+                            Unblock Dates
+                          </Button>
                         )}
                       </div>
                     );

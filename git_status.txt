@@ -1,0 +1,13 @@
+ M src/components/admin/AdminUsers.tsx
+ M src/components/home.tsx
+ M src/components/host/CreateListing.tsx
+ M src/components/host/HostReferrals.tsx
+ M src/components/host/HostSubscription.tsx
+ M src/components/listings/FeaturedCarousel.tsx
+ M src/components/listings/PropertyCard.tsx
+ M src/components/listings/PropertyView.tsx
+ M src/components/ui/carousel.tsx
+ M src/types/property.ts
+?? git_status.txt
+?? supabase/migrations/20260219000000_update_referral_tiers.sql
+?? supabase/migrations/20260219184500_add_is_occupied_to_properties.sql

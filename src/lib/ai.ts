@@ -1,30 +1,81 @@
 export type AIMessage = { role: 'user' | 'assistant' | 'system'; content: string };
+export type SocialPlatform = "instagram" | "facebook" | "twitter" | "linkedin";
+
+export interface SocialPostRequest {
+  propertyTitle: string;
+  description: string;
+  location: string;
+  price: number;
+  amenities: string[];
+  platform: SocialPlatform;
+}
+
+export interface SocialPostResponse {
+  hook: string;
+  body: string;
+  callToAction: string;
+  hashtags: string[];
+}
+
+export interface ListingAuditRequest {
+  title: string;
+  description: string;
+  price: number;
+  amenities: string[];
+  imagesCount: number;
+}
+
+export interface ListingAuditResponse {
+  score: number;
+  strengths: string[];
+  weaknesses: string[];
+  actionableAdvice: string[];
+}
+
+import { supabase } from "@/lib/supabase";
 
 export async function chat(messages: AIMessage[]): Promise<AIMessage> {
-  const endpoint = import.meta.env.AI_ENDPOINT as string | undefined;
-  const apiKey = import.meta.env.AI_KEY as string | undefined;
-
-  if (!endpoint || !apiKey) {
-    const last = messages[messages.length - 1]?.content || '';
-    const suggestion = last.toLowerCase().includes('beach')
-      ? 'I found beachfront stays in Camps Bay and Umhlanga. Would you like dates between 12-16 Dec for 2 guests?'
-      : 'Tell me where and when you want to stay. I can suggest top-rated options and set dates for you.';
-    return { role: 'assistant', content: suggestion };
-  }
-
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
+  const { data, error } = await supabase.functions.invoke("content-engine", {
+    body: {
+      action: "chat",
+      messages,
     },
-    body: JSON.stringify({ messages }),
   });
-  if (!res.ok) {
+
+  if (error) {
     return { role: 'assistant', content: 'Sorry, I could not reach the AI service. Try again in a moment.' };
   }
-  const data = await res.json();
-  const reply = (data?.message || data?.choices?.[0]?.message?.content || '').toString();
+
+  const reply = (data?.message || '').toString();
   return { role: 'assistant', content: reply || 'Okay.' };
 }
 
+export async function generateSocialPost(input: SocialPostRequest): Promise<SocialPostResponse> {
+  const { data, error } = await supabase.functions.invoke("content-engine", {
+    body: {
+      action: "generate-social-post",
+      ...input,
+    },
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return data as SocialPostResponse;
+}
+
+export async function auditListing(input: ListingAuditRequest): Promise<ListingAuditResponse> {
+  const { data, error } = await supabase.functions.invoke("content-engine", {
+    body: {
+      action: "audit-listing",
+      ...input,
+    },
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return data as ListingAuditResponse;
+}

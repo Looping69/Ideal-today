@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Star, MessageSquare, CheckCircle, Clock, XCircle, MoreHorizontal } from 'lucide-react';
+import { Star, CheckCircle, Clock, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type Row = { id: string; property_id: string; user_id: string; rating: number; content: string; status: string; created_at: string };
@@ -8,16 +8,22 @@ type Row = { id: string; property_id: string; user_id: string; rating: number; c
 export default function AdminReviews() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const pageSize = 50;
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const { data } = await supabase.from('reviews').select('id,property_id,user_id,rating,content,status,created_at').order('created_at', { ascending: false }).limit(20);
-      setRows((data as any[]) || []);
+      const { data } = await supabase
+        .from('reviews')
+        .select('id,property_id,user_id,rating,content,status,created_at')
+        .order('created_at', { ascending: false })
+        .range(page * pageSize, page * pageSize + pageSize - 1);
+      setRows((data as Row[]) || []);
       setLoading(false);
     };
     load();
-  }, []);
+  }, [page]);
 
   return (
     <div className="space-y-6">
@@ -72,8 +78,8 @@ export default function AdminReviews() {
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${r.status === 'published' ? 'bg-green-50 text-green-700 border-green-100' :
-                          r.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' :
-                            'bg-gray-50 text-gray-700 border-gray-100'
+                        r.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' :
+                          'bg-gray-50 text-gray-700 border-gray-100'
                         }`}>
                         {r.status === 'published' && <CheckCircle className="w-3 h-3 mr-1.5" />}
                         {r.status === 'pending' && <Clock className="w-3 h-3 mr-1.5" />}
@@ -90,6 +96,32 @@ export default function AdminReviews() {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/30 flex items-center justify-between">
+          <span className="text-sm text-gray-500">
+            Showing {rows.length > 0 ? page * pageSize + 1 : 0} to {page * pageSize + rows.length} reviews
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page === 0}
+              onClick={() => setPage(p => Math.max(0, p - 1))}
+              className="h-8 rounded-lg"
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={rows.length < pageSize}
+              onClick={() => setPage(p => p + 1)}
+              className="h-8 rounded-lg"
+            >
+              Next
+            </Button>
+          </div>
         </div>
       </div>
     </div>

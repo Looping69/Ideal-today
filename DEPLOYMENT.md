@@ -1,140 +1,54 @@
-# Deployment Guide
+# Deployment Guide for Ideal Stay
 
-This app is not just a static Vite build anymore. Deployment now has two parts:
+Your application is production-ready! Here is how to deploy it to the world.
 
-1. the frontend bundle
-2. Supabase migrations, Edge Functions, and secrets
+## Option 1: Netlify (Recommended)
+Netlify is excellent for Vite/React applications and offers a generous free tier.
 
-If you only deploy the frontend, the payment and admin flows will lie to you.
+1.  **Push to GitHub**: Ensure your latest code is pushed to your GitHub repository.
+2.  **Log in to Netlify**: Go to [netlify.com](https://www.netlify.com) and log in.
+3.  **Add New Site**: Click "Add new site" -> "Import from existing project".
+4.  **Connect GitHub**: Select GitHub and choose your `Ideal-today` repository.
+5.  **Configure Build**:
+    *   **Build command**: `npm run build`
+    *   **Publish directory**: `dist`
+    *   *Note: The included `netlify.toml` file will handle routing automatically.*
+6.  **Environment Variables**:
+    Click "Show advanced" or go to "Site settings" -> "Environment variables" and add the following keys from your `.env` file:
+    *   `VITE_SUPABASE_URL`
+    *   `VITE_SUPABASE_ANON_KEY`
+    *   `VITE_GOOGLE_MAPS_KEY`
+    *   `VITE_YOCO_PUBLIC_KEY` (Use your LIVE key for production)
+7.  **Deploy**: Click "Deploy site".
 
-## 1. Frontend Deployment
+## Option 2: Vercel
+Vercel is the creators of Next.js but works great for Vite too.
 
-Deploy the `dist` output to your preferred static host.
+1.  **Push to GitHub**.
+2.  **Log in to Vercel**: Go to [vercel.com](https://vercel.com).
+3.  **Add New Project**: Click "Add New..." -> "Project".
+4.  **Import Repository**: Select your `Ideal-today` repo.
+5.  **Environment Variables**:
+    Expand the "Environment Variables" section and add:
+    *   `VITE_SUPABASE_URL`
+    *   `VITE_SUPABASE_ANON_KEY`
+    *   `VITE_GOOGLE_MAPS_KEY`
+    *   `VITE_YOCO_PUBLIC_KEY`
+6.  **Deploy**: Click "Deploy".
 
-### Build
+## Post-Deployment Checklist
 
-```bash
-npm install
-npm run build
-```
+1.  **Supabase URL**: Ensure your Supabase project URL is whitelisted if you have any strict CORS settings (usually not needed for public read).
+2.  **Auth Redirects**:
+    *   Go to your Supabase Dashboard -> Authentication -> URL Configuration.
+    *   Add your new Netlify/Vercel URL (e.g., `https://ideal-stay.netlify.app`) to the **Site URL** and **Redirect URLs**.
+    *   *This is critical for email confirmation links to work.*
+3.  **Yoco Live Key**: Switch your `VITE_YOCO_PUBLIC_KEY` to the **Live** key from your Yoco dashboard to accept real payments.
+4.  **Edge Functions**:
+    *   If you are using the email sending feature, ensure you have deployed your edge functions to Supabase:
+    *   `npx supabase functions deploy send-email --no-verify-jwt`
+    *   And set the Resend API key: `npx supabase secrets set RESEND_API_KEY=re_123...`
 
-### Required frontend env vars
-
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
-- `VITE_GOOGLE_MAPS_KEY`
-- `VITE_YOCO_PUBLIC_KEY`
-
-## 2. Supabase Migration Rollout
-
-Apply the migrations before deploying new frontend code that depends on them.
-
-Key changes introduced by the API rescue work include:
-
-- `payment_sessions`
-- `profiles.verification_status`
-- `profiles.verification_docs`
-- `profiles.verification_submitted_at`
-- private verification bucket policies
-- removal of the public bookings read path
-
-Use your normal Supabase migration workflow to push `supabase/migrations/*`.
-
-## 3. Edge Function Deployment
-
-Deploy the full API surface, not just the legacy helpers.
-
-Required functions:
-
-- `properties-api`
-- `bookings-api`
-- `billing-api`
-- `host-api`
-- `admin-api`
-- `engagement-api`
-- `yoco-webhook`
-- `send-email`
-
-Example:
-
-```bash
-npx supabase functions deploy properties-api
-npx supabase functions deploy bookings-api
-npx supabase functions deploy billing-api
-npx supabase functions deploy host-api
-npx supabase functions deploy admin-api
-npx supabase functions deploy engagement-api
-npx supabase functions deploy yoco-webhook --no-verify-jwt
-npx supabase functions deploy send-email
-```
-
-`yoco-webhook` is intentionally deployed with `--no-verify-jwt` because the payment provider is the caller, not an authenticated browser session.
-
-## 4. Supabase Secrets
-
-Set the function secrets in Supabase before traffic hits the new flows.
-
-Minimum set:
-
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `YOCO_SECRET_KEY`
-- `YOCO_WEBHOOK_SECRET`
-- `RESEND_API_KEY` if transactional email stays enabled
-
-Example:
-
-```bash
-npx supabase secrets set YOCO_SECRET_KEY=...
-npx supabase secrets set YOCO_WEBHOOK_SECRET=...
-npx supabase secrets set RESEND_API_KEY=...
-```
-
-## 5. Auth and Redirect Configuration
-
-Update Supabase Auth redirect URLs for your deployed frontend origin.
-
-Make sure the payment flow return URLs resolve to the deployed app, for example:
-
-- `/payment/success`
-- `/payment/cancel`
-- `/host/subscription`
-
-The browser success pages are now status screens only. They expect the webhook to have confirmed the underlying `payment_sessions` row.
-
-## 6. Yoco Webhook
-
-Configure Yoco to call the deployed `yoco-webhook` endpoint.
-
-That function is the only supported confirmer for:
-
-- booking finalization
-- host plan upgrades
-- payment failure handling
-
-If the webhook is not configured, bookings and plan upgrades should remain pending instead of silently self-confirming in the browser.
-
-## 7. Post-Deploy Verification
-
-Run these checks after deploy:
-
-### Tooling
-
-```bash
-npm run lint
-npm run build
-```
-
-### Functional smoke checks
-
-- Anonymous users cannot read raw bookings.
-- A guest checkout creates a pending booking plus a `payment_sessions` row.
-- Visiting the success URL manually does not confirm a booking.
-- A host plan checkout does not update `profiles.host_plan` until the webhook lands.
-- Verification uploads go to user-scoped private paths.
-- Admin review screens can open signed verification document URLs.
-
-## 8. Known Operational Constraint
-
-`src/types/supabase.ts` can only be regenerated with valid Supabase CLI auth for the linked project. If `npm run types:supabase` returns `Unauthorized`, fix CLI auth instead of pretending the generated types are current.
+## Troubleshooting
+*   **404 on Refresh**: If you refresh a page like `/host` and get a 404, ensure the `netlify.toml` file was included in your deploy.
+*   **Map not loading**: Check that your Google Maps API key has the correct "HTTP Referrer" restrictions for your new domain.
