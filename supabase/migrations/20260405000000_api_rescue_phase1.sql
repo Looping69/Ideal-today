@@ -37,12 +37,111 @@ create table if not exists public.payment_sessions (
   unique (provider_checkout_id)
 );
 
+alter table public.payment_sessions
+  add column if not exists booking_id uuid,
+  add column if not exists plan_id text,
+  add column if not exists provider_checkout_id text,
+  add column if not exists amount numeric,
+  add column if not exists metadata jsonb not null default '{}'::jsonb,
+  add column if not exists confirmed_at timestamptz,
+  add column if not exists updated_at timestamptz not null default timezone('utc'::text, now());
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'payment_sessions'
+      and column_name = 'target_booking_id'
+  ) then
+    update public.payment_sessions
+    set booking_id = coalesce(booking_id, target_booking_id)
+    where target_booking_id is not null;
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'payment_sessions'
+      and column_name = 'target_plan'
+  ) then
+    update public.payment_sessions
+    set plan_id = coalesce(plan_id, target_plan)
+    where target_plan is not null;
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'payment_sessions'
+      and column_name = 'yoco_checkout_id'
+  ) then
+    update public.payment_sessions
+    set provider_checkout_id = coalesce(provider_checkout_id, yoco_checkout_id)
+    where yoco_checkout_id is not null;
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'payment_sessions'
+      and column_name = 'amount_cents'
+  ) then
+    update public.payment_sessions
+    set amount = coalesce(amount, amount_cents / 100.0)
+    where amount_cents is not null;
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'payment_sessions'
+      and column_name = 'completed_at'
+  ) then
+    update public.payment_sessions
+    set confirmed_at = coalesce(confirmed_at, completed_at)
+    where completed_at is not null;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'payment_sessions_booking_id_fkey'
+  ) then
+    alter table public.payment_sessions
+      add constraint payment_sessions_booking_id_fkey
+      foreign key (booking_id) references public.bookings(id) on delete cascade;
+  end if;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'payment_sessions_plan_id_chk'
+  ) then
+    alter table public.payment_sessions
+      add constraint payment_sessions_plan_id_chk
+      check (plan_id in ('free', 'standard', 'premium'));
+  end if;
+end $$;
+
 create index if not exists payment_sessions_user_status_idx
   on public.payment_sessions(user_id, status, created_at desc);
 
 create index if not exists payment_sessions_booking_idx
   on public.payment_sessions(booking_id)
   where booking_id is not null;
+
+create index if not exists payment_sessions_provider_checkout_idx
+  on public.payment_sessions(provider_checkout_id)
+  where provider_checkout_id is not null;
 
 create index if not exists bookings_property_status_dates_idx
   on public.bookings(property_id, status, check_in, check_out);
