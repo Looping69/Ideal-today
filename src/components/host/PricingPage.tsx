@@ -5,12 +5,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ArrowRight, Check, Loader2, Megaphone, ShieldCheck, Sparkles, Smartphone, Video, BarChart4, Users, Share2, LineChart, BadgeCheck } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
-import { getErrorMessage } from "@/lib/errors";
-import { createCheckout } from "@/lib/backend";
+import { billingApi } from "@/lib/api/billing";
+import { hostApi } from "@/lib/api/host";
+import type { HostPlan } from "@/lib/api/types";
+import { cn } from "@/lib/utils";
 
-type PlanTier = 'free' | 'standard' | 'professional' | 'premium';
 type BillingInterval = 'monthly' | 'annual';
 
 interface PlanFeature {
@@ -19,23 +19,29 @@ interface PlanFeature {
 }
 
 interface Plan {
-    id: PlanTier;
+    id: string;
+    checkoutPlanId?: HostPlan;
     name: string;
-    price: string;
+    monthlyPrice?: number;
+    annualMonthlyPrice?: number;
+    customPriceLabel?: string;
     description: string;
     features: PlanFeature[];
     highlight?: string;
     color: string;
     cta: string;
     eyebrow: string;
+    contactOnly?: boolean;
 }
 
 const plans: Plan[] = [
     {
         id: 'free',
-        name: "Free Plan",
-        price: "R0",
-        description: "Remove all onboarding resistance. Start hosting today.",
+        checkoutPlanId: 'free',
+        name: "Start",
+        monthlyPrice: 0,
+        annualMonthlyPrice: 0,
+        description: "Remove all onboarding resistance. Start hosting without friction and validate demand first.",
         color: "bg-slate-100",
         cta: "Basic",
         eyebrow: "Start",
@@ -44,7 +50,7 @@ const plans: Plan[] = [
             { text: "Basic Photos", included: true },
             { text: "Basic Description + Amenities", included: true },
             { text: "Listed in Search Results", included: true },
-            { text: "Direct Enquiries", included: true },
+            { text: "Self-managed bookings", included: true },
             { text: "No Commission", included: true },
             { text: "Showcase Video Slot", included: false },
             { text: "Verified Host Badge", included: false },
@@ -53,15 +59,17 @@ const plans: Plan[] = [
     },
     {
         id: 'standard',
-        name: "Standard",
-        price: "R149",
-        description: "The sweet spot. Credibility, visibility, and volume.",
+        checkoutPlanId: 'standard',
+        name: "Growth",
+        monthlyPrice: 149,
+        annualMonthlyPrice: 129,
+        description: "The serious-host tier. Better discovery, stronger trust signals, and repeatable visibility.",
         highlight: "Most Popular",
         color: "bg-blue-50 border-blue-200",
         cta: "Upgrade to Standard",
         eyebrow: "Growth",
         features: [
-            { text: "Everything in Free", included: true },
+            { text: "Everything in Start", included: true },
             { text: "Higher Search Ranking", included: true },
             { text: "Full Photo Gallery", included: true },
             { text: "Showcase Video Slot", included: true },
@@ -73,35 +81,17 @@ const plans: Plan[] = [
         ]
     },
     {
-        id: 'professional',
-        name: "Professional",
-        price: "R350",
-        description: "Scale your reach with advanced social & ranking tools.",
+        id: 'premium',
+        checkoutPlanId: 'premium',
+        name: "Scale",
+        monthlyPrice: 399,
+        annualMonthlyPrice: 349,
+        description: "Top-tier promotion and support for hosts treating this like a real revenue engine.",
         color: "bg-blue-50/50 border-blue-100",
-        cta: "Go Professional",
+        cta: "Go Premium",
         eyebrow: "Scale",
         features: [
-            { text: "Everything in Standard", included: true },
-            { text: "2 Social Promos/mo", included: true },
-            { text: "Advanced Analytics", included: true },
-            { text: "Custom Marketing Templates", included: true },
-            { text: "Professional Video", included: false },
-            { text: "Featured in 'Top Picks'", included: false },
-            { text: "Direct WhatsApp Support", included: false },
-            { text: "Multi-platform social copy", included: true },
-        ]
-    },
-    {
-        id: 'premium',
-        name: "Premium",
-        price: "R399",
-        description: "Top-tier professional tools for serious hosts.",
-        highlight: "Best Value",
-        color: "bg-gradient-to-br from-indigo-50 to-purple-50 border-indigo-200",
-        cta: "Go Premium",
-        eyebrow: "Elite",
-        features: [
-            { text: "Everything in Standard", included: true },
+            { text: "Everything in Growth", included: true },
             { text: "Professional Video", included: true },
             { text: "Full Social Promo (1/mo)", included: true },
             { text: "Featured in 'Top Picks'", included: true },
@@ -109,7 +99,27 @@ const plans: Plan[] = [
             { text: "Direct WhatsApp Support", included: true },
             { text: "Custom Marketing Templates", included: true },
             { text: "Partner Deals Priority", included: true },
-            { text: "Styled campaigns across networks", included: true },
+        ]
+    },
+    {
+        id: 'elite',
+        name: "Elite",
+        customPriceLabel: "Custom",
+        description: "White-glove expansion support for hosts who need a concierge relationship instead of a self-serve plan.",
+        highlight: "Concierge",
+        color: "bg-gradient-to-br from-indigo-50 to-purple-50 border-indigo-200",
+        cta: "Talk to us",
+        eyebrow: "Elite",
+        contactOnly: true,
+        features: [
+            { text: "Everything in Scale", included: true },
+            { text: "Maximum visibility weighting", included: true },
+            { text: "Dedicated growth guidance", included: true },
+            { text: "Priority creative turnaround", included: true },
+            { text: "White-glove launch support", included: true },
+            { text: "Priority partner access", included: true },
+            { text: "Campaign planning support", included: true },
+            { text: "Direct strategic support", included: true },
         ]
     }
 ];
@@ -123,20 +133,20 @@ const planStats = [
 const comparisonRows = [
     { label: "Listings included", values: ["1", "1", "Multiple", "Multiple"] },
     { label: "Verified badge", values: ["-", "Included", "Included", "Priority"] },
-    { label: "Video placement", values: ["-", "Included", "Optional", "Included"] },
-    { label: "Social promotion", values: ["-", "Monthly visibility", "2 promos", "Featured promo"] },
-    { label: "Content engine", values: ["-", "Any listing", "Any listing + multi-platform", "Any listing + campaign-ready"] },
-    { label: "Analytics", values: ["Basic", "Basic", "Advanced", "Advanced"] },
-    { label: "Support", values: ["Standard", "Standard", "Priority", "WhatsApp VIP"] },
+    { label: "Video placement", values: ["-", "Included", "Included", "Priority"] },
+    { label: "Social promotion", values: ["-", "Monthly visibility", "Featured promo", "Campaign-led"] },
+    { label: "Content engine", values: ["-", "Any listing", "Any listing + campaign-ready", "Campaign-led creative support"] },
+    { label: "Analytics", values: ["Basic", "Basic", "Advanced", "Advanced + strategy"] },
+    { label: "Support", values: ["Standard", "Standard", "Priority", "Concierge"] },
 ];
 
 export default function PricingPage() {
     const { user } = useAuth();
     const { toast } = useToast();
     const navigate = useNavigate();
-    const [loadingPlan, setLoadingPlan] = useState<PlanTier | null>(null);
+    const [loadingPlan, setLoadingPlan] = useState<HostPlan | null>(null);
     const [fetchingPlan, setFetchingPlan] = useState(true);
-    const [currentPlan, setCurrentPlan] = useState<PlanTier>('free');
+    const [currentPlan, setCurrentPlan] = useState<HostPlan>('free');
     const [billingInterval, setBillingInterval] = useState<BillingInterval>('monthly');
     const [searchParams] = useSearchParams();
     const audience = searchParams.get('audience');
@@ -156,15 +166,9 @@ export default function PricingPage() {
             return;
         }
         try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('host_plan')
-                .eq('id', user.id)
-                .single();
-
-            if (error) throw error;
-            if (data?.host_plan) {
-                setCurrentPlan(data.host_plan as PlanTier);
+            const profile = await hostApi.getProfile();
+            if (profile?.host_plan) {
+                setCurrentPlan(profile.host_plan);
             }
         } catch (err) {
             console.error('Error fetching plan:', err);
@@ -173,41 +177,80 @@ export default function PricingPage() {
         }
     }, [user]);
 
-    // Check for Upgrade Status on Return
     useEffect(() => {
         const checkPaymentStatus = async () => {
+            const paymentSessionId = searchParams.get('paymentSessionId');
             const status = searchParams.get('status');
 
-            if (status === 'success') {
-                toast({
-                    title: "Payment Successful",
-                    description: "Your upgrade is being confirmed. This page will refresh your plan shortly.",
-                });
-                await fetchPlan();
-            } else if (status === 'cancelled') {
+            if (status === 'cancelled') {
                 toast({
                     variant: "destructive",
                     title: "Payment Cancelled",
                     description: "You have not been charged.",
                 });
-            } else if (status === 'failed') {
+                return;
+            }
+
+            if (status === 'failed') {
                 toast({
                     variant: "destructive",
                     title: "Payment Failed",
                     description: "The payment could not be completed.",
                 });
+                return;
+            }
+
+            if (!paymentSessionId) {
+                return;
+            }
+
+            toast({
+                title: "Payment Received",
+                description: "Checking your plan upgrade...",
+            });
+
+            for (let attempt = 0; attempt < 8; attempt += 1) {
+                const session = await billingApi.getSessionStatus({ paymentSessionId });
+                if (session.status === "succeeded" && session.plan_id) {
+                    setCurrentPlan(session.plan_id);
+                    setLoadingPlan(null);
+                    toast({
+                        title: "Plan Updated",
+                        description: `You are now on the ${session.plan_id.charAt(0).toUpperCase() + session.plan_id.slice(1)} plan.`,
+                    });
+                    return;
+                }
+
+                if (session.status === "failed" || session.status === "canceled") {
+                    setLoadingPlan(null);
+                    toast({
+                        variant: "destructive",
+                        title: "Upgrade Failed",
+                        description: "The payment did not complete successfully.",
+                    });
+                    return;
+                }
+
+                await new Promise((resolve) => setTimeout(resolve, 1500));
+            }
+
+            if (status === 'success') {
+                toast({
+                    title: "Payment Processing",
+                    description: "We have the return, but the payment confirmation is still pending.",
+                });
             }
         };
 
         checkPaymentStatus();
-    }, [fetchPlan, searchParams, toast]);
+    }, [searchParams, toast]);
 
     useEffect(() => {
         fetchPlan();
     }, [fetchPlan]);
 
 
-    const handleUpgrade = useCallback(async (planId: PlanTier) => {
+    const handleUpgrade = useCallback(async (planId: string) => {
         if (!user) {
             toast({
                 variant: "destructive",
@@ -220,42 +263,50 @@ export default function PricingPage() {
         const plan = plans.find(p => p.id === planId);
         if (!plan) return;
 
-        const priceAmount = parseInt(plan.price.replace('R', ''), 10);
-
-        // If free plan, just update directly
-        if (priceAmount === 0) {
+        if (plan.contactOnly || !plan.checkoutPlanId) {
             toast({
-                title: "No Payment Required",
-                description: "Free plan stays active without checkout.",
+                title: "Elite is concierge-led",
+                description: "That tier is not self-serve yet. Use the host workspace and we can wire a direct sales path later.",
             });
             return;
         }
 
-        // For paid plans, create checkout session via Edge Function
-        setLoadingPlan(planId);
+        const priceAmount = billingInterval === 'annual'
+            ? (plan.annualMonthlyPrice ?? plan.monthlyPrice ?? 0)
+            : (plan.monthlyPrice ?? 0);
+
+        if (priceAmount === 0) {
+            toast({
+                title: "Already on the free plan",
+                description: "Free plan changes do not require checkout.",
+            });
+            return;
+        }
+
+        setLoadingPlan(plan.checkoutPlanId);
 
         try {
-            const data = await createCheckout<{ redirectUrl?: string }>({
-                kind: 'host_plan',
-                planId,
-                billingInterval,
+            const currentUrl = window.location.href.split("?")[0];
+            const data = await billingApi.startPlanCheckout({
+                planId: plan.checkoutPlanId,
+                amount: priceAmount,
+                successUrl: currentUrl,
+                cancelUrl: `${currentUrl}?status=cancelled`,
+                failUrl: `${currentUrl}?status=failed`,
             });
 
-            if (data?.redirectUrl) {
-                // Redirect user to Yoco
-                window.location.href = data.redirectUrl;
-            } else {
+            if (!data?.redirectUrl) {
                 throw new Error('No redirect URL returned from payment server');
             }
 
+            window.location.href = data.redirectUrl;
         } catch (error: unknown) {
             setLoadingPlan(null);
-            console.error("Payment setup error:", getErrorMessage(error));
+            console.error("Payment setup error:", error);
 
-            // Helpful error message if function fails (e.g. locally without serving)
-            let msg = getErrorMessage(error);
+            let msg = error instanceof Error ? error.message : "Could not start payment session.";
             if (msg.includes('Failed to fetch')) {
-                msg = "Payment server is unreachable. If developing locally, ensure 'supabase start' is running.";
+                msg = "Payment server is unreachable. If developing locally, ensure Supabase functions are running.";
             }
 
             toast({
@@ -263,29 +314,34 @@ export default function PricingPage() {
                 title: "Payment Error",
                 description: msg,
             });
-
-            // Log full details for debugging
-            if (error && typeof error === 'object') {
-                console.error("Payment error full details:", JSON.stringify(error, null, 2));
-            }
         }
     }, [billingInterval, toast, user]);
 
     const getPlanPrice = useCallback((plan: Plan) => {
+        if (plan.customPriceLabel) {
+            return {
+                display: plan.customPriceLabel,
+                suffix: billingInterval === 'monthly' ? 'contact sales' : 'concierge plan',
+                helper: 'Custom support path',
+            };
+        }
+
+        const monthlyAmount = plan.monthlyPrice ?? 0;
+        const annualMonthlyAmount = plan.annualMonthlyPrice ?? monthlyAmount;
+
         if (billingInterval === 'monthly') {
             return {
-                display: plan.price,
+                display: `R${monthlyAmount}`,
                 suffix: 'per month',
                 helper: null as string | null,
             };
         }
 
-        const monthlyAmount = parseInt(plan.price.replace('R', ''), 10);
-        const annualAmount = monthlyAmount * 10;
+        const annualAmount = annualMonthlyAmount * 10;
         return {
             display: `R${annualAmount.toLocaleString()}`,
             suffix: 'per year',
-            helper: monthlyAmount > 0 ? '2 months free on annual billing' : null,
+            helper: annualMonthlyAmount > 0 ? `2 months free (${annualMonthlyAmount.toLocaleString()} / month)` : null,
         };
     }, [billingInterval]);
 
@@ -303,7 +359,7 @@ export default function PricingPage() {
                 <div className="absolute -right-16 top-0 h-56 w-56 rounded-full bg-cyan-200/30 blur-3xl" />
                 <div className="absolute bottom-0 left-0 h-48 w-48 rounded-full bg-amber-200/20 blur-3xl" />
 
-                <div className="relative grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+                <div className="relative grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
                     <div className="space-y-6">
                         <div className="flex flex-wrap items-center gap-3">
                             <Badge className="border border-cyan-200 bg-cyan-50 px-3 py-1 text-cyan-700 hover:bg-cyan-50">
@@ -375,7 +431,7 @@ export default function PricingPage() {
 
                     <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
                         {planStats.map((stat) => (
-                            <div key={stat.label} className="rounded-2xl border border-white/70 bg-white/80 p-5 backdrop-blur-sm shadow-sm">
+                            <div key={stat.label} className="min-h-[8.5rem] rounded-2xl border border-white/70 bg-white/80 p-5 backdrop-blur-sm shadow-sm">
                                 <stat.icon className="mb-3 h-5 w-5 text-cyan-700" />
                                 <div className="text-3xl font-black text-slate-950">{stat.value}</div>
                                 <div className="mt-1 text-sm font-medium text-slate-600">{stat.label}</div>
@@ -387,14 +443,18 @@ export default function PricingPage() {
 
             <section className={`grid grid-cols-1 ${plans.length === 4 ? 'md:grid-cols-2 xl:grid-cols-4' : 'md:grid-cols-3'} gap-6`}>
                 {plans.map((plan) => {
-                    const isCurrent = currentPlan === plan.id;
-                    const isLoading = loadingPlan === plan.id;
+                    const isCurrent = !plan.contactOnly && currentPlan === plan.checkoutPlanId;
+                    const isLoading = !plan.contactOnly && loadingPlan === plan.checkoutPlanId;
                     const price = getPlanPrice(plan);
 
                     return (
                         <Card
                             key={plan.id}
-                            className={`relative flex h-full flex-col overflow-hidden border transition-all duration-200 hover:-translate-y-1 hover:shadow-2xl ${plan.color} ${isCurrent ? 'ring-2 ring-primary ring-offset-2 scale-[1.02]' : 'border-slate-200'}`}
+                            className={cn(
+                                "relative flex h-full flex-col overflow-hidden border transition-all duration-200 hover:-translate-y-1 hover:shadow-2xl",
+                                plan.color,
+                                isCurrent ? "ring-2 ring-primary ring-offset-2 scale-[1.02]" : "border-slate-200",
+                            )}
                         >
                             <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600" />
                             {plan.highlight && (
@@ -449,10 +509,13 @@ export default function PricingPage() {
                             <CardFooter>
                                 <Button
                                     onClick={() => handleUpgrade(plan.id)}
-                                    disabled={loadingPlan !== null || isCurrent}
-                                    variant={isCurrent ? "outline" : plan.id === 'premium' || plan.id === 'professional' ? "default" : "secondary"}
-                                    className={`h-12 w-full rounded-xl text-base font-semibold ${plan.id === 'premium' ? 'bg-slate-950 hover:bg-slate-800' : plan.id === 'professional' ? 'bg-cyan-700 hover:bg-cyan-800' : ''
-                                        }`}
+                                    disabled={(loadingPlan !== null && !isLoading) || isCurrent}
+                                    variant={isCurrent ? "outline" : plan.id === 'premium' ? "default" : "secondary"}
+                                    className={cn(
+                                        "h-12 w-full rounded-xl text-base font-semibold",
+                                        plan.id === 'premium' && "bg-slate-950 hover:bg-slate-800",
+                                        plan.contactOnly && "border-slate-300 bg-white text-slate-900 hover:bg-slate-50",
+                                    )}
                                 >
                                     {isLoading ? (
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
