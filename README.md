@@ -81,3 +81,4 @@ Optional content tuning:
 - `deno check supabase/functions/content-engine/index.ts`
 - `deno check supabase/functions/booking-actions/index.ts`
 - `deno check supabase/functions/engagement-actions/index.ts`
+- 1
